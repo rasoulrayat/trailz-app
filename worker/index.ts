@@ -285,14 +285,22 @@ app.post("/checks/:id/place-card", async (c) => {
       : result?.outcome === "pick"
         ? result.candidates.find((p) => placeKey(p.name) === key)
         : undefined;
-  const place: PlaceRef = known ?? { name, confidence: 0.6 };
+  // A "places with this vibe" suggestion: the reel wasn't filmed there, so the card mustn't judge it by the reel.
+  const lookalike =
+    !body.typed && result?.outcome === "vibe"
+      ? result.suggestions.find((s) => placeKey(`${s.name}, ${s.country}`) === key || placeKey(s.name) === key)
+      : undefined;
+  const place: PlaceRef = known ?? (lookalike ? { name: lookalike.name, country: lookalike.country, confidence: 0.8 } : { name, confidence: 0.6 });
   const record = v.extract_json ? (JSON.parse(v.extract_json) as VideoRecord) : null;
 
   try {
-    const card = await cardFor(c.env, { ...place, verified: undefined }, record);
-    await c.env.DB.prepare("INSERT OR REPLACE INTO place_cards (video_id, place_key, card_json, created_at) VALUES (?, ?, ?, ?)")
-      .bind(v.id, key, JSON.stringify(card), Date.now())
-      .run();
+    const { card, backup } = await cardFor(c.env, { ...place, verified: undefined }, record, lookalike ? "lookalike" : "reel");
+    // Cards from the backup model are shown but not kept, so the next visit gets Gemini's (better) card.
+    if (!backup) {
+      await c.env.DB.prepare("INSERT OR REPLACE INTO place_cards (video_id, place_key, card_json, created_at) VALUES (?, ?, ?, ?)")
+        .bind(v.id, key, JSON.stringify(card), Date.now())
+        .run();
+    }
     return c.json({ card });
   } catch (err) {
     console.error("place card failed", err);

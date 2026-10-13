@@ -12,6 +12,8 @@ export interface GeminiConfig {
    * Gets the prompt and a standard JSON schema, returns the parsed JSON.
    */
   fallback?: { name: string; run(prompt: string, jsonSchema: object): Promise<unknown> };
+  /** Set to the model that answered the last request (so backup answers aren't cached for good). */
+  answeredBy?: string;
 }
 
 /** Gemini's schema uses upper-case types ("OBJECT"); standard JSON Schema uses lower-case. */
@@ -47,7 +49,9 @@ async function callModel(
 const BUSY = new Set([429, 500, 502, 503, 504]);
 
 async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch): Promise<T> {
-  return (await generateJsonFrom<T>(cfg, prompt, schema, fetcher)).data;
+  const { data, model } = await generateJsonFrom<T>(cfg, prompt, schema, fetcher);
+  cfg.answeredBy = model;
+  return data;
 }
 
 async function generateJsonFrom<T>(
@@ -185,17 +189,36 @@ export async function generateRealityCard(
   origin: string,
   verified: boolean,
   fetcher: typeof fetch = fetch,
+  /** "reel": the reel shows this place. "lookalike": we suggested it because it has the reel's vibe. */
+  relation: "reel" | "lookalike" = "reel",
 ): Promise<RealityCard> {
-  const where = [place.name, place.region, place.country].filter(Boolean).join(", ");
-  const prompt = `You write the "Reality Card" for TrailZ, an app that helps young travelers see what a place from a social media reel is really like.
+  const where = [place.name, place.region, place.country].filter((x, i, a) => x && a.indexOf(x) === i).join(", ");
+  const common = `Place: ${where}
+Traveler departs from: ${origin}`;
+  const rules = `Write honest, specific, practical facts. If you are unsure about a fact, leave it out.
+"months": 12 ratings for January to December, based on this place's real weather, seasons and crowds.
+"gems": 2 or 3 real, less crowded places near ${place.name} with a similar appeal.
+Costs are typical estimates in euros for one person for a trip of 3-5 days, including return travel from ${origin} (flights or trains, never 0); keep them realistic and round them.`;
+  const prompt =
+    relation === "lookalike"
+      ? `You write the "Reality Card" for TrailZ, an app that helps young travelers see what places are really like compared with how social media shows them.
 
-Place: ${where}
-Traveler departs from: ${origin}
+${common}
+
+A traveler saved a reel filmed somewhere else and we suggested ${place.name} because it has the same look and feel.
+The reel's vibe: ${record?.vibe_tags?.join(", ") || "not known"}. What the reel showed: ${record?.what_we_saw ?? "not known"}
+
+Do NOT judge ${place.name} by that reel: it wasn't filmed there. "comparisons" pair how ${place.name} is usually shown on social media ("reel") with what visitors really find ("reality"): crowds, seasons, filters, access, cost. "authenticity" (0-10) says how well ${place.name} lives up to its own online image.
+${rules}`
+      : `You write the "Reality Card" for TrailZ, an app that helps young travelers see what a place from a social media reel is really like.
+
+${common}
 
 The reel:
 ${reelContext(record)}
 
-Write honest, specific, practical facts. Compare the reel's promises with what visitors really find (crowds, seasons, filters, private vs public access, cost). If you are unsure about a fact, leave it out. Costs are typical estimates in euros for one person for a trip of 3-5 days including return travel; keep them realistic and round them.`;
+Compare the reel's promises with what visitors really find (crowds, seasons, filters, private vs public access, cost).
+${rules}`;
 
   const raw = await generateJson<RawCard>(cfg, prompt, CARD_SCHEMA, fetcher);
   const months = (raw.months ?? []).slice(0, 12) as MonthRating[];

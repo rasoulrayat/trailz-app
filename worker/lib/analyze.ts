@@ -84,10 +84,17 @@ async function verifyPlace(env: Env, place: PlaceRef): Promise<PlaceRef> {
   return { ...place, lat: hit.lat, lng: hit.lng, country: place.country ?? hit.country, verified: true };
 }
 
-export async function cardFor(env: Env, place: PlaceRef, record: VideoRecord | null): Promise<RealityCard> {
-  if (isMock(env)) return mockCard(place, DEFAULT_ORIGIN);
+export async function cardFor(
+  env: Env,
+  place: PlaceRef,
+  record: VideoRecord | null,
+  relation: "reel" | "lookalike" = "reel",
+): Promise<{ card: RealityCard; backup: boolean }> {
+  if (isMock(env)) return { card: mockCard(place, DEFAULT_ORIGIN), backup: false };
   const checked = place.verified === undefined ? await verifyPlace(env, place) : place;
-  return generateRealityCard(geminiConfig(env), checked, record, DEFAULT_ORIGIN, !!checked.verified);
+  const cfg = geminiConfig(env);
+  const card = await generateRealityCard(cfg, checked, record, DEFAULT_ORIGIN, !!checked.verified, fetch, relation);
+  return { card, backup: !!cfg.fallback && cfg.answeredBy === cfg.fallback.name };
 }
 
 /** Turn a video text record into the result screen the user sees. */
@@ -132,7 +139,7 @@ export async function analyze(env: Env, record: VideoRecord): Promise<CheckResul
       if (!place.verified) {
         return { outcome: "pick", candidates: [place], whatWeSaw: record.what_we_saw };
       }
-      return { outcome: "single", card: await cardFor(env, place, record) };
+      return { outcome: "single", card: (await cardFor(env, place, record)).card };
     }
   }
 }
