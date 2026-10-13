@@ -6,9 +6,13 @@ import { geocode, sleep } from "./geocode";
 import { MOCK_VIBE_SUGGESTIONS, mockCard } from "./mock";
 import { decide, regionAdvice } from "./route";
 
-function geminiConfig(env: Env): GeminiConfig {
+export function geminiConfig(env: Env): GeminiConfig {
   if (!env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set");
-  return { apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, baseUrl: env.GEMINI_BASE_URL };
+  const models = (env.GEMINI_MODEL || "")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return { apiKey: env.GEMINI_API_KEY, models, baseUrl: env.GEMINI_BASE_URL };
 }
 
 /**

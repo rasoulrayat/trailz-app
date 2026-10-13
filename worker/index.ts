@@ -10,7 +10,8 @@ import type {
   StartCheckResponse,
 } from "../shared/types";
 import { isMock, type Env } from "./env";
-import { analyze, cardFor } from "./lib/analyze";
+import { analyze, cardFor, geminiConfig } from "./lib/analyze";
+import { pingGemini } from "./lib/gemini";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -106,6 +107,19 @@ app.post("/checks", async (c) => {
     return c.json<StartCheckResponse>({ id: existing.id, cached: true });
   }
 
+  // 2b. It failed after the video was already read: only redo the analysis.
+  // No new Supadata job, so it's free for the user and for us.
+  if (existing && existing.extract_json) {
+    await env.DB.prepare(
+      "UPDATE videos SET status = 'analyzing', error = NULL, error_detail = NULL, updated_at = ? WHERE id = ?",
+    )
+      .bind(Date.now(), existing.id)
+      .run();
+    c.executionCtx.waitUntil(runAnalysis(env, existing.id, JSON.parse(existing.extract_json) as VideoRecord));
+    await recordCheck(env.DB, deviceId, existing.id, false);
+    return c.json<StartCheckResponse>({ id: existing.id, cached: true });
+  }
+
   // 3. Daily limit for new AI checks.
   const limit = Number(env.DAILY_LIMIT || "10");
   if ((await countBillableToday(env.DB, deviceId)) >= limit) {
@@ -168,7 +182,7 @@ async function runAnalysis(env: Env, id: string, record: VideoRecord) {
     await saveResult(env.DB, id, result);
   } catch (err) {
     console.error("analysis failed", id, err);
-    await saveFailure(env.DB, id, FRIENDLY_ERROR);
+    await saveFailure(env.DB, id, FRIENDLY_ERROR, String(err instanceof Error ? err.message : err));
   }
 }
 
@@ -182,7 +196,7 @@ async function advance(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, 
     await env.DB.prepare("UPDATE videos SET last_polled_at = ? WHERE id = ?").bind(now, v.id).run();
     const job = isMock(env) ? mockGetExtract(v.job_id) : await getExtract(env.SUPADATA_API_KEY!, v.job_id);
     if (job.status === "failed") {
-      await saveFailure(env.DB, v.id, FRIENDLY_FAILURE);
+      await saveFailure(env.DB, v.id, FRIENDLY_FAILURE, "Supadata job failed");
     } else if (job.status === "completed") {
       const record = normalizeRecord(job.data);
       if (await claimForAnalysis(env.DB, v.id, JSON.stringify(record))) {
@@ -296,7 +310,18 @@ app.post("/checks/:id/feedback", async (c) => {
   return c.json({ ok: true });
 });
 
-app.get("/health", (c) => c.json({ ok: true, mock: isMock(c.env) }));
+// /api/health        → is the app up, and is it using real AI or sample results?
+// /api/health?ai=1   → also sends Gemini a tiny test question (tells you if the key and model work).
+app.get("/health", async (c) => {
+  const base = {
+    ok: true,
+    mock: isMock(c.env),
+    keys: { supadata: !!c.env.SUPADATA_API_KEY, gemini: !!c.env.GEMINI_API_KEY },
+    models: (c.env.GEMINI_MODEL || "").split(",").map((m) => m.trim()).filter(Boolean),
+  };
+  if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(base);
+  return c.json({ ...base, gemini: await pingGemini(geminiConfig(c.env)) });
+});
 
 app.notFound((c) => fail(c, 404, "not_found", "Not found."));
 app.onError((err, c) => {

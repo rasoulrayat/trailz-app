@@ -99,7 +99,8 @@ All accounts belong to the Dutch company with EU billing.
 5. **Variables** in `wrangler.jsonc`:
    - `GEOCODER_CONTACT`: a real email address (required by OpenStreetMap's usage policy)
    - `DAILY_LIMIT`: new AI checks per device per day (default 10)
-   - `GEMINI_MODEL`: model name (default `gemini-2.5-flash`; change if Google renames it)
+   - `GEMINI_MODEL`: models to try in order, comma-separated. When Google retires a model the next one is used.
+     Open `/api/health?ai=1` to see whether your key and models work.
    - optional `GEMINI_BASE_URL`: put Cloudflare **AI Gateway** in front of Gemini for logs and cost tracking
 6. Open the site on a phone → browser menu → **Add to Home screen**.
 

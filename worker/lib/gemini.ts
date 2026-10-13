@@ -3,14 +3,21 @@ import type { VideoRecord } from "./extract-schema";
 
 export interface GeminiConfig {
   apiKey: string;
-  model: string;
+  /** Models to try in order. The next one is used when Google says a model doesn't exist (404). */
+  models: string[];
   /** Google's API, or a Cloudflare AI Gateway URL in front of it. */
   baseUrl: string;
 }
 
-async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch): Promise<T> {
+async function callModel(
+  cfg: GeminiConfig,
+  model: string,
+  prompt: string,
+  schema: object,
+  fetcher: typeof fetch,
+): Promise<Response> {
   const base = cfg.baseUrl.replace(/\/+$/, "");
-  const res = await fetcher(`${base}/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent`, {
+  return fetcher(`${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": cfg.apiKey },
     body: JSON.stringify({
@@ -18,12 +25,46 @@ async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object
       generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.4 },
     }),
   });
-  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const body = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  return JSON.parse(text) as T;
+}
+
+async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch): Promise<T> {
+  if (!cfg.models.length) throw new Error("GEMINI_MODEL is empty");
+  const notFound: string[] = [];
+  for (const model of cfg.models) {
+    const res = await callModel(cfg, model, prompt, schema, fetcher);
+    if (res.status === 404) {
+      // Retired model, or one this API key may not use: try the next one.
+      notFound.push(`${model}: ${(await res.text()).slice(0, 160)}`);
+      continue;
+    }
+    if (!res.ok) throw new Error(`Gemini ${model} error ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const body = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
+    };
+    const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    if (!text) {
+      const why = body.promptFeedback?.blockReason ?? body.candidates?.[0]?.finishReason ?? "empty answer";
+      throw new Error(`Gemini ${model} returned no text (${why})`);
+    }
+    return JSON.parse(text) as T;
+  }
+  throw new Error(`No Gemini model available. ${notFound.join(" | ")}`);
+}
+
+/** Small live test used by /api/health?ai=1: which model answers with this key. */
+export async function pingGemini(cfg: GeminiConfig, fetcher: typeof fetch = fetch) {
+  try {
+    await generateJson<{ ok?: boolean }>(
+      cfg,
+      'Answer with {"ok": true}.',
+      { type: "OBJECT", properties: { ok: { type: "BOOLEAN" } }, required: ["ok"] },
+      fetcher,
+    );
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: String(err instanceof Error ? err.message : err).slice(0, 600) };
+  }
 }
 
 // Gemini's response schema uses OpenAPI-style upper-case types.

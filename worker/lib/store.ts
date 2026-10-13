@@ -14,6 +14,8 @@ export interface VideoRow {
   outcome: Outcome | null;
   result_json: string | null;
   error: string | null;
+  /** The technical reason behind a failure, for the team (never shown to users). */
+  error_detail: string | null;
   last_polled_at: number | null;
   created_at: number;
   updated_at: number;
@@ -66,7 +68,7 @@ export async function reclaimStale(db: D1Database, id: string, olderThanMs: numb
 
 export async function saveResult(db: D1Database, id: string, result: CheckResult) {
   await db
-    .prepare("UPDATE videos SET status = 'ready', outcome = ?, result_json = ?, error = NULL, updated_at = ? WHERE id = ?")
+    .prepare("UPDATE videos SET status = 'ready', outcome = ?, result_json = ?, error = NULL, error_detail = NULL, updated_at = ? WHERE id = ?")
     .bind(result.outcome, JSON.stringify(result), Date.now(), id)
     .run();
   // Promise on the "not a travel video" screen: it doesn't use up the user's daily checks.
@@ -75,9 +77,9 @@ export async function saveResult(db: D1Database, id: string, result: CheckResult
   }
 }
 
-export async function saveFailure(db: D1Database, id: string, error: string) {
+export async function saveFailure(db: D1Database, id: string, error: string, detail: string | null = null) {
   await db
-    .prepare("UPDATE videos SET status = 'failed', error = ?, updated_at = ? WHERE id = ?")
-    .bind(error, Date.now(), id)
+    .prepare("UPDATE videos SET status = 'failed', error = ?, error_detail = ?, updated_at = ? WHERE id = ?")
+    .bind(error, detail ? detail.slice(0, 1000) : null, Date.now(), id)
     .run();
 }
