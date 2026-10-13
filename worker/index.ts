@@ -12,7 +12,8 @@ import type {
 import { isMock, type Env } from "./env";
 import { analyze, cardFor, geminiConfig } from "./lib/analyze";
 import { pingGemini } from "./lib/gemini";
-import { fillVideoMeta, placePhoto } from "./lib/media";
+import { checkLabel } from "./lib/labels";
+import { fillVideoMeta, placeGallery } from "./lib/media";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -237,25 +238,14 @@ app.get("/checks", async (c) => {
     .all<VideoRow & { checked_at: number }>();
   const items: CheckSummary[] = rows.results.map((v) => {
     const r = v.result_json ? (JSON.parse(v.result_json) as CheckResult) : null;
-    const label =
-      r?.outcome === "single"
-        ? [r.card.place.name, r.card.place.region].filter(Boolean).join(", ")
-        : r?.outcome === "multi"
-          ? `${r.places.length} places`
-          : r?.outcome === "pick"
-            ? `${r.candidates[0]?.name ?? "Place"}?`
-            : r?.outcome === "vibe"
-              ? "Places with this vibe"
-              : r?.outcome === "not_travel"
-                ? "Not a travel video"
-                : v.status === "failed"
-                  ? "Couldn't open"
-                  : "Checking…";
+    const { label, kind, photoQuery } = checkLabel(r, v.status);
     return {
       id: v.id,
       status: v.status,
       outcome: v.outcome,
       label,
+      kind,
+      photoQuery,
       createdAt: v.checked_at,
       video: { platform: v.platform, url: v.url, title: v.title, author: v.author, thumbnailUrl: v.thumbnail_url },
     };
@@ -342,13 +332,13 @@ app.get("/img/:key", async (c) => {
   });
 });
 
-// ---------- GET /api/place-photo?q=Kandersteg, Switzerland : a Wikipedia photo of a place ----------
-app.get("/place-photo", async (c) => {
+// ---------- GET /api/place-photos?q=Kandersteg, Switzerland : openly licensed photos of a place ----------
+app.get("/place-photos", async (c) => {
   const q = (c.req.query("q") ?? "").trim().slice(0, 150);
   if (!q) return fail(c, 400, "bad_request", "Missing place name.");
-  const photo = await placePhoto(c.env.DB, c.env.GEOCODER_CONTACT, q);
-  c.header("cache-control", "public, max-age=86400");
-  return c.json(photo);
+  const gallery = await placeGallery(c.env.DB, c.env.GEOCODER_CONTACT, q);
+  c.header("cache-control", gallery.photos.length ? "public, max-age=86400" : "public, max-age=600");
+  return c.json(gallery);
 });
 
 // /api/health        → is the app up, and is it using real AI or sample results?

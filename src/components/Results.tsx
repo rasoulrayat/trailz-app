@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router";
 import type { CheckResult, CheckStatus, PlaceRef } from "../../shared/types";
 import { api } from "../api";
 import { Icon } from "./Icon";
-import { PlaceMap } from "./PlaceMap";
-import { PlaceThumb } from "./PlacePhoto";
+import { MapView, toPoints } from "./MapView";
+import { PhotoStrip, PlaceThumb } from "./PlacePhoto";
 import { platformLabel, VideoChip } from "./VideoChip";
 
 type Of<T extends CheckResult["outcome"]> = Extract<CheckResult, { outcome: T }>;
@@ -107,7 +107,7 @@ export function PickView({ check, result }: { check: CheckStatus; result: Of<"pi
                 setTyped("");
               }}
             />
-            <PlaceThumb q={[p.name, p.country ?? p.region].filter(Boolean).join(", ")} style={{ width: 44, height: 44 }} />
+            <PlaceThumb q={[p.name, p.country ?? p.region].filter(Boolean).join(", ")} title={p.name} style={{ width: 48, height: 48 }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="row-title">{[p.name, p.country].filter(Boolean).join(", ")}</span>
               <span className="row-sub">{p.evidence ?? p.region}</span>
@@ -165,8 +165,13 @@ export function VibeView({ check, result }: { check: CheckStatus; result: Of<"vi
         </span>
         <h1 style={{ fontSize: 28 }}>We can’t pin the spot, but we know the vibe</h1>
       </div>
-      {result.vibe.length > 0 && (
+      {(result.filmedIn || result.vibe.length > 0) && (
         <div className="chips">
+          {result.filmedIn && (
+            <span className="chip" style={{ fontWeight: 600 }}>
+              <Icon name="pin" size={14} /> Filmed in {result.filmedIn}
+            </span>
+          )}
           {result.vibe.map((v) => (
             <span key={v} className="chip soft">
               {v}
@@ -174,20 +179,36 @@ export function VibeView({ check, result }: { check: CheckStatus; result: Of<"vi
           ))}
         </div>
       )}
-      <section className="stack">
-        <h2>{result.suggestions.length} real places with this vibe</h2>
-        {result.suggestions.map((s) => (
-          <Link key={s.name} to={placeUrl(check.id, `${s.name}, ${s.country}`)} className="list-row">
-            <PlaceThumb q={`${s.name}, ${s.country}`} />
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="row-title">{s.name}</span>
-              <span className="row-sub">
-                {s.country} · {s.why}
-              </span>
-            </span>
-            <span className={`badge ${s.authenticity >= 7 ? "real" : "reel"}`}>{s.authenticity}/10</span>
-          </Link>
-        ))}
+      <section className="stack" style={{ gap: 12 }}>
+        <h2>
+          {result.suggestions.length} real {result.suggestions.length === 1 ? "place" : "places"} with this vibe
+        </h2>
+        <span className="small" style={{ marginTop: -6 }}>
+          Swipe the photos, tap one to see it big.
+        </span>
+        <MapView points={toPoints(result.suggestions)} height={180} />
+        {result.suggestions.map((s, i) => {
+          const q = `${s.name}, ${s.country}`;
+          const to = placeUrl(check.id, q);
+          return (
+            <article key={s.name} className="card place-card">
+              <PhotoStrip q={q} title={s.name} height={150} cardTo={to} />
+              <Link to={to} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+                <span className="num">{i + 1}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="row-title">{s.name}</span>
+                  <span className="row-sub">
+                    {s.country} · {s.why}
+                  </span>
+                </span>
+                <span className={`badge ${s.authenticity >= 7 ? "real" : "reel"}`}>{s.authenticity}/10</span>
+              </Link>
+              <Link to={to} className="btn secondary" style={{ height: 44 }}>
+                See the Reality Card <Icon name="arrow" size={16} />
+              </Link>
+            </article>
+          );
+        })}
       </section>
       <form
         className="card dashed stack"
@@ -255,7 +276,7 @@ export function MultiView({ check, result }: { check: CheckStatus; result: Of<"m
           )}
         </div>
 
-        <PlaceMap places={result.places} selected={selected} />
+        <MapView points={toPoints(result.places, (i) => selected.has(i))} />
 
         {result.regions.length > 1 && (
           <div role="tablist" aria-label="Regions" className="chips" style={{ flexWrap: "nowrap", overflowX: "auto", paddingBottom: 2 }}>
@@ -332,8 +353,13 @@ function PlaceRow({
         aria-label={`Include ${place.name} in the route`}
       />
       <span className={`num${checked ? " sel" : ""}`}>{index + 1}</span>
+      <PlaceThumb
+        q={[place.name, place.country ?? place.region].filter(Boolean).join(", ")}
+        title={place.name}
+        cardTo={placeUrl(checkId, place.name)}
+        style={{ width: 48, height: 48 }}
+      />
       <Link to={placeUrl(checkId, place.name)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10 }}>
-        <PlaceThumb q={[place.name, place.country ?? place.region].filter(Boolean).join(", ")} style={{ width: 44, height: 44 }} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span className="row-title" style={{ fontSize: 14 }}>
             {place.name}

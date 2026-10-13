@@ -1,7 +1,8 @@
 import type { Env } from "../env";
 import { isMock } from "../env";
 import { placeKey } from "./route";
-import { getMetadata } from "./supadata";
+import { logError } from "./store";
+import { getMetadata, SupadataError } from "./supadata";
 
 const MAX_IMAGE_BYTES = 1_500_000;
 
@@ -36,65 +37,160 @@ export async function fillVideoMeta(env: Env, videoId: string, knownThumb?: stri
   let thumb = knownThumb ?? undefined;
   let title: string | undefined;
   let author: string | undefined;
-  if (!thumb && !isMock(env) && env.SUPADATA_API_KEY) {
-    const meta = await getMetadata(env.SUPADATA_API_KEY, v.url);
-    thumb = meta.thumbnailUrl;
-    title = meta.title;
-    author = meta.author;
+  try {
+    if (!thumb && !isMock(env) && env.SUPADATA_API_KEY) {
+      const meta = await metadataWithRetry(env.SUPADATA_API_KEY, v.url);
+      thumb = meta.thumbnailUrl;
+      title = meta.title;
+      author = meta.author;
+    }
+    const stored = thumb ? await storeImage(env.DB, `v-${videoId}`, thumb) : "";
+    await env.DB.prepare("UPDATE videos SET thumbnail_url = ?, title = COALESCE(title, ?), author = COALESCE(author, ?) WHERE id = ?")
+      .bind(stored, title ?? null, author ?? null, videoId)
+      .run();
+  } catch (err) {
+    // Busy or a passing error: let the next visit try again. Other errors: give up on this cover.
+    const busy = err instanceof SupadataError && (err.httpStatus === 429 || err.httpStatus >= 500);
+    if (busy) await env.DB.prepare("UPDATE videos SET thumbnail_url = NULL WHERE id = ?").bind(videoId).run();
+    throw err;
   }
-  const stored = thumb ? await storeImage(env.DB, `v-${videoId}`, thumb) : "";
-  await env.DB.prepare(
-    "UPDATE videos SET thumbnail_url = ?, title = COALESCE(title, ?), author = COALESCE(author, ?), updated_at = updated_at WHERE id = ?",
-  )
-    .bind(stored, title ?? null, author ?? null, videoId)
-    .run();
+}
+
+/** Supadata allows about 1 request per second, and a new check has just started an Extract job. */
+async function metadataWithRetry(apiKey: string, url: string) {
+  const waits = [1200, 2500, 5000];
+  for (let i = 0; ; i++) {
+    await new Promise((r) => setTimeout(r, waits[Math.min(i, waits.length - 1)]));
+    try {
+      return await getMetadata(apiKey, url);
+    } catch (err) {
+      if (!(err instanceof SupadataError && err.httpStatus === 429) || i >= waits.length - 1) throw err;
+    }
+  }
 }
 
 export interface PlacePhoto {
-  url: string | null;
-  pageUrl?: string | null;
-  title?: string | null;
+  url: string;
+  /** Who took it and under which licence, when Wikimedia says. */
+  credit: string | null;
+  license: string | null;
+  /** Page to credit / read more. */
+  link: string | null;
 }
 
-// Page images that aren't photos of the place.
-const NOT_A_PHOTO = /\.svg|flag_of|coat_of_arms|wappen|blason|locator|location_map|_map[._]|map_of|logo/i;
+export interface PlaceGallery {
+  photos: PlacePhoto[];
+  /** The Wikipedia article about the place, if found. */
+  pageUrl: string | null;
+}
+
+// Images that aren't photos of the place.
+const NOT_A_PHOTO = /\.svg|\.tif|\.pdf|flag_of|coat_of_arms|wappen|blason|locator|location_map|_map[._ ]|map_of|\bmap\b|logo|diagram|plan_of|stamp/i;
+const MAX_PHOTOS = 8;
+const GALLERY_TTL = 30 * 24 * 60 * 60 * 1000;
+
+const stripHtml = (html: unknown) =>
+  typeof html === "string"
+    ? html.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/\s+/g, " ").trim().slice(0, 80) || null
+    : null;
 
 /**
- * A free, openly licensed photo of a place from Wikipedia (cached in D1).
- * Wikimedia images may be shown with a credit linking to the article.
+ * Up to 8 openly licensed photos of a place: the Wikipedia article's main image plus
+ * Wikimedia Commons search results whose file name mentions the place. Cached in D1 for 30 days.
  */
-export async function placePhoto(db: D1Database, contact: string, query: string, fetcher: typeof fetch = fetch): Promise<PlacePhoto> {
+export async function placeGallery(
+  db: D1Database,
+  contact: string,
+  query: string,
+  fetcher: typeof fetch = fetch,
+): Promise<PlaceGallery> {
   const key = placeKey(query);
-  if (!key) return { url: null };
+  if (!key) return { photos: [], pageUrl: null };
   const cached = await db
-    .prepare("SELECT url, page_url, title FROM place_photos WHERE query = ?")
+    .prepare("SELECT json, created_at FROM place_galleries WHERE query = ?")
     .bind(key)
-    .first<{ url: string | null; page_url: string | null; title: string | null }>();
-  if (cached) return { url: cached.url, pageUrl: cached.page_url, title: cached.title };
+    .first<{ json: string; created_at: number }>();
+  if (cached && Date.now() - cached.created_at < GALLERY_TTL) return JSON.parse(cached.json) as PlaceGallery;
 
-  const api =
-    "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search&gsrnamespace=0&gsrlimit=3" +
-    `&prop=pageimages|info&piprop=thumbnail&pithumbsize=800&inprop=url&gsrsearch=${encodeURIComponent(query)}`;
-  let found: PlacePhoto = { url: null };
+  const name = query.split(",")[0].trim();
+  const first = placeKey(name).split(" ")[0];
+  const headers = { "user-agent": `TrailZ/0.1 (https://github.com/rasoulrayat/trailz-app; ${contact})` };
+  const gallery: PlaceGallery = { photos: [], pageUrl: null };
+  const add = (p: PlacePhoto) => {
+    if (gallery.photos.length < MAX_PHOTOS && !NOT_A_PHOTO.test(p.url) && !gallery.photos.some((x) => x.url === p.url)) {
+      gallery.photos.push(p);
+    }
+  };
+  let failed = 0;
+
+  // 1. Wikipedia: the article's lead image.
   try {
-    const res = await fetcher(api, { headers: { "user-agent": `TrailZ/0.1 (${contact})` } });
-    if (!res.ok) return { url: null }; // don't cache their outage
+    const res = await fetcher(
+      "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search&gsrnamespace=0&gsrlimit=3" +
+        `&prop=pageimages|info&piprop=thumbnail&pithumbsize=1000&inprop=url&gsrsearch=${encodeURIComponent(query)}`,
+      { headers },
+    );
+    if (!res.ok) throw new Error(`Wikipedia ${res.status}`);
     const body = (await res.json()) as {
       query?: { pages?: { index?: number; title: string; fullurl?: string; thumbnail?: { source: string } }[] };
     };
     const pages = [...(body.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    // The article must be about this place: its title has to contain the place's first word.
-    const first = placeKey(query.split(",")[0]).split(" ")[0];
-    const page = pages.find(
-      (p) => p.thumbnail?.source && !NOT_A_PHOTO.test(p.thumbnail.source) && placeKey(p.title).includes(first),
-    );
-    if (page?.thumbnail) found = { url: page.thumbnail.source, pageUrl: page.fullurl ?? null, title: page.title };
-  } catch {
-    return { url: null };
+    const page = pages.find((p) => placeKey(p.title).includes(first));
+    if (page) {
+      gallery.pageUrl = page.fullurl ?? null;
+      if (page.thumbnail) add({ url: page.thumbnail.source, credit: null, license: null, link: page.fullurl ?? null });
+    }
+  } catch (err) {
+    failed++;
+    await logError(db, "place-photos", err, query);
   }
-  await db
-    .prepare("INSERT OR REPLACE INTO place_photos (query, url, page_url, title, created_at) VALUES (?, ?, ?, ?, ?)")
-    .bind(key, found.url, found.pageUrl ?? null, found.title ?? null, Date.now())
-    .run();
-  return found;
+
+  // 2. Wikimedia Commons: more photos, with photographer and licence.
+  try {
+    const res = await fetcher(
+      "https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search&gsrnamespace=6&gsrlimit=20" +
+        "&prop=imageinfo&iiprop=url|mime|extmetadata&iiurlwidth=1000&iiextmetadatafilter=Artist|LicenseShortName" +
+        `&gsrsearch=${encodeURIComponent(`${query.replace(/,/g, " ")} filetype:bitmap`)}`,
+      { headers },
+    );
+    if (!res.ok) throw new Error(`Commons ${res.status}`);
+    const body = (await res.json()) as {
+      query?: {
+        pages?: {
+          index?: number;
+          title: string;
+          imageinfo?: {
+            thumburl?: string;
+            mime?: string;
+            descriptionurl?: string;
+            extmetadata?: { Artist?: { value?: string }; LicenseShortName?: { value?: string } };
+          }[];
+        }[];
+      };
+    };
+    const files = [...(body.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    for (const f of files) {
+      const info = f.imageinfo?.[0];
+      if (!info?.thumburl || info.mime !== "image/jpeg") continue;
+      if (!placeKey(f.title).includes(first) || NOT_A_PHOTO.test(f.title)) continue;
+      add({
+        url: info.thumburl,
+        credit: stripHtml(info.extmetadata?.Artist?.value),
+        license: stripHtml(info.extmetadata?.LicenseShortName?.value),
+        link: info.descriptionurl ?? null,
+      });
+    }
+  } catch (err) {
+    failed++;
+    await logError(db, "place-photos", err, query);
+  }
+
+  // Don't remember an empty result caused by an outage.
+  if (failed === 0 || gallery.photos.length > 0) {
+    await db
+      .prepare("INSERT OR REPLACE INTO place_galleries (query, json, created_at) VALUES (?, ?, ?)")
+      .bind(key, JSON.stringify(gallery), Date.now())
+      .run();
+  }
+  return gallery;
 }

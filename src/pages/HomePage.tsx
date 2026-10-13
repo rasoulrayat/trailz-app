@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import type { CheckSummary, LinkErrorCode } from "../../shared/types";
 import { api, ApiFailure } from "../api";
 import { Icon } from "../components/Icon";
+import { usePlaceGallery } from "../components/PlacePhoto";
 import { Wordmark } from "../components/Wordmark";
 
 const LINK_ERRORS: string[] = ["no_link", "unsupported_site", "profile_link", "unavailable", "daily_limit"] satisfies LinkErrorCode[];
@@ -138,14 +139,18 @@ export function HomePage() {
         ) : (
           recent.map((r) => (
             <Link key={r.id} to={`/check/${r.id}`} className="list-row">
-              <span
-                className="thumb"
-                style={r.video.thumbnailUrl ? { backgroundImage: `url("${r.video.thumbnailUrl}")` } : undefined}
-              />
+              {r.video.thumbnailUrl || !r.photoQuery ? (
+                <span
+                  className="thumb"
+                  style={r.video.thumbnailUrl ? { backgroundImage: `url("${r.video.thumbnailUrl}")` } : undefined}
+                />
+              ) : (
+                <RecentPhoto q={r.photoQuery} />
+              )}
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="row-title">{r.label}</span>
                 <span className="row-sub" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.video.author ?? r.video.platform} · {r.video.title ?? r.video.url}
+                  {[r.kind, r.video.author].filter(Boolean).join(" · ")}
                 </span>
               </span>
               <Icon name="chevron" size={18} />
@@ -155,4 +160,10 @@ export function HomePage() {
       </section>
     </main>
   );
+}
+
+/** The reel has no cover: show a photo of its main place instead (not clickable here, the row is the link). */
+function RecentPhoto({ q }: { q: string }) {
+  const { photos } = usePlaceGallery(q);
+  return <span className="thumb" style={photos[0] ? { backgroundImage: `url("${photos[0].url}")` } : undefined} />;
 }

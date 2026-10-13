@@ -76,7 +76,9 @@ export type CheckResult =
       outcome: "vibe";
       vibe: string[];
       whatWeSaw: string;
-      suggestions: { name: string; country: string; why: string; authenticity: number }[];
+      /** Country (or region) the reel seems to be filmed in, when the AI can tell. */
+      filmedIn?: string;
+      suggestions: { name: string; country: string; why: string; authenticity: number; lat?: number; lng?: number }[];
     }
   | { outcome: "not_travel"; whatWeSaw: string; kind: "not_travel" | "tips" };
 
@@ -92,7 +94,12 @@ export interface CheckSummary {
   id: string;
   status: CheckStatusName;
   outcome?: Outcome | null;
+  /** Where + vibe, e.g. "India · pine forest, mountain valley". */
   label: string;
+  /** Which result screen, e.g. "Places with this vibe". */
+  kind: string;
+  /** Place whose photo stands in when the reel has no cover. */
+  photoQuery?: string;
   video: VideoMeta;
   createdAt: number;
 }

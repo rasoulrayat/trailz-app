@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import type { MonthRating, RealityCard, VideoMeta } from "../../shared/types";
 import { Icon } from "./Icon";
-import { PlaceThumb, usePlacePhoto } from "./PlacePhoto";
+import { MapView } from "./MapView";
+import { HeroPhotos, PlaceThumb, photoCredit } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
 
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
@@ -41,47 +42,51 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
   const { place } = card;
   const best = card.months.map((m, i) => (m === "best" ? MONTH_NAMES[i] : null)).filter(Boolean);
   const crowded = card.months.map((m, i) => (m === "crowded" ? MONTH_NAMES[i] : null)).filter(Boolean);
-  // The place itself on top; the reel's cover while there's no photo.
-  const photo = usePlacePhoto([place.name, place.country].filter(Boolean).join(", "));
-  const hero = photo?.url ?? video?.thumbnailUrl ?? null;
+  const photoQuery = [place.name, place.country].filter(Boolean).join(", ");
 
   return (
     <>
-      <header
-        className="media"
-        style={hero ? { backgroundImage: `url("${hero}")` } : undefined}
-      >
-        <div className="shade" />
-        <div className="top">
-          <Link to={backTo} className="icon-btn on-media" aria-label="Back">
-            <Icon name="back" />
-          </Link>
-          <button
-            className="icon-btn on-media"
-            aria-label="Share"
-            onClick={() => navigator.share?.({ title: `${place.name} · TrailZ`, url: location.href }).catch(() => {})}
-          >
-            <Icon name="share" size={18} />
-          </button>
-        </div>
-        {(video || photo) && (
-          <div className="credit">
-            {video ? (
-              <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", gap: 4, alignItems: "center", minWidth: 0 }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reel · {platformLabel(video)}</span>
-                <Icon name="external" size={12} />
-              </a>
-            ) : (
-              <span />
+      {/* The place itself on top (swipe for more photos); the reel's cover when there are none. */}
+      <HeroPhotos q={photoQuery} title={place.name} fallback={video?.thumbnailUrl}>
+        {(photo) => (
+          <>
+            <div className="top">
+              <Link to={backTo} className="icon-btn on-media" aria-label="Back">
+                <Icon name="back" />
+              </Link>
+              <button
+                className="icon-btn on-media"
+                aria-label="Share"
+                onClick={() => navigator.share?.({ title: `${place.name} · TrailZ`, url: location.href }).catch(() => {})}
+              >
+                <Icon name="share" size={18} />
+              </button>
+            </div>
+            {(video || photo) && (
+              <div className="credit">
+                {video ? (
+                  <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", gap: 4, alignItems: "center", minWidth: 0 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reel · {platformLabel(video)}</span>
+                    <Icon name="external" size={12} />
+                  </a>
+                ) : (
+                  <span style={{ background: "none" }} />
+                )}
+                {photo && (
+                  <a
+                    href={photo.link ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ minWidth: 0, maxWidth: "50%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    Photo: {photoCredit(photo)}
+                  </a>
+                )}
+              </div>
             )}
-            {photo?.pageUrl && (
-              <a href={photo.pageUrl} target="_blank" rel="noopener noreferrer" style={{ flex: "none" }}>
-                Photo: Wikipedia
-              </a>
-            )}
-          </div>
+          </>
         )}
-      </header>
+      </HeroPhotos>
 
       <main className="page" style={{ gap: 18 }}>
         <div className="stack" style={{ gap: 8 }}>
@@ -93,6 +98,21 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
           <div className="lead">{[place.region, place.country].filter(Boolean).join(" · ")}</div>
           {card.summary && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{card.summary}</p>}
         </div>
+
+        {place.lat != null && place.lng != null && (
+          <section className="stack" style={{ gap: 8 }}>
+            <MapView points={[{ lat: place.lat, lng: place.lng, label: "", name: place.name, selected: true }]} height={170} />
+            <a
+              className="small"
+              style={{ display: "inline-flex", gap: 4, alignItems: "center", color: "var(--blue)" }}
+              href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Google Maps <Icon name="external" size={12} />
+            </a>
+          </section>
+        )}
 
         <section className="card stack" style={{ padding: 16, gap: 12 }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
@@ -167,7 +187,7 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
             <h2 style={{ fontSize: 15 }}>Same vibe, fewer people</h2>
             {card.gems.map((g) => (
               <div key={g.name} className="list-row" style={{ cursor: "default" }}>
-                <PlaceThumb q={[g.name, place.country].filter(Boolean).join(", ")} style={{ backgroundColor: "var(--real)" }} />
+                <PlaceThumb q={[g.name, place.country].filter(Boolean).join(", ")} title={g.name} style={{ backgroundColor: "var(--real)" }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="row-title">{g.name}</span>
                   <span className="row-sub">{g.why}</span>

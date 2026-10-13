@@ -30,6 +30,8 @@ export interface VideoRecord {
   places: ExtractPlace[];
   places_relation?: "one_place" | "alternatives" | "separate_places";
   vibe_tags?: string[];
+  /** Country (and region if clear) the video seems to be filmed in, even without an exact place. */
+  filmed_in?: string;
   claims?: string[];
   transcript?: { t?: string; text: string }[];
   on_screen_text?: { t?: string; text: string }[];
@@ -90,6 +92,11 @@ export const EXTRACT_SCHEMA = {
       type: "array",
       items: { type: "string" },
       description: "3 to 6 short visual vibe tags, e.g. 'turquoise cove', 'white cliffs'.",
+    },
+    filmed_in: {
+      type: "string",
+      description:
+        "The country (and region, if clear) where the video seems to be filmed, from landscape, language, signs or captions, e.g. 'India (Western Ghats)'. Empty string if you can't tell.",
     },
     claims: {
       type: "array",
@@ -173,6 +180,7 @@ export function normalizeRecord(raw: unknown): VideoRecord {
     places_relation: ["one_place", "alternatives", "separate_places"].includes(r.places_relation as string)
       ? (r.places_relation as VideoRecord["places_relation"])
       : undefined,
+    filmed_in: str(r.filmed_in)?.slice(0, 60),
     vibe_tags: (Array.isArray(r.vibe_tags) ? r.vibe_tags : [])
       .map(str)
       .filter((s): s is string => !!s)

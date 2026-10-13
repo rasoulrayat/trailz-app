@@ -120,17 +120,29 @@ export async function analyze(env: Env, record: VideoRecord): Promise<CheckResul
 
     case "vibe": {
       if (isMock(env)) {
-        return { outcome: "vibe", vibe: record.vibe_tags ?? [], whatWeSaw: record.what_we_saw, suggestions: MOCK_VIBE_SUGGESTIONS };
+        return {
+          outcome: "vibe",
+          vibe: record.vibe_tags ?? [],
+          whatWeSaw: record.what_we_saw,
+          filmedIn: record.filmed_in || undefined,
+          suggestions: MOCK_VIBE_SUGGESTIONS,
+        };
       }
       const ideas = await suggestVibePlaces(geminiConfig(env), record, DEFAULT_ORIGIN);
-      const real: typeof ideas = [];
+      const real: (typeof ideas[number] & { lat: number; lng: number })[] = [];
       for (const idea of ideas) {
         if (real.length === 3) break;
         const hit = await geocode(env.DB, env.GEOCODER_CONTACT, `${idea.name}, ${idea.country}`);
-        if (hit) real.push(idea);
+        if (hit) real.push({ ...idea, lat: hit.lat, lng: hit.lng });
         await sleep(1100);
       }
-      return { outcome: "vibe", vibe: record.vibe_tags ?? [], whatWeSaw: record.what_we_saw, suggestions: real };
+      return {
+        outcome: "vibe",
+        vibe: record.vibe_tags ?? [],
+        whatWeSaw: record.what_we_saw,
+        filmedIn: record.filmed_in || undefined,
+        suggestions: real,
+      };
     }
 
     case "single": {

@@ -83,6 +83,7 @@ const RECORDS: Record<Scenario, VideoRecord> = {
     what_we_saw: "A turquoise cove between white cliffs with small boats, no signs or landmarks.",
     places: [],
     vibe_tags: ["turquoise cove", "white cliffs", "small boats", "Mediterranean"],
+    filmed_in: "Mediterranean coast (country unclear)",
     claims: ["Secret beach"],
     skipped_clips: 0,
   },
@@ -150,7 +151,7 @@ export function mockCard(place: PlaceRef, origin: string): RealityCard {
 }
 
 export const MOCK_VIBE_SUGGESTIONS = [
-  { name: "Sarakiniko, Milos", country: "Greece", why: "White rock and turquoise water, real colours", authenticity: 8 },
-  { name: "Calanques, Marseille", country: "France", why: "Limestone coves, reachable by train", authenticity: 8 },
-  { name: "Ksamil", country: "Albania", why: "Cheapest option, busy in August", authenticity: 6 },
+  { name: "Sarakiniko, Milos", country: "Greece", why: "White rock and turquoise water, real colours", authenticity: 8, lat: 36.7564, lng: 24.4276 },
+  { name: "Calanques, Marseille", country: "France", why: "Limestone coves, reachable by train", authenticity: 8, lat: 43.2128, lng: 5.4442 },
+  { name: "Ksamil", country: "Albania", why: "Cheapest option, busy in August", authenticity: 6, lat: 39.7686, lng: 20.0007 },
 ];

@@ -57,7 +57,7 @@ Needs Node.js 20+.
 npm install
 cp .dev.vars.example .dev.vars      # MOCK_AI=1: sample results, no API keys needed
 npm run db:migrate:local
-npm run dev                          # open http://localhost:5173
+npm run dev                          # open http://localhost:5173 (no Cloudflare login needed)
 npm test
 ```
 
@@ -114,7 +114,8 @@ All accounts belong to the Dutch company with EU billing.
 - [ ] Turnstile (bot check) on the paste box if you see abuse.
 - [ ] Test 50 real travel reels and compare the place matches with a manual check.
 - [ ] OpenStreetMap Nominatim is fine for testing; switch to a commercial places API before launch traffic.
-- [ ] Place photos come from Wikipedia/Wikimedia (credited on the card). Check the licence wording with the lawyer, or swap in a photo API.
+- [ ] Place photos come from Wikipedia/Wikimedia Commons (photographer + licence shown in the viewer). Check the licence wording with the lawyer, or swap in a photo API.
+- [ ] Maps use free OpenFreeMap tiles (OpenStreetMap data). Fine to start; consider sponsoring them or self-hosting at scale.
 - [ ] Video covers are copied into D1 (`images` table). Move them to R2 when there are many.
 
 ## What's next (later phases)

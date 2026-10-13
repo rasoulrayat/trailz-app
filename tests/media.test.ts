@@ -1,42 +1,68 @@
 import { describe, expect, it } from "vitest";
-import { placePhoto } from "../worker/lib/media";
+import { placeGallery } from "../worker/lib/media";
 import { getMetadata } from "../worker/lib/supadata";
 
-/** Just enough of D1 for the cache: always a miss, writes ignored. */
+/** Just enough of D1: cache always misses, writes are ignored. */
 const fakeDb = {
   prepare: () => ({ bind: () => ({ first: async () => null, run: async () => ({ meta: { changes: 1 } }) }) }),
 } as unknown as D1Database;
 
-const wiki = (pages: unknown[]) =>
-  (async () => new Response(JSON.stringify({ query: { pages } }), { status: 200 })) as unknown as typeof fetch;
+/** Answers Wikipedia and Commons searches with the given pages. */
+const apis = (wiki: unknown[], commons: unknown[] = []) =>
+  (async (url: string) =>
+    new Response(JSON.stringify({ query: { pages: url.includes("commons.wikimedia.org") ? commons : wiki } }), {
+      status: 200,
+    })) as unknown as typeof fetch;
 
-describe("place photos", () => {
-  it("uses the photo of the matching article", async () => {
-    const p = await placePhoto(
+const file = (title: string, thumburl: string, mime = "image/jpeg") => ({
+  title,
+  imageinfo: [
+    {
+      thumburl,
+      mime,
+      descriptionurl: `https://commons.wikimedia.org/wiki/${title}`,
+      extmetadata: { Artist: { value: '<a href="//x">Jane Doe</a>' }, LicenseShortName: { value: "CC BY-SA 4.0" } },
+    },
+  ],
+});
+
+describe("place photo galleries", () => {
+  it("puts the Wikipedia image first, then Commons photos with credits", async () => {
+    const g = await placeGallery(
       fakeDb,
       "x",
       "Kandersteg, Switzerland",
-      wiki([{ index: 1, title: "Kandersteg", fullurl: "https://en.wikipedia.org/wiki/Kandersteg", thumbnail: { source: "https://upload.wikimedia.org/k.jpg" } }]),
+      apis(
+        [{ index: 1, title: "Kandersteg", fullurl: "https://en.wikipedia.org/wiki/Kandersteg", thumbnail: { source: "https://upload.wikimedia.org/k.jpg" } }],
+        [file("File:Kandersteg Oeschinensee.jpg", "https://upload.wikimedia.org/o.jpg")],
+      ),
     );
-    expect(p).toMatchObject({ url: "https://upload.wikimedia.org/k.jpg", title: "Kandersteg" });
+    expect(g.pageUrl).toBe("https://en.wikipedia.org/wiki/Kandersteg");
+    expect(g.photos.map((p) => p.url)).toEqual(["https://upload.wikimedia.org/k.jpg", "https://upload.wikimedia.org/o.jpg"]);
+    expect(g.photos[1]).toMatchObject({ credit: "Jane Doe", license: "CC BY-SA 4.0" });
   });
 
-  it("skips coats of arms, flags and maps", async () => {
-    const p = await placePhoto(
+  it("skips coats of arms, maps, PNG drawings and files about other places", async () => {
+    const g = await placeGallery(
       fakeDb,
       "x",
       "Flåm, Norway",
-      wiki([
-        { index: 1, title: "Flåm", thumbnail: { source: "https://upload.wikimedia.org/thumb/Coat_of_arms.svg/800px-x.svg.png" } },
-        { index: 2, title: "Flåm Line", thumbnail: { source: "https://upload.wikimedia.org/flamsbana.jpg" } },
-      ]),
+      apis(
+        [{ index: 1, title: "Flåm", thumbnail: { source: "https://upload.wikimedia.org/thumb/Coat_of_arms.svg/800px-x.svg.png" } }],
+        [
+          file("File:Flåm location map.jpg", "https://u/map.jpg"),
+          file("File:Flam railway drawing.png", "https://u/d.png", "image/png"),
+          file("File:Bergen harbour.jpg", "https://u/bergen.jpg"),
+          file("File:Flåmsbana train.jpg", "https://u/train.jpg"),
+        ],
+      ),
     );
-    expect(p.url).toBe("https://upload.wikimedia.org/flamsbana.jpg");
+    expect(g.photos.map((p) => p.url)).toEqual(["https://u/train.jpg"]);
   });
 
-  it("returns nothing when the article is about something else", async () => {
-    const p = await placePhoto(fakeDb, "x", "Secret Cove, Portugal", wiki([{ index: 1, title: "Lisbon", thumbnail: { source: "https://u/l.jpg" } }]));
-    expect(p.url).toBeNull();
+  it("returns no photos when nothing matches", async () => {
+    const g = await placeGallery(fakeDb, "x", "Secret Cove, Portugal", apis([{ index: 1, title: "Lisbon", thumbnail: { source: "https://u/l.jpg" } }]));
+    expect(g.photos).toEqual([]);
   });
 });
 
