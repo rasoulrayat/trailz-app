@@ -8,6 +8,9 @@ export interface Env {
   GEOCODER_CONTACT: string;
   SUPADATA_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  /** Cloudflare Workers AI: backup when Gemini is overloaded. */
+  AI?: { run(model: string, input: unknown): Promise<unknown> };
+  FALLBACK_MODEL?: string;
 }
 
 export const isMock = (env: Env) => env.MOCK_AI === "1" || !env.SUPADATA_API_KEY;

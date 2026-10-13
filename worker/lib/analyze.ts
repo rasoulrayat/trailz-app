@@ -12,7 +12,32 @@ export function geminiConfig(env: Env): GeminiConfig {
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
-  return { apiKey: env.GEMINI_API_KEY, models, baseUrl: env.GEMINI_BASE_URL };
+  return { apiKey: env.GEMINI_API_KEY, models, baseUrl: env.GEMINI_BASE_URL, fallback: workersAiFallback(env) };
+}
+
+/** Cloudflare Workers AI as a backup model, used only when every Gemini model is busy or gone. */
+function workersAiFallback(env: Env): GeminiConfig["fallback"] {
+  const ai = env.AI;
+  const model = env.FALLBACK_MODEL?.trim();
+  if (!ai || !model) return undefined;
+  return {
+    name: model,
+    async run(prompt, jsonSchema) {
+      const out = (await ai.run(model, {
+        messages: [
+          { role: "system", content: "You are a careful travel expert. Reply only with JSON that matches the schema." },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_schema", json_schema: jsonSchema },
+        max_tokens: 2048,
+        temperature: 0.4,
+      })) as { response?: unknown };
+      const r = out?.response;
+      if (r && typeof r === "object") return r;
+      if (typeof r === "string" && r.trim()) return JSON.parse(r);
+      throw new Error("empty answer");
+    },
+  };
 }
 
 /**

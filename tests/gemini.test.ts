@@ -40,4 +40,26 @@ describe("Gemini model fallback", () => {
     expect(res.ok).toBe(false);
     expect(calls).toBe(1);
   });
+
+  it("uses the Workers AI backup when every Gemini model is busy", async () => {
+    const fetcher = (async () => new Response("high demand", { status: 503 })) as unknown as typeof fetch;
+    let schemaSeen: unknown;
+    const res = await pingGemini(
+      {
+        apiKey: "k",
+        models: ["a", "b"],
+        baseUrl: "https://g",
+        fallback: {
+          name: "backup",
+          run: async (_p, schema) => {
+            schemaSeen = schema;
+            return { ok: true };
+          },
+        },
+      },
+      fetcher,
+    );
+    expect(res).toMatchObject({ ok: true, answeredBy: "backup" });
+    expect(schemaSeen).toMatchObject({ type: "object", properties: { ok: { type: "boolean" } } });
+  });
 });

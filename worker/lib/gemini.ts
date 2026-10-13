@@ -7,6 +7,22 @@ export interface GeminiConfig {
   models: string[];
   /** Google's API, or a Cloudflare AI Gateway URL in front of it. */
   baseUrl: string;
+  /**
+   * Backup when no Gemini model answers (Google overloaded): Cloudflare Workers AI.
+   * Gets the prompt and a standard JSON schema, returns the parsed JSON.
+   */
+  fallback?: { name: string; run(prompt: string, jsonSchema: object): Promise<unknown> };
+}
+
+/** Gemini's schema uses upper-case types ("OBJECT"); standard JSON Schema uses lower-case. */
+export function toJsonSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(toJsonSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(schema)) {
+    out[k] = k === "type" && typeof v === "string" ? v.toLowerCase() : toJsonSchema(v);
+  }
+  return out;
 }
 
 async function callModel(
@@ -31,7 +47,15 @@ async function callModel(
 const BUSY = new Set([429, 500, 502, 503, 504]);
 
 async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch): Promise<T> {
-  if (!cfg.models.length) throw new Error("GEMINI_MODEL is empty");
+  return (await generateJsonFrom<T>(cfg, prompt, schema, fetcher)).data;
+}
+
+async function generateJsonFrom<T>(
+  cfg: GeminiConfig,
+  prompt: string,
+  schema: object,
+  fetcher: typeof fetch,
+): Promise<{ data: T; model: string }> {
   const skipped: string[] = [];
   for (const [i, model] of cfg.models.entries()) {
     let res: Response;
@@ -59,21 +83,29 @@ async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object
       const why = body.promptFeedback?.blockReason ?? body.candidates?.[0]?.finishReason ?? "empty answer";
       throw new Error(`Gemini ${model} returned no text (${why})`);
     }
-    return JSON.parse(text) as T;
+    return { data: JSON.parse(text) as T, model };
   }
-  throw new Error(`No Gemini model answered. ${skipped.join(" | ")}`);
+  if (cfg.fallback) {
+    try {
+      const data = (await cfg.fallback.run(prompt, toJsonSchema(schema) as object)) as T;
+      return { data, model: cfg.fallback.name };
+    } catch (err) {
+      skipped.push(`${cfg.fallback.name}: ${String(err instanceof Error ? err.message : err).slice(0, 200)}`);
+    }
+  }
+  throw new Error(`No AI model answered. ${skipped.join(" | ") || "GEMINI_MODEL is empty"}`);
 }
 
 /** Small live test used by /api/health?ai=1: which model answers with this key. */
 export async function pingGemini(cfg: GeminiConfig, fetcher: typeof fetch = fetch) {
   try {
-    await generateJson<{ ok?: boolean }>(
+    const { model } = await generateJsonFrom<{ ok?: boolean }>(
       cfg,
       'Answer with {"ok": true}.',
       { type: "OBJECT", properties: { ok: { type: "BOOLEAN" } }, required: ["ok"] },
       fetcher,
     );
-    return { ok: true as const };
+    return { ok: true as const, answeredBy: model };
   } catch (err) {
     return { ok: false as const, error: String(err instanceof Error ? err.message : err).slice(0, 600) };
   }

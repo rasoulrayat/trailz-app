@@ -100,7 +100,9 @@ All accounts belong to the Dutch company with EU billing.
    - `GEOCODER_CONTACT`: a real email address (required by OpenStreetMap's usage policy)
    - `DAILY_LIMIT`: new AI checks per device per day (default 10)
    - `GEMINI_MODEL`: models to try in order, comma-separated. When Google retires a model the next one is used.
-     Open `/api/health?ai=1` to see whether your key and models work.
+     Open `/api/health?ai=1` to see whether your key and models work, and which model answered.
+   - `FALLBACK_MODEL`: a Cloudflare Workers AI model used only when no Gemini model answers (Google overloaded).
+     Uses the Worker's `AI` binding, no extra key; free daily allowance, then billed by Cloudflare. Set to `""` to turn off.
    - optional `GEMINI_BASE_URL`: put Cloudflare **AI Gateway** in front of Gemini for logs and cost tracking
 6. Open the site on a phone → browser menu → **Add to Home screen**.
 
