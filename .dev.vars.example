@@ -1,0 +1,5 @@
+MOCK_AI=1
+DAILY_LIMIT=50
+# For real runs, set MOCK_AI=0 and add:
+# SUPADATA_API_KEY=
+# GEMINI_API_KEY=
