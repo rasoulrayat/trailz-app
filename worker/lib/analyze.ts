@@ -15,6 +15,16 @@ export function geminiConfig(env: Env): GeminiConfig {
   return { apiKey: env.GEMINI_API_KEY, models, baseUrl: env.GEMINI_BASE_URL, fallback: workersAiFallback(env) };
 }
 
+/** Accept an already-parsed object, or find the JSON object inside a text answer. */
+export function readJson(r: unknown): object {
+  if (r && typeof r === "object") return r as object;
+  if (typeof r !== "string" || !r.trim()) throw new Error("empty answer");
+  const start = r.indexOf("{");
+  const end = r.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error(`no JSON in answer: ${r.slice(0, 80)}`);
+  return JSON.parse(r.slice(start, end + 1)) as object;
+}
+
 /** Cloudflare Workers AI as a backup model, used only when every Gemini model is busy or gone. */
 function workersAiFallback(env: Env): GeminiConfig["fallback"] {
   const ai = env.AI;
@@ -23,19 +33,37 @@ function workersAiFallback(env: Env): GeminiConfig["fallback"] {
   return {
     name: model,
     async run(prompt, jsonSchema) {
-      const out = (await ai.run(model, {
-        messages: [
-          { role: "system", content: "You are a careful travel expert. Reply only with JSON that matches the schema." },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_schema", json_schema: jsonSchema },
-        max_tokens: 2048,
-        temperature: 0.4,
-      })) as { response?: unknown };
-      const r = out?.response;
-      if (r && typeof r === "object") return r;
-      if (typeof r === "string" && r.trim()) return JSON.parse(r);
-      throw new Error("empty answer");
+      const messages = [
+        { role: "system", content: "You are a careful travel expert. Reply only with JSON that matches the schema." },
+        { role: "user", content: prompt },
+      ];
+      let first: unknown;
+      try {
+        const out = (await ai.run(model, {
+          messages,
+          response_format: { type: "json_schema", json_schema: jsonSchema },
+          max_tokens: 2048,
+          temperature: 0.4,
+        })) as { response?: unknown };
+        return readJson(out?.response);
+      } catch (err) {
+        first = err;
+      }
+      // Strict JSON mode can refuse long schemas ("JSON Mode couldn't be met"): ask again with the
+      // schema written into the prompt, and pull the JSON out of the answer.
+      try {
+        const out = (await ai.run(model, {
+          messages: [
+            messages[0],
+            { role: "user", content: `${prompt}\n\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(jsonSchema)}` },
+          ],
+          max_tokens: 2048,
+          temperature: 0.4,
+        })) as { response?: unknown };
+        return readJson(out?.response);
+      } catch (err) {
+        throw new Error(`JSON mode: ${String(first instanceof Error ? first.message : first).slice(0, 150)}; plain: ${String(err instanceof Error ? err.message : err).slice(0, 150)}`);
+      }
     },
   };
 }

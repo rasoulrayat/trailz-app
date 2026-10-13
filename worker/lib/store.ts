@@ -83,3 +83,18 @@ export async function saveFailure(db: D1Database, id: string, error: string, det
     .bind(error, detail ? detail.slice(0, 1000) : null, Date.now(), id)
     .run();
 }
+
+/** Keep a readable record of a server error (never contains API keys: only error messages). */
+export async function logError(db: D1Database, route: string, err: unknown, ref: string | null = null) {
+  const detail = String(err instanceof Error ? `${err.message}${err.stack ? `\n${err.stack}` : ""}` : err).slice(0, 2000);
+  try {
+    await db
+      .prepare("INSERT INTO error_log (id, at, route, ref, detail) VALUES (?, ?, ?, ?, ?)")
+      .bind(newId(), Date.now(), route, ref, detail)
+      .run();
+    // Keep the table small.
+    await db.prepare("DELETE FROM error_log WHERE at < ?").bind(Date.now() - 14 * 24 * 60 * 60 * 1000).run();
+  } catch {
+    // Logging must never break the request.
+  }
+}

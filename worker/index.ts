@@ -26,6 +26,7 @@ import {
   reclaimStale,
   recordCheck,
   saveFailure,
+  logError,
   saveResult,
   type VideoRow,
 } from "./lib/store";
@@ -136,6 +137,7 @@ app.post("/checks", async (c) => {
     jobId = await startJob(env, link.url);
   } catch (err) {
     console.error("startExtract failed", err);
+    await logError(env.DB, "start-extract", err, link.url);
     const unavailable = err instanceof SupadataError && err.httpStatus >= 400 && err.httpStatus < 500;
     return unavailable
       ? fail(c, 400, "unavailable", LINK_MESSAGES.unavailable)
@@ -182,6 +184,7 @@ async function runAnalysis(env: Env, id: string, record: VideoRecord) {
     await saveResult(env.DB, id, result);
   } catch (err) {
     console.error("analysis failed", id, err);
+    await logError(env.DB, "analysis", err, id);
     await saveFailure(env.DB, id, FRIENDLY_ERROR, String(err instanceof Error ? err.message : err));
   }
 }
@@ -293,6 +296,7 @@ app.post("/checks/:id/place-card", async (c) => {
     return c.json({ card });
   } catch (err) {
     console.error("place card failed", err);
+    await logError(c.env.DB, "place-card", err, `${v.id} ${name}`);
     return fail(c, 500, "server_error", FRIENDLY_ERROR);
   }
 });
@@ -324,8 +328,9 @@ app.get("/health", async (c) => {
 });
 
 app.notFound((c) => fail(c, 404, "not_found", "Not found."));
-app.onError((err, c) => {
+app.onError(async (err, c) => {
   console.error(err);
+  await logError(c.env.DB, `${c.req.method} ${c.req.path}`, err);
   return fail(c, 500, "server_error", FRIENDLY_ERROR);
 });
 
