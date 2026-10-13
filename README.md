@@ -83,7 +83,7 @@ All accounts belong to the Dutch company with EU billing.
 2. **Database**:
    ```bash
    npx wrangler login
-   npx wrangler d1 create trailz        # copy the database_id into wrangler.jsonc
+   npx wrangler d1 create trailz-app      # copy the database_id into wrangler.jsonc
    npm run db:migrate:remote
    ```
 3. **Connect GitHub** → Cloudflare dashboard → Workers & Pages → Create → *Import a repository* → this repo.

@@ -13,8 +13,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "trailz",
-      // Replace with the id printed by `npx wrangler d1 create trailz` (see README).
+      "database_name": "trailz-app",
+      // The D1 database created in the Cloudflare dashboard.
       "database_id": "613ed925-df72-44d4-9d17-30ec98875c8f",
       "migrations_dir": "migrations"
     }
