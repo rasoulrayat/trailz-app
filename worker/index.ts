@@ -12,6 +12,7 @@ import type {
 import { isMock, type Env } from "./env";
 import { analyze, cardFor, geminiConfig } from "./lib/analyze";
 import { pingGemini } from "./lib/gemini";
+import { fillVideoMeta, placePhoto } from "./lib/media";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -163,7 +164,7 @@ app.post("/checks", async (c) => {
         `INSERT INTO videos (id, canonical_key, platform, url, title, author, thumbnail_url, status, job_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'extracting', ?, ?, ?)`,
       )
-        .bind(id, link.canonicalKey, link.platform, link.url, meta.title ?? null, meta.author ?? null, thumb, jobId, now, now)
+        .bind(id, link.canonicalKey, link.platform, link.url, meta.title ?? null, meta.author ?? null, null, jobId, now, now)
         .run();
     } catch (err) {
       // Someone submitted the same video at the same moment: use their row.
@@ -174,6 +175,8 @@ app.post("/checks", async (c) => {
     }
   }
   await recordCheck(env.DB, deviceId, id, true);
+  // Cover image (and, for Instagram, title + creator) after the response: copied into our DB.
+  c.executionCtx.waitUntil(fillVideoMeta(env, id, thumb).catch((err) => logError(env.DB, "video-meta", err, id)));
   return c.json<StartCheckResponse>({ id, cached: false });
 });
 
@@ -217,6 +220,10 @@ app.get("/checks/:id", async (c) => {
   const v = await getVideo(c.env.DB, c.req.param("id"));
   if (!v) return fail(c, 404, "not_found", "This check doesn't exist.");
   const current = v.status === "ready" || v.status === "failed" ? v : await advance(c.env, c.executionCtx, v);
+  // Videos checked before covers existed get theirs on the next visit.
+  if (current.thumbnail_url === null) {
+    c.executionCtx.waitUntil(fillVideoMeta(c.env, v.id).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
+  }
   return c.json<CheckStatus>(toStatus(current));
 });
 
@@ -320,6 +327,28 @@ app.post("/checks/:id/feedback", async (c) => {
     .bind(newId(), v.id, c.get("deviceId"), kind, (body.value ?? "").slice(0, 500), Date.now())
     .run();
   return c.json({ ok: true });
+});
+
+// ---------- GET /api/img/:key : a stored video cover ----------
+app.get("/img/:key", async (c) => {
+  const row = await c.env.DB.prepare("SELECT content_type, bytes FROM images WHERE key = ?")
+    .bind(c.req.param("key"))
+    .first<{ content_type: string; bytes: ArrayBuffer | number[] }>();
+  if (!row) return c.body(null, 404);
+  const bytes = row.bytes instanceof ArrayBuffer ? new Uint8Array(row.bytes) : Uint8Array.from(row.bytes);
+  return c.body(bytes, 200, {
+    "content-type": row.content_type,
+    "cache-control": "public, max-age=604800, immutable",
+  });
+});
+
+// ---------- GET /api/place-photo?q=Kandersteg, Switzerland : a Wikipedia photo of a place ----------
+app.get("/place-photo", async (c) => {
+  const q = (c.req.query("q") ?? "").trim().slice(0, 150);
+  if (!q) return fail(c, 400, "bad_request", "Missing place name.");
+  const photo = await placePhoto(c.env.DB, c.env.GEOCODER_CONTACT, q);
+  c.header("cache-control", "public, max-age=86400");
+  return c.json(photo);
 });
 
 // /api/health        → is the app up, and is it using real AI or sample results?

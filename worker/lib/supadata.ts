@@ -47,3 +47,33 @@ export async function getExtract(apiKey: string, jobId: string, fetcher: typeof 
   if (body.status === "failed") return { status: "failed", error: String(body.error ?? "failed") };
   return { status: body.status === "active" ? "active" : "queued" };
 }
+
+export interface VideoMetadata {
+  title?: string;
+  author?: string;
+  thumbnailUrl?: string;
+}
+
+/**
+ * Title, creator and cover image of a post (1 Supadata credit).
+ * Used for Instagram, whose free oEmbed needs a Meta app token.
+ */
+export async function getMetadata(apiKey: string, url: string, fetcher: typeof fetch = fetch): Promise<VideoMetadata> {
+  const res = await fetcher(`${BASE}/metadata?url=${encodeURIComponent(url)}`, { headers: { "x-api-key": apiKey } });
+  if (!res.ok) throw new SupadataError(`Supadata metadata error ${res.status}`, res.status);
+  const b = (await res.json()) as {
+    title?: string | null;
+    description?: string | null;
+    author?: { username?: string; displayName?: string };
+    media?: { thumbnailUrl?: string; url?: string; items?: { thumbnailUrl?: string; url?: string }[] };
+  };
+  const m = b.media;
+  const thumb = m?.thumbnailUrl || m?.url || m?.items?.[0]?.thumbnailUrl || m?.items?.[0]?.url;
+  const handle = b.author?.username || b.author?.displayName;
+  const title = (b.title || b.description || "").trim();
+  return {
+    title: title ? title.slice(0, 300) : undefined,
+    author: handle ? `@${handle.replace(/^@/, "")}` : undefined,
+    thumbnailUrl: thumb || undefined,
+  };
+}

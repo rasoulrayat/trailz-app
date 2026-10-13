@@ -114,6 +114,8 @@ All accounts belong to the Dutch company with EU billing.
 - [ ] Turnstile (bot check) on the paste box if you see abuse.
 - [ ] Test 50 real travel reels and compare the place matches with a manual check.
 - [ ] OpenStreetMap Nominatim is fine for testing; switch to a commercial places API before launch traffic.
+- [ ] Place photos come from Wikipedia/Wikimedia (credited on the card). Check the licence wording with the lawyer, or swap in a photo API.
+- [ ] Video covers are copied into D1 (`images` table). Move them to R2 when there are many.
 
 ## What's next (later phases)
 

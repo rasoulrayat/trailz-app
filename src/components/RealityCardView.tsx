@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { MonthRating, RealityCard, VideoMeta } from "../../shared/types";
 import { Icon } from "./Icon";
+import { PlaceThumb, usePlacePhoto } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
 
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
@@ -40,12 +41,15 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
   const { place } = card;
   const best = card.months.map((m, i) => (m === "best" ? MONTH_NAMES[i] : null)).filter(Boolean);
   const crowded = card.months.map((m, i) => (m === "crowded" ? MONTH_NAMES[i] : null)).filter(Boolean);
+  // The place itself on top; the reel's cover while there's no photo.
+  const photo = usePlacePhoto([place.name, place.country].filter(Boolean).join(", "));
+  const hero = photo?.url ?? video?.thumbnailUrl ?? null;
 
   return (
     <>
       <header
         className="media"
-        style={video?.thumbnailUrl ? { backgroundImage: `url("${video.thumbnailUrl}")` } : undefined}
+        style={hero ? { backgroundImage: `url("${hero}")` } : undefined}
       >
         <div className="shade" />
         <div className="top">
@@ -60,12 +64,21 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
             <Icon name="share" size={18} />
           </button>
         </div>
-        {video && (
+        {(video || photo) && (
           <div className="credit">
-            <span>{platformLabel(video)}</span>
-            <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              Original <Icon name="external" size={12} />
-            </a>
+            {video ? (
+              <a href={video.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", gap: 4, alignItems: "center", minWidth: 0 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reel · {platformLabel(video)}</span>
+                <Icon name="external" size={12} />
+              </a>
+            ) : (
+              <span />
+            )}
+            {photo?.pageUrl && (
+              <a href={photo.pageUrl} target="_blank" rel="noopener noreferrer" style={{ flex: "none" }}>
+                Photo: Wikipedia
+              </a>
+            )}
           </div>
         )}
       </header>
@@ -154,7 +167,7 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
             <h2 style={{ fontSize: 15 }}>Same vibe, fewer people</h2>
             {card.gems.map((g) => (
               <div key={g.name} className="list-row" style={{ cursor: "default" }}>
-                <span className="thumb" style={{ background: "var(--real)" }} />
+                <PlaceThumb q={[g.name, place.country].filter(Boolean).join(", ")} style={{ backgroundColor: "var(--real)" }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="row-title">{g.name}</span>
                   <span className="row-sub">{g.why}</span>

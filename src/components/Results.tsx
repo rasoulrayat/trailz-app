@@ -4,6 +4,7 @@ import type { CheckResult, CheckStatus, PlaceRef } from "../../shared/types";
 import { api } from "../api";
 import { Icon } from "./Icon";
 import { PlaceMap } from "./PlaceMap";
+import { PlaceThumb } from "./PlacePhoto";
 import { platformLabel, VideoChip } from "./VideoChip";
 
 type Of<T extends CheckResult["outcome"]> = Extract<CheckResult, { outcome: T }>;
@@ -106,6 +107,7 @@ export function PickView({ check, result }: { check: CheckStatus; result: Of<"pi
                 setTyped("");
               }}
             />
+            <PlaceThumb q={[p.name, p.country ?? p.region].filter(Boolean).join(", ")} style={{ width: 44, height: 44 }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="row-title">{[p.name, p.country].filter(Boolean).join(", ")}</span>
               <span className="row-sub">{p.evidence ?? p.region}</span>
@@ -176,7 +178,7 @@ export function VibeView({ check, result }: { check: CheckStatus; result: Of<"vi
         <h2>{result.suggestions.length} real places with this vibe</h2>
         {result.suggestions.map((s) => (
           <Link key={s.name} to={placeUrl(check.id, `${s.name}, ${s.country}`)} className="list-row">
-            <span className="thumb" />
+            <PlaceThumb q={`${s.name}, ${s.country}`} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="row-title">{s.name}</span>
               <span className="row-sub">
@@ -331,6 +333,7 @@ function PlaceRow({
       />
       <span className={`num${checked ? " sel" : ""}`}>{index + 1}</span>
       <Link to={placeUrl(checkId, place.name)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10 }}>
+        <PlaceThumb q={[place.name, place.country ?? place.region].filter(Boolean).join(", ")} style={{ width: 44, height: 44 }} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span className="row-title" style={{ fontSize: 14 }}>
             {place.name}
