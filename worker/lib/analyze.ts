@@ -89,10 +89,13 @@ export async function cardFor(
   place: PlaceRef,
   record: VideoRecord | null,
   relation: "reel" | "lookalike" = "reel",
+  /** Only Gemini, no backup model: used to upgrade a card the backup wrote. */
+  geminiOnly = false,
 ): Promise<{ card: RealityCard; backup: boolean }> {
   if (isMock(env)) return { card: mockCard(place, DEFAULT_ORIGIN), backup: false };
   const checked = place.verified === undefined ? await verifyPlace(env, place) : place;
   const cfg = geminiConfig(env);
+  if (geminiOnly) cfg.fallback = undefined;
   const card = await generateRealityCard(cfg, checked, record, DEFAULT_ORIGIN, !!checked.verified, fetch, relation);
   return { card, backup: !!cfg.fallback && cfg.answeredBy === cfg.fallback.name };
 }

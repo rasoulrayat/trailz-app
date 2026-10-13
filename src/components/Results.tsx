@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { CheckResult, CheckStatus, PlaceRef } from "../../shared/types";
-import { api } from "../api";
+import { api, prefetchCards } from "../api";
 import { Icon } from "./Icon";
 import { MapView, toPoints } from "./MapView";
 import { PhotoStrip, PlaceThumb } from "./PlacePhoto";
@@ -155,6 +155,11 @@ export function PickView({ check, result }: { check: CheckStatus; result: Of<"pi
 export function VibeView({ check, result }: { check: CheckStatus; result: Of<"vibe"> }) {
   const navigate = useNavigate();
   const [typed, setTyped] = useState("");
+  // Start the Reality Cards now, so tapping a place opens it straight away.
+  const names = result.suggestions.map((s) => `${s.name}, ${s.country}`).join("|");
+  useEffect(() => {
+    prefetchCards(check.id, names ? names.split("|") : []);
+  }, [check.id, names]);
   return (
     <main className="page" style={{ gap: 18 }}>
       <TopBar check={check} />
@@ -243,6 +248,11 @@ export function MultiView({ check, result }: { check: CheckStatus; result: Of<"m
   const [region, setRegion] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(result.regions[0]?.placeIndexes ?? []));
   const [showAll, setShowAll] = useState(false);
+  // Start the first places' Reality Cards in the background (more would cost AI calls nobody uses).
+  const firstNames = result.places.slice(0, 3).map((p) => p.name).join("|");
+  useEffect(() => {
+    prefetchCards(check.id, firstNames ? firstNames.split("|") : []);
+  }, [check.id, firstNames]);
 
   const visible = useMemo(() => {
     const idx = region === null ? result.places.map((_, i) => i) : result.regions[region].placeIndexes;

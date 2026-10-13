@@ -44,3 +44,28 @@ export const api = {
       body: JSON.stringify({ kind: "wrong_result", value }),
     }),
 };
+
+// Reality Cards in flight or done, so a card started in the background is reused when the place is opened.
+const cardCache = new Map<string, Promise<{ card: RealityCard }>>();
+
+/** Reality Card for a place, shared with any background request for the same place. */
+export function placeCardShared(id: string, name: string, typed = false) {
+  const key = `${id}|${name}|${typed ? 1 : 0}`;
+  let p = cardCache.get(key);
+  if (!p) {
+    p = api.placeCard(id, name, typed);
+    p.catch(() => cardCache.delete(key)); // a failure can be retried
+    cardCache.set(key, p);
+  }
+  return p;
+}
+
+/**
+ * Start writing the Reality Cards of the places on a result screen, one after another,
+ * so the first taps open instantly. Writing a card takes the AI 10 to 30 seconds.
+ */
+export async function prefetchCards(id: string, names: string[]) {
+  for (const name of names) {
+    await placeCardShared(id, name).catch(() => {});
+  }
+}

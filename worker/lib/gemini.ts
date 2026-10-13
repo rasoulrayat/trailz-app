@@ -12,8 +12,10 @@ export interface GeminiConfig {
    * Gets the prompt and a standard JSON schema, returns the parsed JSON.
    */
   fallback?: { name: string; run(prompt: string, jsonSchema: object): Promise<unknown> };
-  /** Set to the model that answered the last request (so backup answers aren't cached for good). */
+  /** Set to the model that answered the last request (so backup answers can be refreshed later). */
   answeredBy?: string;
+  /** Give up on one Gemini call after this long (default 30 s). */
+  timeoutMs?: number;
 }
 
 /** Gemini's schema uses upper-case types ("OBJECT"); standard JSON Schema uses lower-case. */
@@ -42,8 +44,18 @@ async function callModel(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.4 },
     }),
+    signal: AbortSignal.timeout(cfg.timeoutMs ?? 30_000),
   });
 }
+
+/**
+ * Models that just said "busy" (or don't exist) are skipped for a while, so a request doesn't
+ * spend a minute asking four overloaded models before trying the backup. Per Worker instance.
+ */
+const unavailableUntil = new Map<string, number>();
+const BUSY_PAUSE_MS = 3 * 60_000;
+const GONE_PAUSE_MS = 60 * 60_000;
+export const _resetModelPauses = () => unavailableUntil.clear();
 
 /** Statuses where another model may well answer: overloaded, rate-limited, or a passing server error. */
 const BUSY = new Set([429, 500, 502, 503, 504]);
@@ -61,19 +73,26 @@ async function generateJsonFrom<T>(
   fetcher: typeof fetch,
 ): Promise<{ data: T; model: string }> {
   const skipped: string[] = [];
-  for (const [i, model] of cfg.models.entries()) {
+  for (const model of cfg.models) {
+    const pausedUntil = unavailableUntil.get(model) ?? 0;
+    if (pausedUntil > Date.now()) {
+      skipped.push(`${model}: skipped (busy or unavailable a moment ago)`);
+      continue;
+    }
     let res: Response;
     try {
       res = await callModel(cfg, model, prompt, schema, fetcher);
     } catch (err) {
-      skipped.push(`${model}: network error ${String(err).slice(0, 120)}`);
+      // Timeout or network error: treat like "busy".
+      unavailableUntil.set(model, Date.now() + BUSY_PAUSE_MS);
+      skipped.push(`${model}: ${String(err instanceof Error ? err.name : err).slice(0, 60)}`);
       continue;
     }
     // 404: retired model, or one this key may not use. Busy: Google is overloaded right now.
     // Either way the next model in the list may answer.
     if (res.status === 404 || BUSY.has(res.status)) {
+      unavailableUntil.set(model, Date.now() + (res.status === 404 ? GONE_PAUSE_MS : BUSY_PAUSE_MS));
       skipped.push(`${model}: ${res.status} ${(await res.text()).replace(/\s+/g, " ").slice(0, 160)}`);
-      if (BUSY.has(res.status) && i < cfg.models.length - 1) await new Promise((r) => setTimeout(r, 400));
       continue;
     }
     // Anything else (bad key, bad request) won't be fixed by another model.

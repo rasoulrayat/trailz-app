@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import type {
+  RealityCard,
   ApiError,
   CheckResult,
   CheckStatus,
@@ -263,9 +264,9 @@ app.post("/checks/:id/place-card", async (c) => {
   if (!name) return fail(c, 400, "bad_request", "Tell us the place name.");
 
   const key = placeKey(name);
-  const cached = await c.env.DB.prepare("SELECT card_json FROM place_cards WHERE video_id = ? AND place_key = ?")
+  const cached = await c.env.DB.prepare("SELECT card_json, created_at FROM place_cards WHERE video_id = ? AND place_key = ?")
     .bind(v.id, key)
-    .first<{ card_json: string }>();
+    .first<{ card_json: string; created_at: number }>();
 
   // Remember what users pick or type: it becomes labelled data for the AI review queue.
   if (body.typed || v.outcome === "pick" || v.outcome === "not_travel") {
@@ -273,7 +274,6 @@ app.post("/checks/:id/place-card", async (c) => {
       .bind(newId(), v.id, c.get("deviceId"), body.typed ? "typed_place" : "picked_place", name, Date.now())
       .run();
   }
-  if (cached) return c.json({ card: JSON.parse(cached.card_json) });
 
   const result = v.result_json ? (JSON.parse(v.result_json) as CheckResult) : null;
   const known: PlaceRef | undefined =
@@ -289,15 +289,28 @@ app.post("/checks/:id/place-card", async (c) => {
       : undefined;
   const place: PlaceRef = known ?? (lookalike ? { name: lookalike.name, country: lookalike.country, confidence: 0.8 } : { name, confidence: 0.6 });
   const record = v.extract_json ? (JSON.parse(v.extract_json) as VideoRecord) : null;
+  const relation = lookalike ? "lookalike" : "reel";
+  const save = (card: RealityCard, backup: boolean) =>
+    c.env.DB.prepare("INSERT OR REPLACE INTO place_cards (video_id, place_key, card_json, created_at) VALUES (?, ?, ?, ?)")
+      .bind(v.id, key, JSON.stringify(backup ? { ...card, _backup: true } : card), Date.now())
+      .run();
+
+  if (cached) {
+    const { _backup, ...card } = JSON.parse(cached.card_json) as RealityCard & { _backup?: boolean };
+    // Written by the backup model: show it now, and try for Gemini's better card in the background.
+    if (_backup && Date.now() - cached.created_at > 10 * 60_000) {
+      c.executionCtx.waitUntil(
+        cardFor(c.env, { ...place, verified: undefined }, record, relation, true)
+          .then((r) => save(r.card, false))
+          .catch(() => {}),
+      );
+    }
+    return c.json({ card });
+  }
 
   try {
-    const { card, backup } = await cardFor(c.env, { ...place, verified: undefined }, record, lookalike ? "lookalike" : "reel");
-    // Cards from the backup model are shown but not kept, so the next visit gets Gemini's (better) card.
-    if (!backup) {
-      await c.env.DB.prepare("INSERT OR REPLACE INTO place_cards (video_id, place_key, card_json, created_at) VALUES (?, ?, ?, ?)")
-        .bind(v.id, key, JSON.stringify(card), Date.now())
-        .run();
-    }
+    const { card, backup } = await cardFor(c.env, { ...place, verified: undefined }, record, relation);
+    await save(card, backup);
     return c.json({ card });
   } catch (err) {
     console.error("place card failed", err);

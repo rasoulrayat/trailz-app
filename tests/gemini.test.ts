@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { pingGemini } from "../worker/lib/gemini";
+import { beforeEach, describe, expect, it } from "vitest";
+import { _resetModelPauses, pingGemini } from "../worker/lib/gemini";
 
 const ok = () =>
   new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }), { status: 200 });
 
 describe("Gemini model fallback", () => {
+  beforeEach(() => _resetModelPauses());
   it("skips a model that returns 404 and uses the next one", async () => {
     const tried: string[] = [];
     const fetcher = (async (url: string) => {
@@ -61,5 +62,16 @@ describe("Gemini model fallback", () => {
     );
     expect(res).toMatchObject({ ok: true, answeredBy: "backup" });
     expect(schemaSeen).toMatchObject({ type: "object", properties: { ok: { type: "boolean" } } });
+  });
+
+  it("skips a model that was busy a moment ago", async () => {
+    const tried: string[] = [];
+    const busy = (async (url: string) => {
+      tried.push(url);
+      return new Response("high demand", { status: 503 });
+    }) as unknown as typeof fetch;
+    await pingGemini({ apiKey: "k", models: ["m1"], baseUrl: "https://g" }, busy);
+    await pingGemini({ apiKey: "k", models: ["m1"], baseUrl: "https://g" }, busy);
+    expect(tried).toHaveLength(1);
   });
 });

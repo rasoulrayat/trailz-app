@@ -213,3 +213,4 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .map-pin { width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font: 600 11px/1 var(--font); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(11, 27, 63, 0.35); cursor: default; }
 .map-pin.sel { background: var(--blue); width: 30px; height: 30px; }
 .realmap .maplibregl-ctrl-attrib { font-size: 10px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--blue); animation: spin 0.9s linear infinite; flex: none; }
