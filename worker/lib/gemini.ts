@@ -27,16 +27,28 @@ async function callModel(
   });
 }
 
+/** Statuses where another model may well answer: overloaded, rate-limited, or a passing server error. */
+const BUSY = new Set([429, 500, 502, 503, 504]);
+
 async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch): Promise<T> {
   if (!cfg.models.length) throw new Error("GEMINI_MODEL is empty");
-  const notFound: string[] = [];
-  for (const model of cfg.models) {
-    const res = await callModel(cfg, model, prompt, schema, fetcher);
-    if (res.status === 404) {
-      // Retired model, or one this API key may not use: try the next one.
-      notFound.push(`${model}: ${(await res.text()).slice(0, 160)}`);
+  const skipped: string[] = [];
+  for (const [i, model] of cfg.models.entries()) {
+    let res: Response;
+    try {
+      res = await callModel(cfg, model, prompt, schema, fetcher);
+    } catch (err) {
+      skipped.push(`${model}: network error ${String(err).slice(0, 120)}`);
       continue;
     }
+    // 404: retired model, or one this key may not use. Busy: Google is overloaded right now.
+    // Either way the next model in the list may answer.
+    if (res.status === 404 || BUSY.has(res.status)) {
+      skipped.push(`${model}: ${res.status} ${(await res.text()).replace(/\s+/g, " ").slice(0, 160)}`);
+      if (BUSY.has(res.status) && i < cfg.models.length - 1) await new Promise((r) => setTimeout(r, 400));
+      continue;
+    }
+    // Anything else (bad key, bad request) won't be fixed by another model.
     if (!res.ok) throw new Error(`Gemini ${model} error ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const body = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
@@ -49,7 +61,7 @@ async function generateJson<T>(cfg: GeminiConfig, prompt: string, schema: object
     }
     return JSON.parse(text) as T;
   }
-  throw new Error(`No Gemini model available. ${notFound.join(" | ")}`);
+  throw new Error(`No Gemini model answered. ${skipped.join(" | ")}`);
 }
 
 /** Small live test used by /api/health?ai=1: which model answers with this key. */
