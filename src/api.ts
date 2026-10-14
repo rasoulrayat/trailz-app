@@ -89,9 +89,21 @@ export const tripsApi = {
     origin?: string;
     travelers?: number;
   }) => call<{ trip: Trip }>("/api/trips", { method: "POST", body: JSON.stringify(body) }),
-  updateTrip: (id: string, body: { status?: "saved"; startDate?: string | null; origin?: string; travelers?: number }) =>
+  updateTrip: (id: string, body: { status?: "saved"; startDate?: string | null; origin?: string; travelers?: number; booked?: Trip["booked"] }) =>
     call<{ trip: Trip }>(`/api/trips/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTrip: (id: string) => call<{ ok: true }>(`/api/trips/${encodeURIComponent(id)}`, { method: "DELETE" }),
   handoff: (id: string) => call<{ handoff: Handoff }>(`/api/trips/${encodeURIComponent(id)}/handoff`),
   prices: (id: string) => call<{ prices: TripPrices | null; reason?: string }>(`/api/trips/${encodeURIComponent(id)}/prices`),
 };
+
+// Prices are fetched when the trip page opens, so the booking screen is already filled when it's tapped.
+const priceCache = new Map<string, { at: number; p: Promise<{ prices: TripPrices | null; reason?: string }> }>();
+export function pricesShared(id: string, force = false) {
+  const hit = priceCache.get(id);
+  if (hit && !force && Date.now() - hit.at < 10 * 60_000) return hit.p;
+  const p = tripsApi.prices(id);
+  p.catch(() => priceCache.delete(id));
+  priceCache.set(id, { at: Date.now(), p });
+  return p;
+}
+export const forgetPrices = (id: string) => priceCache.delete(id);

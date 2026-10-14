@@ -213,6 +213,10 @@ export interface Trip {
   startDate?: string | null;
   places: SavedPlace[];
   plan: TripPlan;
+  /** Which parts the person told us they booked (or Duffel confirmed). */
+  booked: { flights?: boolean; stay?: Record<string, boolean>; activities?: boolean };
+  /** Month numbers (1–12) the Reality Cards rated "best" for these places, for quick date picks. */
+  bestMonths: number[];
   createdAt: number;
   updatedAt: number;
 }
@@ -228,8 +232,13 @@ export interface Handoff {
 
 /** One bookable price from one provider. The UI never cares which provider, only the tag. */
 export interface Offer {
-  provider: "google" | "aviasales" | "duffel" | "hotellook";
+  provider: "google" | "aviasales" | "duffel" | "hotellook" | "kiwi" | "booking";
+  /** Where the person will book, in words they know: "KLM", "Booking.com", "Google Flights". */
   providerLabel: string;
+  /** "search": a partner search page with the trip filled in (no price), listed after priced options. */
+  kind?: "offer" | "search";
+  /** True when TrailZ earns on this booking (markup or commission). Only breaks ties in ranking. */
+  earns?: boolean;
   /** "live" = fetched now; "cached" = seen by other travelers recently. */
   freshness: "live" | "cached";
   price: number;

@@ -68,6 +68,7 @@ export async function googleFlights(
         return {
           provider: "google" as const,
           providerLabel: "Google Flights",
+          earns: false,
           freshness: "live" as const,
           price: Math.round(f.price),
           currency: "EUR",
@@ -139,6 +140,7 @@ export async function googleHotels(
         .map(({ p, total }) => ({
           provider: "google" as const,
           providerLabel: "Google Hotels",
+          earns: false,
           freshness: "live" as const,
           price: Math.round(total),
           currency: "EUR",
@@ -191,6 +193,7 @@ export async function duffelFlights(
         return {
           provider: "duffel" as const,
           providerLabel: o.owner?.name ?? "Airline",
+          earns: true,
           freshness: "live" as const,
           price: Math.round(total / Math.max(1, adults)),
           currency: "EUR",

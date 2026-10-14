@@ -229,10 +229,10 @@ export function mockPrices(trip: Trip): TripPrices {
   const nights = Math.max(1, trip.plan.days.length - 1);
   const base = trip.plan.days[0]?.base || trip.places[0]?.name || "town";
   const f = (provider: Offer["provider"], providerLabel: string, freshness: Offer["freshness"], price: number, title: string): Offer => ({
-    provider, providerLabel, freshness, price, currency: "EUR", title, detail: "round trip", bookUrl: "https://example.com/book", unit: "per person",
+    provider, providerLabel, freshness, price, currency: "EUR", title, detail: "round trip", bookUrl: `https://example.com/book/${price}`, unit: "per person", earns: provider !== "google",
   });
   const h = (provider: Offer["provider"], providerLabel: string, freshness: Offer["freshness"], price: number, title: string): Offer => ({
-    provider, providerLabel, freshness, price, currency: "EUR", title, bookUrl: "https://example.com/stay", unit: "total",
+    provider, providerLabel, freshness, price, currency: "EUR", title, bookUrl: `https://example.com/stay/${price}`, unit: "total", earns: provider !== "google",
   });
   return {
     flights: {
@@ -250,7 +250,11 @@ export function mockPrices(trip: Trip): TripPrices {
       {
         city: base,
         checkIn: trip.startDate ?? "2027-06-12",
-        checkOut: trip.startDate ?? "2027-06-12",
+        checkOut: (() => {
+          const d = new Date(`${trip.startDate ?? "2027-06-12"}T00:00:00Z`);
+          d.setUTCDate(d.getUTCDate() + nights);
+          return d.toISOString().slice(0, 10);
+        })(),
         nights,
         offers: [
           h("google", "Google Hotels", "live", 72 * nights, "Casa Furore guesthouse · ★★★ · 8.7"),

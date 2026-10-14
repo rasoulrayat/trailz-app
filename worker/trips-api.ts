@@ -1,12 +1,12 @@
 import { Hono, type Context } from "hono";
-import type { ApiError, Handoff, Mood, RealityCard, SavedPlace, Trip, TripPlan } from "../shared/types";
+import type { ApiError, Handoff, Mood, Offer, RealityCard, SavedPlace, Trip, TripPlan } from "../shared/types";
 import { MOODS } from "../shared/types";
 import { DEFAULT_ORIGIN, isMock, type Env } from "./env";
 import { geminiConfig } from "./lib/analyze";
 import { mockPlan, mockPrices } from "./lib/mock";
 import { placeKey } from "./lib/route";
 import { logError, newId } from "./lib/store";
-import { iataFor, tripPrices } from "./lib/prices";
+import { iataFor, rank, tripPrices } from "./lib/prices";
 import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 
@@ -91,6 +91,8 @@ interface TripRow {
   start_date: string | null;
   places_json: string;
   plan_json: string;
+  booked_json: string | null;
+  months_json: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -104,6 +106,8 @@ const toTrip = (r: TripRow): Trip => ({
   startDate: r.start_date,
   places: JSON.parse(r.places_json) as SavedPlace[],
   plan: JSON.parse(r.plan_json) as TripPlan,
+  booked: r.booked_json ? (JSON.parse(r.booked_json) as Trip["booked"]) : {},
+  bestMonths: r.months_json ? (JSON.parse(r.months_json) as number[]) : [],
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -160,6 +164,7 @@ trips.post("/trips", async (c) => {
 
   // What the Reality Cards already found out: base cities and local tips make the plan consistent with the cards.
   const notes: string[] = [];
+  const monthVotes = new Map<number, number>();
   for (const p of places) {
     if (!p.checkId) continue;
     const row = await c.env.DB.prepare("SELECT card_json FROM place_cards WHERE video_id = ? AND place_key = ?")
@@ -173,6 +178,7 @@ trips.post("/trips", async (c) => {
         : null;
     if (card?.base) notes.push(`- ${p.name}: base in ${card.base.city} (${card.base.fromPlace}). Local tip: ${card.base.localTip}`);
     const best = card?.months.map((m, i) => (m === "best" ? i : -1)).filter((i) => i >= 0) ?? [];
+    best.forEach((i) => monthVotes.set(i + 1, (monthVotes.get(i + 1) ?? 0) + 1));
     if (best.length) notes.push(`- ${p.name}: best months ${best.map((i) => ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i]).join(", ")}`);
   }
 
@@ -188,11 +194,13 @@ trips.post("/trips", async (c) => {
 
   const now = Date.now();
   const id = newId();
+  // Months most cards called "best", in calendar order (quick date picks on the booking screen).
+  const bestMonths = [...monthVotes.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 4).map(([m]) => m).sort((a, b) => a - b);
   await c.env.DB.prepare(
-    `INSERT INTO trips (id, device_id, status, mood, budget_mode, origin, travelers, start_date, places_json, plan_json, created_at, updated_at)
-     VALUES (?, ?, 'draft', ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO trips (id, device_id, status, mood, budget_mode, origin, travelers, start_date, places_json, plan_json, booked_json, months_json, created_at, updated_at)
+     VALUES (?, ?, 'draft', ?, ?, ?, ?, NULL, ?, ?, '{}', ?, ?, ?)`,
   )
-    .bind(id, c.get("deviceId"), mood, budgetMode ? 1 : 0, origin, travelers, JSON.stringify(places), JSON.stringify(plan), now, now)
+    .bind(id, c.get("deviceId"), mood, budgetMode ? 1 : 0, origin, travelers, JSON.stringify(places), JSON.stringify(plan), JSON.stringify(bestMonths), now, now)
     .run();
   const row = await getTrip(c.env.DB, id, c.get("deviceId"));
   return c.json({ trip: toTrip(row!) });
@@ -202,13 +210,29 @@ trips.post("/trips", async (c) => {
 trips.patch("/trips/:id", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
-  const b = (await c.req.json().catch(() => ({}))) as { status?: string; startDate?: string | null; origin?: string; travelers?: number };
+  const b = (await c.req.json().catch(() => ({}))) as {
+    status?: string;
+    startDate?: string | null;
+    origin?: string;
+    travelers?: number;
+    /** Merge: { flights: true } or { stay: { Fira: true } } or { activities: true }. */
+    booked?: Trip["booked"];
+  };
   const status = b.status === "saved" ? "saved" : row.status;
+  const booked: Trip["booked"] = { ...(row.booked_json ? (JSON.parse(row.booked_json) as Trip["booked"]) : {}) };
+  if (b.booked) {
+    if (b.booked.flights !== undefined) booked.flights = !!b.booked.flights;
+    if (b.booked.activities !== undefined) booked.activities = !!b.booked.activities;
+    if (b.booked.stay) booked.stay = { ...(booked.stay ?? {}), ...b.booked.stay };
+  }
   const startDate = b.startDate === undefined ? row.start_date : b.startDate && /^\d{4}-\d{2}-\d{2}$/.test(b.startDate) ? b.startDate : null;
   const origin = (b.origin ?? row.origin).trim().slice(0, 60) || row.origin;
   const travelers = Math.min(9, Math.max(1, Math.round(Number(b.travelers) || row.travelers)));
-  await c.env.DB.prepare("UPDATE trips SET status = ?, start_date = ?, origin = ?, travelers = ?, updated_at = ? WHERE id = ?")
-    .bind(status, startDate, origin, travelers, Date.now(), row.id)
+  // New dates mean new bookings: reset what was booked (unless only the booked flags changed).
+  const datesChanged = startDate !== row.start_date || origin !== row.origin || travelers !== row.travelers;
+  const bookedOut = datesChanged && !b.booked ? {} : booked;
+  await c.env.DB.prepare("UPDATE trips SET status = ?, start_date = ?, origin = ?, travelers = ?, booked_json = ?, updated_at = ? WHERE id = ?")
+    .bind(status, startDate, origin, travelers, JSON.stringify(bookedOut), Date.now(), row.id)
     .run();
   const fresh = await getTrip(c.env.DB, row.id, c.get("deviceId"));
   return c.json({ trip: toTrip(fresh!) });
@@ -219,29 +243,48 @@ trips.delete("/trips/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+const partnerIds = (env: Env) => ({
+  kiwi: env.KIWI_AFFILIATE_ID,
+  booking: env.BOOKING_AFFILIATE_ID,
+  getyourguide: env.GYG_PARTNER_ID,
+  omio: env.OMIO_PARTNER_ID,
+  tp: env.TP_MARKER && env.TP_TRS
+    ? { marker: env.TP_MARKER, trs: env.TP_TRS, kiwiP: env.TP_KIWI_P, bookingP: env.TP_BOOKING_P, gygP: env.TP_GYG_P, omioP: env.TP_OMIO_P }
+    : undefined,
+});
+
+/** Airport codes for the Kiwi deep link. */
+async function codesFor(db: D1Database, trip: Trip) {
+  const country = trip.places.find((p) => p.country)?.country ?? null;
+  const arrive = trip.plan.gateway?.arrive || trip.plan.days[0]?.base || trip.places[0]?.name || "";
+  const leave = trip.plan.gateway?.leave || arrive;
+  const [o, d, l] = await Promise.all([
+    iataFor(db, trip.origin),
+    iataFor(db, [arrive, country].filter(Boolean).join(", ")),
+    leave !== arrive ? iataFor(db, [leave, country].filter(Boolean).join(", ")) : Promise.resolve(null),
+  ]);
+  return { origin: o?.code, destination: d?.code, leave: l?.code };
+}
+
+const searchRow = (provider: "kiwi" | "booking", label: string, url: string, earns: boolean, title: string): Offer => ({
+  provider,
+  providerLabel: label,
+  kind: "search",
+  earns,
+  freshness: "live",
+  price: 0,
+  currency: "EUR",
+  title: `${title} on ${label}`,
+  bookUrl: url,
+  unit: "per person",
+});
+
 /** Partner links for this trip, with dates and places filled in. */
 trips.get("/trips/:id/handoff", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   const trip = toTrip(row);
-  const country = trip.places.find((p) => p.country)?.country ?? null;
-  const arrive = trip.plan.gateway?.arrive || trip.plan.days[0]?.base || trip.places[0]?.name || "";
-  const leave = trip.plan.gateway?.leave || arrive;
-  const [o, d, l] = await Promise.all([
-    iataFor(c.env.DB, trip.origin),
-    iataFor(c.env.DB, [arrive, country].filter(Boolean).join(", ")),
-    leave !== arrive ? iataFor(c.env.DB, [leave, country].filter(Boolean).join(", ")) : Promise.resolve(null),
-  ]);
-  const codes = { origin: o?.code, destination: d?.code, leave: l?.code };
-  const handoff: Handoff = buildHandoff(trip, {
-    kiwi: c.env.KIWI_AFFILIATE_ID,
-    booking: c.env.BOOKING_AFFILIATE_ID,
-    getyourguide: c.env.GYG_PARTNER_ID,
-    omio: c.env.OMIO_PARTNER_ID,
-    tp: c.env.TP_MARKER && c.env.TP_TRS
-      ? { marker: c.env.TP_MARKER, trs: c.env.TP_TRS, kiwiP: c.env.TP_KIWI_P, bookingP: c.env.TP_BOOKING_P, gygP: c.env.TP_GYG_P, omioP: c.env.TP_OMIO_P }
-      : undefined,
-  }, codes);
+  const handoff: Handoff = buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip));
   return c.json({ handoff });
 });
 
@@ -249,9 +292,22 @@ trips.get("/trips/:id/handoff", async (c) => {
 trips.get("/trips/:id/prices", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
-  if (isMock(c.env)) return c.json({ prices: mockPrices(toTrip(row)) });
+  if (isMock(c.env)) {
+    const t = toTrip(row);
+    const h = buildHandoff(t, partnerIds(c.env), await codesFor(c.env.DB, t));
+    const m = mockPrices(t);
+    m.flights = m.flights && { ...m.flights, offers: rank([...m.flights.offers, ...h.flights.map((f) => searchRow("kiwi", f.partner, f.url, true, "Search all flights"))]) };
+    m.stays = m.stays.map((s) => ({ ...s, offers: rank([...s.offers, ...h.stay.filter((x) => x.city === s.city).map((x) => searchRow("booking", x.partner, x.url, true, "Search all stays"))]) }));
+    return c.json({ prices: m });
+  }
   if (!c.env.TP_TOKEN && !c.env.SERPAPI_KEY && !c.env.DUFFEL_TOKEN) return c.json({ prices: null, reason: "no_provider" });
   try {
+    const trip = toTrip(row);
+    const handoff = buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip));
+    const searches = {
+      flights: handoff.flights.map((f) => searchRow("kiwi", f.partner, f.url, !!c.env.TP_MARKER, "Search all flights")),
+      stay: Object.fromEntries(handoff.stay.map((s) => [s.city, [searchRow("booking", s.partner, s.url, !!c.env.TP_BOOKING_P, "Search all stays")]])),
+    };
     const prices = await tripPrices(
       c.env.DB,
       {
@@ -261,7 +317,8 @@ trips.get("/trips/:id/prices", async (c) => {
         serpMonthlyLimit: Number(c.env.SERPAPI_MONTHLY_LIMIT || "250"),
         duffelToken: c.env.DUFFEL_TOKEN,
       },
-      toTrip(row),
+      trip,
+      searches,
     );
     c.header("cache-control", "private, max-age=600");
     return c.json({ prices });

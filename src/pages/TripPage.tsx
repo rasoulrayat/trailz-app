@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { MOODS, type ItemKind, type Trip } from "../../shared/types";
-import { ApiFailure, tripsApi } from "../api";
+import { ApiFailure, pricesShared, tripsApi } from "../api";
 import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PhotoStrip } from "../components/PlacePhoto";
@@ -45,7 +45,10 @@ export function TripPage() {
   useEffect(() => {
     tripsApi
       .getTrip(id)
-      .then((r) => setTrip(r.trip))
+      .then((r) => {
+        setTrip(r.trip);
+        if (r.trip.startDate) pricesShared(r.trip.id); // warm up: the booking screen opens already priced
+      })
       .catch((e: Error) => setError(e instanceof ApiFailure && e.code === "not_found" ? "We can't find this trip." : e.message));
   }, [id]);
 
@@ -205,7 +208,7 @@ export function TripPage() {
             </button>
           )}
           <Link to={`/trips/${trip.id}/book`} className="btn" style={{ flex: 1 }}>
-            Book this plan
+            {trip.startDate ? "See prices & book" : "Pick dates & see prices"}
             <Icon name="arrow" size={18} />
           </Link>
         </div>

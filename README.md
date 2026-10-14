@@ -124,8 +124,12 @@ All accounts belong to the Dutch company with EU billing.
 - **Saved** tab: "A trip is forming" groups saved places within ~300 km and shows their shared vibe.
 - **Plan**: mood (Solo & slow / Energetic / With friends), days, budget mode → Gemini writes a day-by-day plan
   that reuses what the Reality Cards found (base city, local tips, best months). Saved under **Trips**.
-- **Book**: dates (or flexible), departure city, travelers → **Compare & go** opens each partner with everything
-  filled in: Kiwi.com (flights), Booking.com (one search per base town), GetYourGuide (activities), Omio (trains/buses).
+- **Book** = two screens. *Trip setup*: month chips (the Reality Cards' best months marked), three suggested Friday
+  starts or a date, flying from, travelers. *Your trip, priced*: one number per person, three decisions (flight → stay
+  per base town → activities), each with its best option and a "Book on …" button, the rest folded under "More options",
+  partner searches (Kiwi.com, Booking.com, GetYourGuide) as the last rows. Coming back from a partner asks "Did you book
+  it?" and ticks the step; Duffel bookings tick themselves. Ranking rule (`rank()` in `worker/lib/prices.ts`): exact
+  dates › live › cheapest; an option that earns TrailZ money takes the top slot only within 3 % of the cheapest.
   Tracking: with a **Travelpayouts** account, set `TP_MARKER`, `TP_TRS` and the brand campaign ids (`TP_KIWI_P`, `TP_BOOKING_P`,
   `TP_GYG_P`, `TP_OMIO_P`) in `wrangler.jsonc`; every partner link is then wrapped in Travelpayouts tracking with the trip's
   search filled in. Direct affiliate ids (`KIWI_AFFILIATE_ID`, `BOOKING_AFFILIATE_ID`, `GYG_PARTNER_ID`, `OMIO_PARTNER_ID`) also work.

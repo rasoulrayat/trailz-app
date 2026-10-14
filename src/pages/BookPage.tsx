@@ -1,375 +1,74 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
-import type { Handoff, Offer, Trip, TripPrices } from "../../shared/types";
-import { tripsApi } from "../api";
-import { Icon, type IconName } from "../components/Icon";
-import { dayLabel } from "./TripPage";
+import { useParams, useSearchParams } from "react-router";
+import type { Handoff, Trip, TripPrices } from "../../shared/types";
+import { forgetPrices, pricesShared, tripsApi } from "../api";
+import { PricedTrip } from "./book/PricedTrip";
+import { TripSetup } from "./book/TripSetup";
 
-const DEPARTURES = ["Amsterdam", "Rotterdam", "Eindhoven", "Brussels", "Düsseldorf", "Berlin", "London", "Paris"];
-
-/** Book: dates, departure and travelers, then Compare & Go with each partner. */
+/**
+ * Book = two screens. Trip setup (when, from where, how many) and then the priced trip:
+ * one number, three decisions, each with its best option and a "book" button.
+ */
 export function BookPage() {
   const { id = "" } = useParams();
+  const [params, setParams] = useSearchParams();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
-  const [prices, setPrices] = useState<TripPrices | null | "loading" | "none">("none");
-  const [startDate, setStartDate] = useState("");
-  const [origin, setOrigin] = useState("");
-  const [travelers, setTravelers] = useState(1);
-  const [flexible, setFlexible] = useState(false);
+  const [prices, setPrices] = useState<TripPrices | null | "loading">(null);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [opened, setOpened] = useState<Set<string>>(new Set());
-  const booked = new URLSearchParams(typeof location !== "undefined" ? location.search : "").get("booked");
 
+  // A trip without dates goes to setup; with dates, straight to prices (prefetched from the trip page).
   useEffect(() => {
     tripsApi.getTrip(id).then((r) => {
       setTrip(r.trip);
-      setStartDate(r.trip.startDate ?? "");
-      setOrigin(r.trip.origin);
-      setTravelers(r.trip.travelers);
-      // Dates already chosen: straight to the partner links.
-      if (r.trip.startDate) {
-        tripsApi.handoff(id).then((h) => setHandoff(h.handoff)).catch(() => {});
-        loadPrices();
-      }
+      setEditing(!r.trip.startDate && r.trip.status !== "saved");
+      if (r.trip.startDate || r.trip.status === "saved") load(r.trip);
     });
   }, [id]);
 
-  const ready = !!trip && (flexible || /^\d{4}-\d{2}-\d{2}$/.test(startDate)) && origin.trim().length > 1;
+  // Back from Duffel's checkout: the flight is booked.
+  useEffect(() => {
+    if (params.get("booked") === "flights" && trip && !trip.booked.flights) {
+      tripsApi.updateTrip(trip.id, { booked: { flights: true } }).then((r) => setTrip(r.trip));
+      setParams({}, { replace: true });
+    }
+  }, [params, trip, setParams]);
 
-  async function confirm() {
-    if (!trip || !ready || busy) return;
+  function load(t: Trip) {
+    tripsApi.handoff(t.id).then((h) => setHandoff(h.handoff)).catch(() => setHandoff(null));
+    setPrices("loading");
+    pricesShared(t.id)
+      .then((r) => setPrices(r.prices))
+      .catch(() => setPrices(null));
+  }
+
+  async function done(v: { startDate: string | null; origin: string; travelers: number }) {
+    if (!trip || busy) return;
     setBusy(true);
-    const r = await tripsApi.updateTrip(trip.id, { status: "saved", startDate: flexible ? null : startDate, origin: origin.trim(), travelers }).catch(() => null);
+    const r = await tripsApi.updateTrip(trip.id, { status: "saved", ...v }).catch(() => null);
     if (r) {
+      forgetPrices(trip.id);
       setTrip(r.trip);
-      const h = await tripsApi.handoff(trip.id).catch(() => null);
-      setHandoff(h?.handoff ?? null);
-      loadPrices();
+      setEditing(false);
+      load(r.trip);
     }
     setBusy(false);
   }
-  function loadPrices() {
-    setPrices("loading");
-    tripsApi
-      .prices(id)
-      .then((r) => setPrices(r.prices ?? "none"))
-      .catch(() => setPrices("none"));
+
+  async function booked(patch: Trip["booked"]) {
+    if (!trip) return;
+    const r = await tripsApi.updateTrip(trip.id, { booked: patch }).catch(() => null);
+    if (r) setTrip(r.trip);
   }
-  const mark = (url: string) => setOpened((s) => new Set(s).add(url));
 
   if (!trip)
     return (
       <main className="page">
+        <div className="skeleton" style={{ height: 60 }} />
         <div className="skeleton" style={{ height: 200 }} />
       </main>
     );
-  const nights = Math.max(1, trip.plan.days.length - 1);
-  const today = new Date().toISOString().slice(0, 10);
-  const endLabel = startDate && !flexible ? dayLabel({ ...trip, startDate }, trip.plan.days.length) : null;
-  const parts = handoff ? [...handoff.flights, ...handoff.stay, ...handoff.activities, ...handoff.transport] : [];
-  const offerUrls = prices !== "none" && prices !== "loading" && prices ? [...(prices.flights?.offers ?? []), ...prices.stays.flatMap((s) => s.offers)].map((o) => o.bookUrl) : [];
-  const done = parts.filter((p) => opened.has(p.url)).length + (offerUrls.some((u) => opened.has(u)) ? 1 : 0);
-
-  return (
-    <>
-      <main className="page" style={{ gap: 18 }}>
-        <div className="topbar" style={{ justifyContent: "flex-start" }}>
-          <Link to={`/trips/${trip.id}`} className="icon-btn plain" aria-label="Back to plan">
-            <Icon name="back" size={22} />
-          </Link>
-          <h1 style={{ fontSize: 26 }}>{handoff ? "Compare & go" : "Book this plan"}</h1>
-        </div>
-
-        <section className="card stack" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="row" style={{ padding: "12px 14px", borderBottom: "1px solid var(--line-soft)", gap: 12 }}>
-            <Icon name="plane" size={18} />
-            <label style={{ flex: 1, minWidth: 0 }}>
-              <span className="small" style={{ display: "block" }}>From</span>
-              <input list="departures" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Your city" className="plain-input" />
-              <datalist id="departures">
-                {DEPARTURES.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
-            </label>
-          </div>
-          <div className="row" style={{ padding: "12px 14px", gap: 12 }}>
-            <span style={{ color: "var(--blue)" }}>
-              <Icon name="pin" size={18} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span className="small" style={{ display: "block" }}>To · from your plan</span>
-              <span style={{ fontSize: 15, fontWeight: 500 }}>{trip.plan.title}</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="stack">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2 style={{ fontSize: 14 }}>When</h2>
-            <div role="tablist" className="seg">
-              <button role="tab" aria-selected={!flexible} className={`seg-btn${!flexible ? " on" : ""}`} onClick={() => setFlexible(false)}>
-                Dates
-              </button>
-              <button role="tab" aria-selected={flexible} className={`seg-btn${flexible ? " on" : ""}`} onClick={() => setFlexible(true)}>
-                Flexible
-              </button>
-            </div>
-          </div>
-          {flexible ? (
-            <div className="card small" style={{ padding: 12 }}>
-              Partners open with open dates. Pick dates later for exact prices. The plan's best months are in each Reality Card.
-            </div>
-          ) : (
-            <div className="card stack" style={{ padding: 12, gap: 8 }}>
-              <label className="row" style={{ gap: 12 }}>
-                <Icon name="calendar" size={18} />
-                <span style={{ flex: 1 }}>
-                  <span className="small" style={{ display: "block" }}>First day</span>
-                  <input type="date" min={today} value={startDate} onChange={(e) => setStartDate(e.target.value)} className="plain-input" />
-                </span>
-              </label>
-              <div className="small">
-                {trip.plan.days.length} days · {nights} {nights === 1 ? "night" : "nights"}
-                {endLabel ? ` · back ${endLabel.top} ${endLabel.big}` : ""}
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="card row" style={{ justifyContent: "space-between" }}>
-          <span className="row" style={{ gap: 10 }}>
-            <Icon name="users" size={18} />
-            <span>
-              <span className="row-title" style={{ fontSize: 14 }}>Travelers</span>
-              <span className="row-sub">Flights and rooms for everyone</span>
-            </span>
-          </span>
-          <span className="row" style={{ gap: 10 }}>
-            <button className="icon-btn" style={{ width: 36, height: 36 }} aria-label="Fewer travelers" onClick={() => setTravelers((t) => Math.max(1, t - 1))}>
-              <Icon name="minus" size={16} />
-            </button>
-            <b style={{ fontSize: 18, minWidth: 16, textAlign: "center" }}>{travelers}</b>
-            <button className="icon-btn" style={{ width: 36, height: 36 }} aria-label="More travelers" onClick={() => setTravelers((t) => Math.min(9, t + 1))}>
-              <Icon name="plus" size={16} />
-            </button>
-          </span>
-        </section>
-
-        {!handoff && (
-          <button className="btn" disabled={!ready || busy} onClick={confirm}>
-            {busy ? "Preparing…" : "Confirm & compare prices"}
-            <Icon name="arrow" size={18} />
-          </button>
-        )}
-
-        {booked === "flights" && (
-          <div className="tip" style={{ background: "var(--real-tint)", color: "var(--real)" }}>
-            <Icon name="check" size={18} />
-            <span>Flight booked. The confirmation comes by email from the airline.</span>
-          </div>
-        )}
-        {handoff && (
-          <>
-            <div className="stack" style={{ gap: 8 }}>
-              <div className="row" style={{ justifyContent: "space-between", fontSize: 13 }}>
-                <b>
-                  {done} of {parts.length} opened
-                </b>
-                <button className="btn link" style={{ height: "auto", padding: 0, fontSize: 13 }} onClick={() => { setHandoff(null); }}>
-                  Change dates
-                </button>
-              </div>
-              <div className="progress" role="img" aria-label={`${done} of ${parts.length} parts opened`}>
-                {parts.map((p) => (
-                  <span key={p.url} className={opened.has(p.url) ? "on" : undefined} />
-                ))}
-              </div>
-            </div>
-
-            <section className="stack">
-              <h2 className="guide-h">How to get there</h2>
-              <FlightPrices prices={prices} opened={opened} mark={mark} />
-              {handoff.flights.map((f) => (
-                <PartnerCard key={f.url} icon="plane" title={`Flights with ${f.partner}`} sub={f.note} url={f.url} cta={prices !== "none" && prices !== "loading" && prices?.flights?.offers.length ? `Also check ${f.partner}` : `Go to ${f.partner}`} opened={opened} mark={mark} secondary={!!(prices !== "none" && prices !== "loading" && prices?.flights?.offers.length)} />
-              ))}
-            </section>
-            {handoff.transport.length > 0 && (
-              <Group title="Trains & buses" icon="trips" items={handoff.transport.map((t) => ({ title: t.partner, sub: t.note, url: t.url, cta: `Go to ${t.partner}` }))} opened={opened} mark={mark} />
-            )}
-            <section className="stack">
-              <h2 className="guide-h">Where to stay</h2>
-              {handoff.stay.map((s) => {
-                const stay = prices !== "none" && prices !== "loading" ? prices?.stays.find((x) => x.city === s.city) : undefined;
-                return (
-                  <div key={s.url} className="stack" style={{ gap: 8 }}>
-                    <StayPrices stay={stay} loading={prices === "loading"} city={s.city} nights={s.nights} opened={opened} mark={mark} />
-                    <PartnerCard icon="bed" title={s.city} sub={s.note} url={s.url} cta={stay?.offers.length ? `Also check ${s.partner}` : `Go to ${s.partner}`} opened={opened} mark={mark} secondary={!!stay?.offers.length} />
-                  </div>
-                );
-              })}
-            </section>
-            {handoff.activities.length > 0 && (
-              <Group title="Things to do" icon="sun" items={handoff.activities.map((a) => ({ title: a.place, sub: a.note, url: a.url, cta: `Go to ${a.partner}` }))} opened={opened} mark={mark} />
-            )}
-
-            <div className="cost" style={{ gap: 6 }}>
-              <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: 14 }}>Estimated per person</span>
-                <span className="big-number" style={{ fontSize: 26 }}>
-                  €{(trip.plan.estimate.travel + trip.plan.estimate.stay + trip.plan.estimate.activities + trip.plan.estimate.food).toLocaleString("en-US")}
-                </span>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--muted-on-dark)", lineHeight: 1.5 }}>
-                {prices !== "none" && prices !== "loading" && prices?.note ? `${prices.note} ` : ""}
-                {handoff.disclaimer}
-              </div>
-            </div>
-          </>
-        )}
-      </main>
-    </>
-  );
-}
-
-
-const euro = (n: number) => `€${n.toLocaleString("en-US")}`;
-
-function PartnerCard({ icon, title, sub, url, cta, opened, mark, secondary }: { icon: IconName; title: string; sub: string; url: string; cta: string; opened: Set<string>; mark: (u: string) => void; secondary?: boolean }) {
-  const done = opened.has(url);
-  return (
-    <div className={`card stack${done ? " opened" : ""}`} style={{ gap: 10 }}>
-      <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
-        <span className="tl-icon" style={{ background: done ? "var(--real)" : "var(--blue-tint)", color: done ? "#fff" : "var(--blue)" }}>
-          <Icon name={done ? "check" : icon} size={18} />
-        </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span className="row-title" style={{ fontSize: 14 }}>{title}</span>
-          <span className="row-sub">{sub}</span>
-        </span>
-      </div>
-      <a href={url} target="_blank" rel="noopener noreferrer" className={`btn${done || secondary ? " secondary" : ""}`} style={{ height: 46 }} onClick={() => mark(url)}>
-        {done ? "Open again" : cta}
-        <Icon name="external" size={16} />
-      </a>
-    </div>
-  );
-}
-
-function Group({ title, icon, items, opened, mark }: { title: string; icon: IconName; items: { title: string; sub: string; url: string; cta: string }[]; opened: Set<string>; mark: (url: string) => void }) {
-  return (
-    <section className="stack">
-      <h2 className="guide-h">{title}</h2>
-      {items.map((it) => (
-        <PartnerCard key={it.url} icon={icon} {...it} opened={opened} mark={mark} />
-      ))}
-    </section>
-  );
-}
-
-/** One row per price, from whichever provider. Tapping it books there. */
-function OfferRow({ o, best, opened, mark, unit }: { o: Offer; best: boolean; opened: Set<string>; mark: (u: string) => void; unit: string }) {
-  const done = opened.has(o.bookUrl);
-  return (
-    <a
-      href={o.bookUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`offer${best ? " best" : ""}${done ? " done" : ""}`}
-      onClick={() => mark(o.bookUrl)}
-      aria-label={`${o.title}, ${euro(o.price)} ${unit}, book on ${o.providerLabel}`}
-    >
-      <span style={{ minWidth: 0, flex: 1 }}>
-        <span className="offer-title">{o.title}</span>
-        <span className="offer-sub">
-          <span className={`dot ${o.freshness}`} aria-hidden="true" />
-          {o.freshness === "live" ? "live" : "recent"} · {o.providerLabel}
-          {o.detail ? ` · ${o.detail}` : ""}
-        </span>
-      </span>
-      <span className="offer-price">
-        <b>{euro(o.price)}</b>
-        <span className="small">{done ? "opened" : "book"}</span>
-        <Icon name="external" size={12} />
-      </span>
-    </a>
-  );
-}
-
-/** Flights: every provider's fares in one list, cheapest first. */
-function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "loading" | "none"; opened: Set<string>; mark: (u: string) => void }) {
-  if (prices === "none" || prices === null) return null;
-  if (prices === "loading") return <div className="skeleton" style={{ height: 150 }} aria-label="Checking fares" />;
-  const f = prices.flights;
-  if (!f) return null;
-  const route = f.origin && f.destination ? `${f.origin.code} → ${f.destination.code}` : "";
-  if (!f.origin || !f.destination)
-    return (
-      <div className="card small" style={{ padding: 12 }}>
-        We couldn't match {!f.origin ? "your departure city" : "the arrival city"} to an airport, so no fares to show. The partner search still works.
-      </div>
-    );
-  if (!f.offers.length)
-    return (
-      <div className="card small" style={{ padding: 12 }}>
-        No fares found yet for {route} on these dates. The partner shows live prices.
-      </div>
-    );
-  const best = f.offers[0];
-  const approx = !!best.approx;
-  const live = f.offers.some((o) => o.freshness === "live");
-  return (
-    <div className="card stack price" style={{ gap: 10 }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-        <span>
-          <span className="small">Return flights {route}{approx ? " · nearby dates" : ""}</span>
-          <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>
-            from {euro(best.price)} <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>per person</span>
-          </span>
-        </span>
-        <span className={`badge ${live ? "soft-real" : "soft"}`}>{live ? "live prices" : "recent fares"}</span>
-      </div>
-      {approx && <div className="small">Nothing found for your exact dates yet; these are the cheapest fares this month. Your dates are kept in the partner search.</div>}
-      <div className="stack" style={{ gap: 6 }}>
-        {f.offers.map((o, i) => (
-          <OfferRow key={o.bookUrl + i} o={o} best={i === 0} opened={opened} mark={mark} unit="per person" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Stays: hotels per base town from every provider, cheapest first. */
-function StayPrices({ stay, loading, city, nights, opened, mark }: { stay?: TripPrices["stays"][number]; loading: boolean; city: string; nights: number; opened: Set<string>; mark: (u: string) => void }) {
-  if (loading) return <div className="skeleton" style={{ height: 130 }} aria-label="Checking hotel rates" />;
-  if (!stay) return null;
-  if (!stay.offers.length)
-    return (
-      <div className="card small" style={{ padding: 12 }}>
-        No rates found for {city} on these nights. The partner shows live prices.
-      </div>
-    );
-  const best = stay.offers[0];
-  const live = stay.offers.some((o) => o.freshness === "live");
-  return (
-    <div className="card stack price" style={{ gap: 10 }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-        <span>
-          <span className="small">
-            {city} · {nights} {nights === 1 ? "night" : "nights"}
-          </span>
-          <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>
-            from {euro(best.price)} <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>total</span>
-          </span>
-        </span>
-        <span className={`badge ${live ? "soft-real" : "soft"}`}>{live ? "live prices" : "recent rates"}</span>
-      </div>
-      <div className="stack" style={{ gap: 6 }}>
-        {stay.offers.map((o, i) => (
-          <OfferRow key={o.bookUrl + i} o={o} best={i === 0} opened={opened} mark={mark} unit="total" />
-        ))}
-      </div>
-    </div>
-  );
+  if (editing) return <TripSetup trip={trip} onDone={done} busy={busy} />;
+  return <PricedTrip trip={trip} handoff={handoff} prices={prices} onBooked={booked} onChangeDates={() => setEditing(true)} />;
 }

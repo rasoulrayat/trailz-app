@@ -28,7 +28,7 @@ describe("a trip is forming", () => {
 
 describe("partner hand-off links", () => {
   const trip: Trip = {
-    id: "t1", status: "saved", mood: "solo", budgetMode: true, origin: "Amsterdam", travelers: 2, startDate: "2027-06-12",
+    id: "t1", status: "saved", mood: "solo", budgetMode: true, origin: "Amsterdam", travelers: 2, startDate: "2027-06-12", booked: {}, bestMonths: [],
     places: [save("Oia", "Greece", 36.46, 25.37)],
     plan: {
       title: "x", summary: "", estimate: { travel: 0, stay: 0, activities: 0, food: 0 }, tips: [], gateway: { arrive: "Santorini", leave: "Santorini" },

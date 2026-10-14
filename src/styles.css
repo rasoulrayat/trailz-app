@@ -314,3 +314,32 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .offer-price .small { font-size: 11px; color: var(--blue); }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--line-strong); }
 .dot.live { background: var(--real); }
+
+/* ---------- Trip setup ---------- */
+.chip.best { border-color: var(--real); color: var(--real); gap: 4px; }
+.chip.best.on { background: var(--real); color: #fff; }
+
+/* ---------- Trip setup ---------- */
+.chip.best { border-color: var(--real); color: var(--real); gap: 4px; }
+.chip.best.on { background: var(--real); color: #fff; }
+
+/* ---------- Priced trip ---------- */
+.steps { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.steps::-webkit-scrollbar { display: none; }
+.step { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--seg); color: var(--muted); font-size: 12px; font-weight: 500; }
+.step b { width: 18px; height: 18px; border-radius: 50%; background: var(--surface); color: var(--navy); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.step.next { background: var(--navy); color: #fff; }
+.step.next b { background: var(--sky); color: var(--navy); }
+.step.done { background: var(--real-tint); color: var(--real); }
+.decision { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 12px; }
+.decision.done { border-color: var(--real); }
+.fresh { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.fresh .dot { background: var(--line-strong); }
+.fresh.live .dot { background: var(--real); }
+.fresh.approx { color: #8a5a00; }
+.fresh.approx .dot { background: var(--reel); }
+.more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 4px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--blue); cursor: pointer; }
+.more[aria-expanded="true"] svg { transform: rotate(90deg); }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(11, 27, 63, 0.45); display: flex; align-items: flex-end; }
+.sheet { width: 100%; background: var(--surface); border-radius: 22px 22px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; animation: rise 0.25s ease; }
+@keyframes rise { from { transform: translateY(40px); opacity: 0; } }

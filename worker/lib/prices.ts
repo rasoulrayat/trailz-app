@@ -228,9 +228,10 @@ export interface ProviderKeys {
   duffelToken?: string;
 }
 
-const toFlightOffer = (q: FlightQuote): Offer => ({
+const toFlightOffer = (q: FlightQuote, earns: boolean): Offer => ({
   provider: "aviasales",
   providerLabel: "Aviasales",
+  earns,
   freshness: "cached",
   price: q.price,
   currency: q.currency,
@@ -240,9 +241,10 @@ const toFlightOffer = (q: FlightQuote): Offer => ({
   bookUrl: q.url,
   unit: "per person",
 });
-const toStayOffer = (h: HotelQuote): Offer => ({
+const toStayOffer = (h: HotelQuote, earns: boolean): Offer => ({
   provider: "hotellook",
   providerLabel: "Hotellook",
+  earns,
   freshness: "cached",
   price: h.priceFrom,
   currency: h.currency,
@@ -251,15 +253,34 @@ const toStayOffer = (h: HotelQuote): Offer => ({
   unit: "total",
 });
 
-/** Cheapest first; live before cached at the same price; exact dates before nearby dates. */
-const rank = (offers: Offer[]) =>
-  offers
-    .filter((o) => o.price > 0)
-    .sort((a, b) => Number(!!a.approx) - Number(!!b.approx) || a.price - b.price || (a.freshness === "live" ? -1 : 1))
-    .slice(0, 5);
+/**
+ * The ranking rule. Best for the person first, our earnings only break ties:
+ *  1. exact dates before nearby dates;  2. live prices before cached ones;  3. cheapest first;
+ *  4. an option that earns TrailZ money takes the top slot when it's within TIE_PCT of the cheapest.
+ * Search rows (partner pages, no price) always go last.
+ */
+export const TIE_PCT = 0.03;
+export function rank(offers: Offer[]): Offer[] {
+  const priced = offers
+    .filter((o) => o.kind !== "search" && o.price > 0)
+    .sort((a, b) => Number(!!a.approx) - Number(!!b.approx) || Number(a.freshness !== "live") - Number(b.freshness !== "live") || a.price - b.price);
+  if (priced.length > 1 && !priced[0].earns) {
+    const top = priced[0];
+    const i = priced.findIndex((o) => o.earns && o.approx === top.approx && o.freshness === top.freshness && o.price <= top.price * (1 + TIE_PCT));
+    if (i > 0) priced.splice(0, 0, ...priced.splice(i, 1));
+  }
+  const searches = offers.filter((o) => o.kind === "search");
+  return [...priced.slice(0, 5), ...searches];
+}
 
 /** Everything Compare & go shows above the partner buttons: all providers merged, cheapest first. */
-export async function tripPrices(db: D1Database, keys: ProviderKeys, trip: Trip): Promise<TripPrices> {
+export async function tripPrices(
+  db: D1Database,
+  keys: ProviderKeys,
+  trip: Trip,
+  /** Partner search pages with the trip filled in (from buildHandoff), shown after the priced options. */
+  searches: { flights: Offer[]; stay: Record<string, Offer[]> } = { flights: [], stay: {} },
+): Promise<TripPrices> {
   const start = trip.startDate;
   const nights = Math.max(1, trip.plan.days.length - 1);
   const country = trip.places.find((p) => p.country)?.country ?? null;
@@ -282,12 +303,14 @@ export async function tripPrices(db: D1Database, keys: ProviderKeys, trip: Trip)
     const jobs: Promise<Offer[]>[] = [];
     if (keys.serpApiKey) jobs.push(googleFlights(db, keys.serpApiKey, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers).then((o) => (o.length && sources.add("Google Flights"), o)));
     if (keys.duffelToken) jobs.push(duffelFlights(db, keys.duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
-    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map(toFlightOffer))));
+    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map((x) => toFlightOffer(x, !!keys.tpMarker)))));
     const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
-    const offers = rank(results.flat());
+    const all = results.flat();
     // Nearby-date fares only when nothing exact exists.
-    const exact = offers.filter((o) => !o.approx);
-    flights = { origin, destination, offers: exact.length ? exact : offers, nights };
+    const exact = all.filter((o) => !o.approx);
+    flights = { origin, destination, offers: rank([...(exact.length ? exact : all), ...searches.flights]), nights };
+  } else {
+    flights = { origin, destination, offers: rank(searches.flights), nights };
   }
 
   // One stay block per base town, like the Booking links.
@@ -312,12 +335,12 @@ export async function tripPrices(db: D1Database, keys: ProviderKeys, trip: Trip)
           hotelQuotes(db, keys.tpToken, keys.tpMarker, b.city, country, checkIn, checkOut, trip.travelers).then((q) => {
             searchUrl = q.searchUrl;
             if (q.hotels.length) sources.add("Hotellook");
-            return q.hotels.map(toStayOffer);
+            return q.hotels.map((h) => toStayOffer(h, !!keys.tpMarker));
           }),
         );
       }
       const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
-      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank(results.flat()), searchUrl });
+      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank([...results.flat(), ...(searches.stay[b.city] ?? [])]), searchUrl });
     }
   }
   const list = [...sources];
