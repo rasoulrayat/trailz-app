@@ -20,16 +20,19 @@ export interface Place {
   country?: string;
 }
 
-export async function iataFor(db: D1Database, city: string, fetcher: typeof fetch = fetch): Promise<Place | null> {
-  const key = `iata:${placeKey(city)}`;
-  if (!placeKey(city)) return null;
+export async function iataFor(db: D1Database, place: string, fetcher: typeof fetch = fetch): Promise<Place | null> {
+  const key = `iata2:${placeKey(place)}`;
+  if (!placeKey(place)) return null;
+  const [city, country] = place.split(",").map((x) => x.trim());
   return cached(db, key, 30 * 24 * 3600_000, async () => {
     try {
       const u = `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=city&types[]=airport&term=${encodeURIComponent(city)}`;
       const res = await fetcher(u, { signal: withTimeout(5000) });
       if (!res.ok) return null;
       const rows = (await res.json()) as { code: string; name: string; country_name?: string; type?: string }[];
-      const hit = rows.find((r) => r.type === "city") ?? rows[0];
+      const inCountry = country ? rows.filter((r) => placeKey(r.country_name ?? "") === placeKey(country)) : rows;
+      const pool = inCountry.length ? inCountry : rows;
+      const hit = pool.find((r) => r.type === "city") ?? pool[0];
       return hit ? { code: hit.code, name: hit.name, country: hit.country_name } : null;
     } catch {
       return null;
@@ -128,29 +131,67 @@ export async function hotelQuotes(
   search.searchParams.set("currency", "eur");
   search.searchParams.set("language", "en");
   if (marker) search.searchParams.set("marker", marker);
-  const key = `ht:${placeKey(location)}:${checkIn}:${checkOut}`;
+  const key = `ht2:${placeKey(location)}:${checkIn}:${checkOut}`;
   const hotels = await cached(db, key, 6 * 3600_000, async () => {
-    try {
-      const u = new URL("https://engine.hotellook.com/api/v2/cache.json");
-      u.searchParams.set("location", location);
-      u.searchParams.set("checkIn", checkIn);
-      u.searchParams.set("checkOut", checkOut);
-      u.searchParams.set("currency", "eur");
-      u.searchParams.set("limit", "5");
-      u.searchParams.set("token", token);
-      const res = await fetcher(u.toString(), { signal: withTimeout(8000) });
-      if (!res.ok) return [] as Omit<HotelQuote, "url">[];
-      const rows = (await res.json()) as { hotelName: string; stars: number; priceFrom: number; priceAvg?: number }[];
-      return rows
-        .filter((r) => r.priceFrom > 0)
-        .sort((a, b) => a.priceFrom - b.priceFrom)
-        .slice(0, 3)
-        .map((r) => ({ name: r.hotelName, stars: r.stars ?? 0, priceFrom: Math.round(r.priceFrom), currency: "EUR" }));
-    } catch {
-      return [] as Omit<HotelQuote, "url">[];
-    }
+    const rows = await hotelCache(token, { location }, checkIn, checkOut, fetcher);
+    if (rows.length) return rows;
+    // Small towns: resolve Hotellook's own location id first, then ask by id.
+    const id = await hotellookLocationId(db, token, city, country, fetcher);
+    if (id) return hotelCache(token, { locationId: id }, checkIn, checkOut, fetcher);
+    return [];
   });
   return { hotels: hotels.map((h) => ({ ...h, url: search.toString() })), searchUrl: search.toString() };
+}
+
+async function hotelCache(
+  token: string,
+  where: { location?: string; locationId?: number },
+  checkIn: string,
+  checkOut: string,
+  fetcher: typeof fetch,
+): Promise<Omit<HotelQuote, "url">[]> {
+  try {
+    const u = new URL("https://engine.hotellook.com/api/v2/cache.json");
+    if (where.locationId) u.searchParams.set("locationId", String(where.locationId));
+    else u.searchParams.set("location", where.location ?? "");
+    u.searchParams.set("checkIn", checkIn);
+    u.searchParams.set("checkOut", checkOut);
+    u.searchParams.set("currency", "eur");
+    u.searchParams.set("limit", "8");
+    u.searchParams.set("token", token);
+    const res = await fetcher(u.toString(), { signal: withTimeout(8000) });
+    if (!res.ok) return [];
+    const rows = (await res.json()) as { hotelName: string; stars: number; priceFrom: number }[];
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter((r) => r.priceFrom > 0)
+      .sort((a, b) => a.priceFrom - b.priceFrom)
+      .slice(0, 3)
+      .map((r) => ({ name: r.hotelName, stars: r.stars ?? 0, priceFrom: Math.round(r.priceFrom), currency: "EUR" }));
+  } catch {
+    return [];
+  }
+}
+
+async function hotellookLocationId(db: D1Database, token: string, city: string, country: string | null, fetcher: typeof fetch): Promise<number | null> {
+  return cached(db, `hl-loc:${placeKey(`${city} ${country ?? ""}`)}`, 30 * 24 * 3600_000, async () => {
+    try {
+      const u = new URL("https://engine.hotellook.com/api/v2/lookup.json");
+      u.searchParams.set("query", city);
+      u.searchParams.set("lang", "en");
+      u.searchParams.set("lookFor", "city");
+      u.searchParams.set("limit", "5");
+      u.searchParams.set("token", token);
+      const res = await fetcher(u.toString(), { signal: withTimeout(6000) });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { results?: { locations?: { id: string | number; cityName?: string; countryName?: string; fullName?: string }[] } };
+      const locs = body.results?.locations ?? [];
+      const hit = (country && locs.find((l) => placeKey(l.countryName ?? "") === placeKey(country))) ?? locs[0];
+      return hit ? Number(hit.id) : null;
+    } catch {
+      return null;
+    }
+  });
 }
 
 /** Everything Compare & go shows above the partner buttons. */
@@ -174,11 +215,20 @@ export async function tripPrices(db: D1Database, token: string, marker: string |
   const arrive = trip.plan.gateway?.arrive || firstBase;
 
   // Flights need dates; without them we still resolve the airports so the deep link is right.
-  const [origin, destination] = await Promise.all([iataFor(db, trip.origin), iataFor(db, [arrive, country].filter(Boolean).join(", "))]);
+  // Try the arrival city, then the first base town, then the first place, then the country.
+  const candidates = [...new Set([arrive, firstBase, trip.places[0]?.name ?? "", country ?? ""].filter(Boolean))];
+  let destination: Place | null = null;
+  for (const c of candidates) {
+    destination = await iataFor(db, c, fetch);
+    if (destination) break;
+  }
+  const origin = await iataFor(db, trip.origin);
   let flights: TripPrices["flights"] = null;
   if (origin && destination) {
     const quotes = start ? await flightQuotes(db, token, marker, origin.code, destination.code, start, addDays(start, nights)) : [];
     flights = { origin, destination, quotes, nights };
+  } else {
+    flights = { origin, destination, quotes: [], nights };
   }
 
   // One stay block per base town, like the Booking links.

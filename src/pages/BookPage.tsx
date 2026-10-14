@@ -271,10 +271,16 @@ function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "l
   const f = prices.flights;
   if (!f) return null;
   const route = f.origin && f.destination ? `${f.origin.code} → ${f.destination.code}` : "";
+  if (!f.origin || !f.destination)
+    return (
+      <div className="card small" style={{ padding: 12 }}>
+        We couldn't match {!f.origin ? "your departure city" : "the arrival city"} to an airport, so no fares to show. The partner search still works.
+      </div>
+    );
   if (!f.quotes.length)
     return (
       <div className="card small" style={{ padding: 12 }}>
-        No recent fares cached for {route || "this route"} on these dates. The partner shows live prices.
+        No fares cached yet for {route} on these dates (common for trips starting within days or many months out). The partner shows live prices.
       </div>
     );
   const best = f.quotes[0];
@@ -309,7 +315,13 @@ function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "l
 /** Hotel rates per base town from Hotellook. */
 function StayPrices({ stay, loading, city, nights, opened, mark }: { stay?: TripPrices["stays"][number]; loading: boolean; city: string; nights: number; opened: Set<string>; mark: (u: string) => void }) {
   if (loading) return <div className="skeleton" style={{ height: 80 }} aria-label="Looking up hotel rates" />;
-  if (!stay || !stay.hotels.length) return null;
+  if (!stay) return null;
+  if (!stay.hotels.length)
+    return (
+      <div className="card small" style={{ padding: 12 }}>
+        No cached rates for {city} on these nights. The partner shows live prices.
+      </div>
+    );
   const best = stay.hotels[0];
   return (
     <div className="card stack price" style={{ gap: 10 }}>

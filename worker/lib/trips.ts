@@ -84,7 +84,8 @@ const PLAN_SCHEMA = {
     tips: { type: "ARRAY", description: "2 or 3 practical tips for this exact trip.", items: S },
     gateway: {
       type: "OBJECT",
-      description: "The city with the airport or main train station the trip arrives in and leaves from, e.g. Naples for the Amalfi Coast.",
+      description:
+        "The city with the airport or main train station the trip arrives in and leaves from, NEAR THE SAVED PLACES (e.g. Naples for the Amalfi Coast, Genoa for Portofino). Never the traveler's home city.",
       properties: { arrive: S, leave: S },
       required: ["arrive", "leave"],
     },
@@ -129,7 +130,7 @@ Rules:
 - Keep each day doable: travel time between items must be realistic.
 - Costs are typical per-person estimates in euros; the estimate totals must match the items roughly.`;
   const raw = await generateJsonPublic<RawPlan>(cfg, prompt, PLAN_SCHEMA);
-  return cleanPlan(raw, input.days);
+  return cleanPlan(raw, input.days, input.origin);
 }
 
 interface RawPlan {
@@ -144,7 +145,10 @@ interface RawPlan {
 const KINDS: PlanItem["kind"][] = ["travel", "stay", "see", "do", "eat", "free"];
 const money = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0);
 
-function cleanPlan(raw: RawPlan, days: number): TripPlan {
+function cleanPlan(raw: RawPlan, days: number, origin = ""): TripPlan {
+  // A gateway equal to the home city is a mistake (the model confused departure with arrival).
+  const same = (a?: string) => !!a && placeKey(a) === placeKey(origin);
+  if (raw.gateway && (same(raw.gateway.arrive) || same(raw.gateway.leave))) raw.gateway = undefined;
   const cleanDays: PlanDay[] = (raw.days ?? [])
     .slice(0, Math.max(days, 1))
     .map((d, i) => ({
