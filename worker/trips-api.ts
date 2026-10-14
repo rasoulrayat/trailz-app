@@ -7,6 +7,7 @@ import { mockPlan, mockPrices } from "./lib/mock";
 import { placeKey } from "./lib/route";
 import { logError, newId } from "./lib/store";
 import { iataFor, tripPrices } from "./lib/prices";
+import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 
 type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
@@ -249,13 +250,42 @@ trips.get("/trips/:id/prices", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   if (isMock(c.env)) return c.json({ prices: mockPrices(toTrip(row)) });
-  if (!c.env.TP_TOKEN) return c.json({ prices: null, reason: "no_token" });
+  if (!c.env.TP_TOKEN && !c.env.SERPAPI_KEY && !c.env.DUFFEL_TOKEN) return c.json({ prices: null, reason: "no_provider" });
   try {
-    const prices = await tripPrices(c.env.DB, c.env.TP_TOKEN, c.env.TP_MARKER, toTrip(row));
+    const prices = await tripPrices(
+      c.env.DB,
+      {
+        tpToken: c.env.TP_TOKEN,
+        tpMarker: c.env.TP_MARKER,
+        serpApiKey: c.env.SERPAPI_KEY,
+        serpMonthlyLimit: Number(c.env.SERPAPI_MONTHLY_LIMIT || "250"),
+        duffelToken: c.env.DUFFEL_TOKEN,
+      },
+      toTrip(row),
+    );
     c.header("cache-control", "private, max-age=600");
     return c.json({ prices });
   } catch (err) {
     await logError(c.env.DB, "prices", err, row.id);
     return c.json({ prices: null, reason: "error" });
   }
+});
+
+/** "Book" on an airline fare from Duffel: create a hosted checkout page and send the person there. */
+trips.get("/trips/:id/duffel-link", async (c) => {
+  const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
+  if (!row || !c.env.DUFFEL_TOKEN) return bad(c, 404, "not_found", "This booking link isn't available.");
+  const origin = new URL(c.req.url).origin;
+  const url = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, {
+    reference: `trailz-${row.id}-${Date.now().toString(36)}`,
+    successUrl: `${origin}/trips/${row.id}/book?booked=flights`,
+    failureUrl: `${origin}/trips/${row.id}/book`,
+    markupRate: Number(c.env.DUFFEL_MARKUP_RATE || "0.03"),
+    currency: "EUR",
+  });
+  if (!url) {
+    await logError(c.env.DB, "duffel-link", "no checkout url", row.id);
+    return c.redirect(`/trips/${row.id}/book?error=duffel`, 302);
+  }
+  return c.redirect(url, 302);
 });

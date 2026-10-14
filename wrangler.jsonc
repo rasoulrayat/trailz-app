@@ -52,8 +52,12 @@
     "TP_KIWI_P": "",
     "TP_BOOKING_P": "",
     "TP_GYG_P": "",
-    "TP_OMIO_P": ""
+    "TP_OMIO_P": "",
+    // Live price providers (keys are secrets, see above). SerpApi free plan = 250 searches/month.
+    "SERPAPI_MONTHLY_LIMIT": "250",
+    "DUFFEL_MARKUP_RATE": "0.03"
   }
   // Secrets (set with `npx wrangler secret put NAME` or in the dashboard):
-  //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token, for prices before the hand-off)
+  //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token), SERPAPI_KEY (Google Flights/Hotels),
+  //   DUFFEL_TOKEN (live airline fares + hosted checkout)
 }

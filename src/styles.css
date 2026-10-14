@@ -303,3 +303,14 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .progress span.on { background: var(--real); }
 .card.opened { border-color: var(--real); }
 .price { border: 2px solid var(--navy); }
+
+/* ---------- Price rows ---------- */
+.offer { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line-soft); text-decoration: none; color: inherit; }
+.offer.best { background: var(--bg); border-color: var(--line); }
+.offer.done { border-color: var(--real); }
+.offer-title { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.offer-sub { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.offer-price { display: flex; align-items: center; gap: 6px; flex: none; font-size: 15px; }
+.offer-price .small { font-size: 11px; color: var(--blue); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--line-strong); }
+.dot.live { background: var(--real); }

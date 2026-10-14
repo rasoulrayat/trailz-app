@@ -1,0 +1,241 @@
+/**
+ * Price providers behind one shape (Offer). Each one is optional: without its key it's skipped.
+ *  - Google Flights / Google Hotels via SerpApi: live prices, a monthly quota we guard ourselves.
+ *  - Duffel: live airline fares; booking through Duffel's hosted checkout (Duffel Links).
+ *  - Aviasales / Hotellook via Travelpayouts: fares and rates seen recently (cached), pay commission.
+ */
+import type { Offer } from "../../shared/types";
+import { cached } from "./prices";
+import { placeKey } from "./route";
+
+const withTimeout = (ms: number) => AbortSignal.timeout(ms);
+const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 ? `${m % 60}m` : ""}`.trim() : `${m}m`);
+
+// ---------- SerpApi quota: never exceed the plan ----------
+
+export async function serpBudget(db: D1Database, monthlyLimit: number): Promise<boolean> {
+  const month = new Date().toISOString().slice(0, 7);
+  const key = `serp:quota:${month}`;
+  const row = await db.prepare("SELECT json FROM kv_cache WHERE key = ?").bind(key).first<{ json: string }>();
+  const used = row ? (JSON.parse(row.json) as number) : 0;
+  if (used >= monthlyLimit) return false;
+  await db.prepare("INSERT OR REPLACE INTO kv_cache (key, json, expires_at) VALUES (?, ?, ?)")
+    .bind(key, JSON.stringify(used + 1), Date.now() + 40 * 24 * 3600_000)
+    .run();
+  return true;
+}
+
+// ---------- Google Flights (SerpApi) ----------
+
+export async function googleFlights(
+  db: D1Database,
+  apiKey: string,
+  monthlyLimit: number,
+  origin: string,
+  destination: string,
+  departure: string,
+  ret: string | null,
+  adults: number,
+  fetcher: typeof fetch = fetch,
+): Promise<Offer[]> {
+  const key = `gf:${origin}:${destination}:${departure}:${ret ?? "ow"}:${adults}`;
+  return cached(db, key, 30 * 60_000, async () => {
+    if (!(await serpBudget(db, monthlyLimit))) return [];
+    try {
+      const u = new URL("https://serpapi.com/search.json");
+      u.searchParams.set("engine", "google_flights");
+      u.searchParams.set("departure_id", origin);
+      u.searchParams.set("arrival_id", destination);
+      u.searchParams.set("outbound_date", departure);
+      if (ret) u.searchParams.set("return_date", ret);
+      u.searchParams.set("type", ret ? "1" : "2");
+      u.searchParams.set("adults", String(adults));
+      u.searchParams.set("currency", "EUR");
+      u.searchParams.set("hl", "en");
+      u.searchParams.set("api_key", apiKey);
+      const res = await fetcher(u.toString(), { signal: withTimeout(12000) });
+      if (!res.ok) return [];
+      const body = (await res.json()) as {
+        best_flights?: GFlight[];
+        other_flights?: GFlight[];
+      };
+      const all = [...(body.best_flights ?? []), ...(body.other_flights ?? [])].filter((f) => f.price > 0);
+      all.sort((a, b) => a.price - b.price);
+      const book = `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${origin} to ${destination} on ${departure}${ret ? ` through ${ret}` : ""}`)}&curr=EUR&hl=en`;
+      return all.slice(0, 3).map((f) => {
+        const airlines = [...new Set((f.flights ?? []).map((s) => s.airline))].slice(0, 2).join(" + ");
+        const stops = (f.layovers ?? []).length;
+        return {
+          provider: "google" as const,
+          providerLabel: "Google Flights",
+          freshness: "live" as const,
+          price: Math.round(f.price),
+          currency: "EUR",
+          title: `${airlines || "Flight"} · ${stops === 0 ? "direct" : `${stops} stop${stops > 1 ? "s" : ""}`}${f.total_duration ? ` · ${mins(f.total_duration)}` : ""}`,
+          detail: ret ? "round trip" : "one way",
+          bookUrl: book,
+          unit: "per person" as const,
+        };
+      });
+    } catch {
+      return [];
+    }
+  });
+}
+interface GFlight {
+  price: number;
+  total_duration?: number;
+  flights?: { airline: string; duration?: number }[];
+  layovers?: { duration: number }[];
+}
+
+// ---------- Google Hotels (SerpApi) ----------
+
+export async function googleHotels(
+  db: D1Database,
+  apiKey: string,
+  monthlyLimit: number,
+  city: string,
+  country: string | null,
+  checkIn: string,
+  checkOut: string,
+  adults: number,
+  fetcher: typeof fetch = fetch,
+): Promise<Offer[]> {
+  const q = [city, country].filter(Boolean).join(", ");
+  const key = `gh:${placeKey(q)}:${checkIn}:${checkOut}:${adults}`;
+  return cached(db, key, 30 * 60_000, async () => {
+    if (!(await serpBudget(db, monthlyLimit))) return [];
+    try {
+      const u = new URL("https://serpapi.com/search.json");
+      u.searchParams.set("engine", "google_hotels");
+      u.searchParams.set("q", q);
+      u.searchParams.set("check_in_date", checkIn);
+      u.searchParams.set("check_out_date", checkOut);
+      u.searchParams.set("adults", String(adults));
+      u.searchParams.set("currency", "EUR");
+      u.searchParams.set("hl", "en");
+      u.searchParams.set("sort_by", "3"); // lowest price
+      u.searchParams.set("api_key", apiKey);
+      const res = await fetcher(u.toString(), { signal: withTimeout(12000) });
+      if (!res.ok) return [];
+      const body = (await res.json()) as {
+        properties?: {
+          name: string;
+          link?: string;
+          hotel_class?: string;
+          extracted_hotel_class?: number;
+          overall_rating?: number;
+          total_rate?: { extracted_lowest?: number };
+          rate_per_night?: { extracted_lowest?: number };
+        }[];
+      };
+      const searchUrl = `https://www.google.com/travel/hotels/${encodeURIComponent(q)}?q=${encodeURIComponent(q)}&dates=${checkIn},${checkOut}&adults=${adults}&curr=EUR`;
+      return (body.properties ?? [])
+        .map((p) => ({ p, total: p.total_rate?.extracted_lowest ?? 0 }))
+        .filter((x) => x.total > 0 && x.p.overall_rating !== undefined && x.p.overall_rating >= 7.5)
+        .sort((a, b) => a.total - b.total)
+        .slice(0, 3)
+        .map(({ p, total }) => ({
+          provider: "google" as const,
+          providerLabel: "Google Hotels",
+          freshness: "live" as const,
+          price: Math.round(total),
+          currency: "EUR",
+          title: `${p.name}${p.extracted_hotel_class ? ` · ${"★".repeat(Math.min(5, p.extracted_hotel_class))}` : ""}${p.overall_rating ? ` · ${p.overall_rating}` : ""}`,
+          bookUrl: p.link || searchUrl,
+          unit: "total" as const,
+        }));
+    } catch {
+      return [];
+    }
+  });
+}
+
+// ---------- Duffel: live airline fares + hosted checkout ----------
+
+export async function duffelFlights(
+  db: D1Database,
+  token: string,
+  origin: string,
+  destination: string,
+  departure: string,
+  ret: string | null,
+  adults: number,
+  tripId: string,
+  fetcher: typeof fetch = fetch,
+): Promise<Offer[]> {
+  const key = `df:${origin}:${destination}:${departure}:${ret ?? "ow"}:${adults}`;
+  return cached(db, key, 20 * 60_000, async () => {
+    try {
+      const slices = [{ origin, destination, departure_date: departure }, ...(ret ? [{ origin: destination, destination: origin, departure_date: ret }] : [])];
+      const res = await fetcher("https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=8000", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "duffel-version": "v2", "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ data: { slices, passengers: Array.from({ length: adults }, () => ({ type: "adult" })), cabin_class: "economy", max_connections: 1 } }),
+        signal: withTimeout(15000),
+      });
+      if (!res.ok) return [];
+      const body = (await res.json()) as {
+        data?: { offers?: { id: string; total_amount: string; total_currency: string; owner?: { name?: string }; slices?: { duration?: string; segments?: unknown[] }[] }[] };
+      };
+      const offers = (body.data?.offers ?? [])
+        .map((o) => ({ o, total: Number(o.total_amount) }))
+        .filter((x) => x.total > 0 && x.o.total_currency === "EUR")
+        .sort((a, b) => a.total - b.total)
+        .slice(0, 3);
+      return offers.map(({ o, total }) => {
+        const stops = Math.max(0, ...(o.slices ?? []).map((s) => (s.segments?.length ?? 1) - 1));
+        const dur = o.slices?.[0]?.duration?.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+        const minutes = dur ? Number(dur[1] ?? 0) * 60 + Number(dur[2] ?? 0) : 0;
+        return {
+          provider: "duffel" as const,
+          providerLabel: o.owner?.name ?? "Airline",
+          freshness: "live" as const,
+          price: Math.round(total / Math.max(1, adults)),
+          currency: "EUR",
+          title: `${o.owner?.name ?? "Airline"} · ${stops === 0 ? "direct" : `${stops} stop${stops > 1 ? "s" : ""}`}${minutes ? ` · ${mins(minutes)}` : ""}`,
+          detail: "airline fare",
+          // The hosted checkout is created when the person taps Book (see /trips/:id/duffel-link).
+          bookUrl: `/api/trips/${tripId}/duffel-link?offer=${encodeURIComponent(o.id)}`,
+          unit: "per person" as const,
+        };
+      });
+    } catch {
+      return [];
+    }
+  });
+}
+
+/** Duffel Links: a hosted booking page; the markup is our earning. */
+export async function duffelCheckoutLink(
+  token: string,
+  opts: { reference: string; successUrl: string; failureUrl: string; markupRate: number; currency: string },
+  fetcher: typeof fetch = fetch,
+): Promise<string | null> {
+  try {
+    const res = await fetcher("https://api.duffel.com/links/sessions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "duffel-version": "v2", "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        data: {
+          reference: opts.reference,
+          success_url: opts.successUrl,
+          failure_url: opts.failureUrl,
+          abandonment_url: opts.failureUrl,
+          checkout_display_text: "Booked through TrailZ",
+          markup_rate: String(opts.markupRate),
+          traveller_currency: opts.currency,
+          flights: { enabled: true },
+          stays: { enabled: true },
+        },
+      }),
+      signal: withTimeout(10000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { data?: { url?: string } };
+    return body.data?.url ?? null;
+  } catch {
+    return null;
+  }
+}

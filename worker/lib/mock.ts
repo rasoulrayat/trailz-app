@@ -4,7 +4,7 @@
  * The scenario is picked from words in the link, e.g. a link containing "italy"
  * gives the many-places result.
  */
-import type { PlaceRef, RealityCard, Mood, PlanDay, PlanItem, Trip, TripPlan, TripPrices } from "../../shared/types";
+import type { Offer, PlaceRef, RealityCard, Mood, PlanDay, PlanItem, Trip, TripPlan, TripPrices } from "../../shared/types";
 import type { VideoRecord } from "./extract-schema";
 import type { ExtractJob } from "./supadata";
 
@@ -226,34 +226,41 @@ export function mockPlan(places: { name: string; country?: string | null }[], mo
 }
 
 export function mockPrices(trip: Trip): TripPrices {
-  const start = trip.startDate ?? "2027-06-12";
   const nights = Math.max(1, trip.plan.days.length - 1);
   const base = trip.plan.days[0]?.base || trip.places[0]?.name || "town";
+  const f = (provider: Offer["provider"], providerLabel: string, freshness: Offer["freshness"], price: number, title: string): Offer => ({
+    provider, providerLabel, freshness, price, currency: "EUR", title, detail: "round trip", bookUrl: "https://example.com/book", unit: "per person",
+  });
+  const h = (provider: Offer["provider"], providerLabel: string, freshness: Offer["freshness"], price: number, title: string): Offer => ({
+    provider, providerLabel, freshness, price, currency: "EUR", title, bookUrl: "https://example.com/stay", unit: "total",
+  });
   return {
     flights: {
       origin: { code: "AMS", name: "Amsterdam" },
       destination: { code: "NAP", name: "Naples" },
       nights,
-      quotes: [
-        { price: 164, currency: "EUR", airline: "HV", transfers: 0, departureAt: `${start}T07:10:00Z`, returnAt: `${start}T15:40:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16061?marker=0" },
-        { price: 198, currency: "EUR", airline: "KL", transfers: 0, departureAt: `${start}T09:35:00Z`, returnAt: `${start}T18:20:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16062?marker=0" },
-        { price: 143, currency: "EUR", airline: "FR", transfers: 1, departureAt: `${start}T06:00:00Z`, returnAt: `${start}T21:05:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16063?marker=0" },
+      offers: [
+        f("google", "Google Flights", "live", 158, "Transavia · direct · 2h 45m"),
+        f("duffel", "KLM", "live", 189, "KLM · direct · 2h 40m"),
+        f("aviasales", "Aviasales", "cached", 143, "FR · 1 stop"),
+        f("google", "Google Flights", "live", 171, "easyJet · 1 stop · 5h 10m"),
       ].sort((a, b) => a.price - b.price),
     },
     stays: [
       {
         city: base,
-        checkIn: start,
-        checkOut: start,
+        checkIn: trip.startDate ?? "2027-06-12",
+        checkOut: trip.startDate ?? "2027-06-12",
         nights,
-        hotels: [
-          { name: "Casa Furore guesthouse", stars: 3, priceFrom: 72 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
-          { name: "Hotel Bacco", stars: 4, priceFrom: 118 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
-          { name: "Furore Inn Resort", stars: 5, priceFrom: 260 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
-        ],
-        searchUrl: "https://search.hotellook.com/?marker=0",
+        offers: [
+          h("google", "Google Hotels", "live", 72 * nights, "Casa Furore guesthouse · ★★★ · 8.7"),
+          h("hotellook", "Hotellook", "cached", 69 * nights, "B&B Il Pino · ★★★"),
+          h("google", "Google Hotels", "live", 118 * nights, "Hotel Bacco · ★★★★ · 9.1"),
+        ].sort((a, b) => a.price - b.price),
+        searchUrl: "https://example.com/stay",
       },
     ],
+    sources: ["Google Flights", "airlines via Duffel", "Aviasales", "Google Hotels", "Hotellook"],
     note: "Sample prices (mock mode).",
   };
 }

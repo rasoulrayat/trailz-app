@@ -1,4 +1,5 @@
-import type { Trip } from "../../shared/types";
+import type { Offer, Trip, TripPrices } from "../../shared/types";
+import { duffelFlights, googleFlights, googleHotels } from "./providers";
 import { placeKey } from "./route";
 
 /** Cached JSON with expiry, so partner APIs are called once per query. */
@@ -213,41 +214,80 @@ async function hotellookLocationId(db: D1Database, token: string, city: string, 
   });
 }
 
-/** Everything Compare & go shows above the partner buttons. */
-export interface TripPrices {
-  flights: { origin?: Place | null; destination?: Place | null; quotes: FlightQuote[]; nights: number } | null;
-  stays: { city: string; checkIn: string; checkOut: string; nights: number; hotels: HotelQuote[]; searchUrl: string }[];
-  note: string;
-}
-
 const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
 
-export async function tripPrices(db: D1Database, token: string, marker: string | undefined, trip: Trip): Promise<TripPrices> {
+export interface ProviderKeys {
+  tpToken?: string;
+  tpMarker?: string;
+  serpApiKey?: string;
+  serpMonthlyLimit: number;
+  duffelToken?: string;
+}
+
+const toFlightOffer = (q: FlightQuote): Offer => ({
+  provider: "aviasales",
+  providerLabel: "Aviasales",
+  freshness: "cached",
+  price: q.price,
+  currency: q.currency,
+  title: `${q.airline} · ${q.transfers === 0 ? "direct" : `${q.transfers} stop${q.transfers > 1 ? "s" : ""}`}`,
+  detail: `${q.departureAt.slice(0, 10)}${q.returnAt ? ` → ${q.returnAt.slice(0, 10)}` : ""}`,
+  approx: q.approx,
+  bookUrl: q.url,
+  unit: "per person",
+});
+const toStayOffer = (h: HotelQuote): Offer => ({
+  provider: "hotellook",
+  providerLabel: "Hotellook",
+  freshness: "cached",
+  price: h.priceFrom,
+  currency: h.currency,
+  title: `${h.name}${h.stars ? ` · ${"★".repeat(Math.min(5, Math.round(h.stars)))}` : ""}`,
+  bookUrl: h.url,
+  unit: "total",
+});
+
+/** Cheapest first; live before cached at the same price; exact dates before nearby dates. */
+const rank = (offers: Offer[]) =>
+  offers
+    .filter((o) => o.price > 0)
+    .sort((a, b) => Number(!!a.approx) - Number(!!b.approx) || a.price - b.price || (a.freshness === "live" ? -1 : 1))
+    .slice(0, 5);
+
+/** Everything Compare & go shows above the partner buttons: all providers merged, cheapest first. */
+export async function tripPrices(db: D1Database, keys: ProviderKeys, trip: Trip): Promise<TripPrices> {
   const start = trip.startDate;
   const nights = Math.max(1, trip.plan.days.length - 1);
   const country = trip.places.find((p) => p.country)?.country ?? null;
   const firstBase = trip.plan.days[0]?.base || trip.places[0]?.name || "";
   const arrive = trip.plan.gateway?.arrive || firstBase;
+  const sources = new Set<string>();
 
-  // Flights need dates; without them we still resolve the airports so the deep link is right.
-  // Try the arrival city, then the first base town, then the first place, then the country.
+  // Airports: the arrival city, then the first base town, then the first place, then the country.
   const candidates = [...new Set([arrive, firstBase, trip.places[0]?.name ?? "", country ?? ""].filter(Boolean))];
   let destination: Place | null = null;
   for (const c of candidates) {
-    destination = await iataFor(db, c, fetch);
+    destination = await iataFor(db, c);
     if (destination) break;
   }
   const origin = await iataFor(db, trip.origin);
-  let flights: TripPrices["flights"] = null;
-  if (origin && destination) {
-    const quotes = start ? await flightQuotes(db, token, marker, origin.code, destination.code, start, addDays(start, nights)) : [];
-    flights = { origin, destination, quotes, nights };
-  } else {
-    flights = { origin, destination, quotes: [], nights };
+
+  let flights: TripPrices["flights"] = { origin, destination, offers: [], nights };
+  if (origin && destination && start) {
+    const ret = addDays(start, nights);
+    const jobs: Promise<Offer[]>[] = [];
+    if (keys.serpApiKey) jobs.push(googleFlights(db, keys.serpApiKey, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers).then((o) => (o.length && sources.add("Google Flights"), o)));
+    if (keys.duffelToken) jobs.push(duffelFlights(db, keys.duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
+    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map(toFlightOffer))));
+    const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
+    const offers = rank(results.flat());
+    // Nearby-date fares only when nothing exact exists.
+    const exact = offers.filter((o) => !o.approx);
+    flights = { origin, destination, offers: exact.length ? exact : offers, nights };
   }
 
   // One stay block per base town, like the Booking links.
@@ -264,13 +304,29 @@ export async function tripPrices(db: D1Database, token: string, marker: string |
     for (const b of bases.slice(0, 3)) {
       const checkIn = addDays(start, b.from);
       const checkOut = addDays(start, b.from + b.nights);
-      const q = await hotelQuotes(db, token, marker, b.city, country, checkIn, checkOut, trip.travelers);
-      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, hotels: q.hotels, searchUrl: q.searchUrl });
+      const jobs: Promise<Offer[]>[] = [];
+      if (keys.serpApiKey) jobs.push(googleHotels(db, keys.serpApiKey, keys.serpMonthlyLimit, b.city, country, checkIn, checkOut, trip.travelers).then((o) => (o.length && sources.add("Google Hotels"), o)));
+      let searchUrl = "";
+      if (keys.tpToken) {
+        jobs.push(
+          hotelQuotes(db, keys.tpToken, keys.tpMarker, b.city, country, checkIn, checkOut, trip.travelers).then((q) => {
+            searchUrl = q.searchUrl;
+            if (q.hotels.length) sources.add("Hotellook");
+            return q.hotels.map(toStayOffer);
+          }),
+        );
+      }
+      const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
+      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank(results.flat()), searchUrl });
     }
   }
+  const list = [...sources];
   return {
     flights,
     stays,
-    note: "Fares and rates seen by travelers in the last 48 hours. The final price is on the partner site.",
+    sources: list,
+    note: list.length
+      ? `Prices from ${list.join(", ")}. Live prices were checked just now; others were seen by travelers in the last 48 hours. The final price is on the partner site.`
+      : "The final price is on the partner site.",
   };
 }

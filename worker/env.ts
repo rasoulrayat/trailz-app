@@ -20,6 +20,14 @@ export interface Env {
   TP_MARKER?: string;
   /** Secret: Travelpayouts API token (profile → API token). Enables prices before the hand-off. */
   TP_TOKEN?: string;
+  /** Secret: SerpApi key (Google Flights / Google Hotels live prices). */
+  SERPAPI_KEY?: string;
+  /** Searches per month we allow ourselves on SerpApi (free plan: 250). */
+  SERPAPI_MONTHLY_LIMIT?: string;
+  /** Secret: Duffel access token (live airline fares + hosted checkout). */
+  DUFFEL_TOKEN?: string;
+  /** Our markup on Duffel bookings, e.g. "0.03" = 3 %. */
+  DUFFEL_MARKUP_RATE?: string;
   TP_TRS?: string;
   TP_KIWI_P?: string;
   TP_BOOKING_P?: string;

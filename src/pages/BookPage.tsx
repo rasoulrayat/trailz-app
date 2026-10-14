@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import type { Handoff, Trip, TripPrices } from "../../shared/types";
+import type { Handoff, Offer, Trip, TripPrices } from "../../shared/types";
 import { tripsApi } from "../api";
 import { Icon, type IconName } from "../components/Icon";
 import { dayLabel } from "./TripPage";
@@ -19,6 +19,7 @@ export function BookPage() {
   const [flexible, setFlexible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [opened, setOpened] = useState<Set<string>>(new Set());
+  const booked = new URLSearchParams(typeof location !== "undefined" ? location.search : "").get("booked");
 
   useEffect(() => {
     tripsApi.getTrip(id).then((r) => {
@@ -67,7 +68,8 @@ export function BookPage() {
   const today = new Date().toISOString().slice(0, 10);
   const endLabel = startDate && !flexible ? dayLabel({ ...trip, startDate }, trip.plan.days.length) : null;
   const parts = handoff ? [...handoff.flights, ...handoff.stay, ...handoff.activities, ...handoff.transport] : [];
-  const done = parts.filter((p) => opened.has(p.url)).length;
+  const offerUrls = prices !== "none" && prices !== "loading" && prices ? [...(prices.flights?.offers ?? []), ...prices.stays.flatMap((s) => s.offers)].map((o) => o.bookUrl) : [];
+  const done = parts.filter((p) => opened.has(p.url)).length + (offerUrls.some((u) => opened.has(u)) ? 1 : 0);
 
   return (
     <>
@@ -162,6 +164,12 @@ export function BookPage() {
           </button>
         )}
 
+        {booked === "flights" && (
+          <div className="tip" style={{ background: "var(--real-tint)", color: "var(--real)" }}>
+            <Icon name="check" size={18} />
+            <span>Flight booked. The confirmation comes by email from the airline.</span>
+          </div>
+        )}
         {handoff && (
           <>
             <div className="stack" style={{ gap: 8 }}>
@@ -184,7 +192,7 @@ export function BookPage() {
               <h2 className="guide-h">How to get there</h2>
               <FlightPrices prices={prices} opened={opened} mark={mark} />
               {handoff.flights.map((f) => (
-                <PartnerCard key={f.url} icon="plane" title={`Flights with ${f.partner}`} sub={f.note} url={f.url} cta={prices !== "none" && prices !== "loading" && prices?.flights?.quotes.length ? `Also check ${f.partner}` : `Go to ${f.partner}`} opened={opened} mark={mark} secondary={!!(prices !== "none" && prices !== "loading" && prices?.flights?.quotes.length)} />
+                <PartnerCard key={f.url} icon="plane" title={`Flights with ${f.partner}`} sub={f.note} url={f.url} cta={prices !== "none" && prices !== "loading" && prices?.flights?.offers.length ? `Also check ${f.partner}` : `Go to ${f.partner}`} opened={opened} mark={mark} secondary={!!(prices !== "none" && prices !== "loading" && prices?.flights?.offers.length)} />
               ))}
             </section>
             {handoff.transport.length > 0 && (
@@ -197,7 +205,7 @@ export function BookPage() {
                 return (
                   <div key={s.url} className="stack" style={{ gap: 8 }}>
                     <StayPrices stay={stay} loading={prices === "loading"} city={s.city} nights={s.nights} opened={opened} mark={mark} />
-                    <PartnerCard icon="bed" title={s.city} sub={s.note} url={s.url} cta={stay?.hotels.length ? `Also check ${s.partner}` : `Go to ${s.partner}`} opened={opened} mark={mark} secondary={!!stay?.hotels.length} />
+                    <PartnerCard icon="bed" title={s.city} sub={s.note} url={s.url} cta={stay?.offers.length ? `Also check ${s.partner}` : `Go to ${s.partner}`} opened={opened} mark={mark} secondary={!!stay?.offers.length} />
                   </div>
                 );
               })}
@@ -227,10 +235,6 @@ export function BookPage() {
 
 
 const euro = (n: number) => `€${n.toLocaleString("en-US")}`;
-const fmtDate = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]}`;
-};
 
 function PartnerCard({ icon, title, sub, url, cta, opened, mark, secondary }: { icon: IconName; title: string; sub: string; url: string; cta: string; opened: Set<string>; mark: (u: string) => void; secondary?: boolean }) {
   const done = opened.has(url);
@@ -264,10 +268,39 @@ function Group({ title, icon, items, opened, mark }: { title: string; icon: Icon
   );
 }
 
-/** Cheapest fares seen on Aviasales for these dates, each bookable with a tracked link. */
+/** One row per price, from whichever provider. Tapping it books there. */
+function OfferRow({ o, best, opened, mark, unit }: { o: Offer; best: boolean; opened: Set<string>; mark: (u: string) => void; unit: string }) {
+  const done = opened.has(o.bookUrl);
+  return (
+    <a
+      href={o.bookUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`offer${best ? " best" : ""}${done ? " done" : ""}`}
+      onClick={() => mark(o.bookUrl)}
+      aria-label={`${o.title}, ${euro(o.price)} ${unit}, book on ${o.providerLabel}`}
+    >
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span className="offer-title">{o.title}</span>
+        <span className="offer-sub">
+          <span className={`dot ${o.freshness}`} aria-hidden="true" />
+          {o.freshness === "live" ? "live" : "recent"} · {o.providerLabel}
+          {o.detail ? ` · ${o.detail}` : ""}
+        </span>
+      </span>
+      <span className="offer-price">
+        <b>{euro(o.price)}</b>
+        <span className="small">{done ? "opened" : "book"}</span>
+        <Icon name="external" size={12} />
+      </span>
+    </a>
+  );
+}
+
+/** Flights: every provider's fares in one list, cheapest first. */
 function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "loading" | "none"; opened: Set<string>; mark: (u: string) => void }) {
   if (prices === "none" || prices === null) return null;
-  if (prices === "loading") return <div className="skeleton" style={{ height: 96 }} aria-label="Looking up fares" />;
+  if (prices === "loading") return <div className="skeleton" style={{ height: 150 }} aria-label="Checking fares" />;
   const f = prices.flights;
   if (!f) return null;
   const route = f.origin && f.destination ? `${f.origin.code} → ${f.destination.code}` : "";
@@ -277,56 +310,48 @@ function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "l
         We couldn't match {!f.origin ? "your departure city" : "the arrival city"} to an airport, so no fares to show. The partner search still works.
       </div>
     );
-  if (!f.quotes.length)
+  if (!f.offers.length)
     return (
       <div className="card small" style={{ padding: 12 }}>
-        No fares cached yet for {route} on these dates (common for trips starting within days or many months out). The partner shows live prices.
+        No fares found yet for {route} on these dates. The partner shows live prices.
       </div>
     );
-  const best = f.quotes[0];
+  const best = f.offers[0];
   const approx = !!best.approx;
+  const live = f.offers.some((o) => o.freshness === "live");
   return (
     <div className="card stack price" style={{ gap: 10 }}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <span>
           <span className="small">Return flights {route}{approx ? " · nearby dates" : ""}</span>
-          <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>from {euro(best.price)}</span>
+          <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>
+            from {euro(best.price)} <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>per person</span>
+          </span>
         </span>
-        <span className={`badge ${approx ? "soft" : "soft-real"}`}>{approx ? "same month" : "seen in the last 48 h"}</span>
+        <span className={`badge ${live ? "soft-real" : "soft"}`}>{live ? "live prices" : "recent fares"}</span>
       </div>
-      {approx && (
-        <div className="small">Nothing cached for your exact dates yet; these are the cheapest fares seen this month. Your dates are kept in the Kiwi.com search.</div>
-      )}
-      <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: 6 }}>
-        {f.quotes.map((q, i) => (
-          <li key={q.url} className="row" style={{ justifyContent: "space-between", padding: "8px 10px", borderRadius: 12, background: i === 0 ? "var(--bg)" : "transparent", fontSize: 14 }}>
-            <span>
-              <b>{q.airline}</b> · {q.transfers === 0 ? "direct" : `${q.transfers} stop${q.transfers > 1 ? "s" : ""}`} · {fmtDate(q.departureAt)}
-              {q.returnAt ? ` → ${fmtDate(q.returnAt)}` : ""}
-            </span>
-            <b>{euro(q.price)}</b>
-          </li>
+      {approx && <div className="small">Nothing found for your exact dates yet; these are the cheapest fares this month. Your dates are kept in the partner search.</div>}
+      <div className="stack" style={{ gap: 6 }}>
+        {f.offers.map((o, i) => (
+          <OfferRow key={o.bookUrl + i} o={o} best={i === 0} opened={opened} mark={mark} unit="per person" />
         ))}
-      </ul>
-      <a href={best.url} target="_blank" rel="noopener noreferrer" className={`btn${opened.has(best.url) ? " secondary" : ""}`} style={{ height: 46 }} onClick={() => mark(best.url)}>
-        {opened.has(best.url) ? "Open again" : `Book on Aviasales · ${euro(best.price)}`}
-        <Icon name="external" size={16} />
-      </a>
+      </div>
     </div>
   );
 }
 
-/** Hotel rates per base town from Hotellook. */
+/** Stays: hotels per base town from every provider, cheapest first. */
 function StayPrices({ stay, loading, city, nights, opened, mark }: { stay?: TripPrices["stays"][number]; loading: boolean; city: string; nights: number; opened: Set<string>; mark: (u: string) => void }) {
-  if (loading) return <div className="skeleton" style={{ height: 80 }} aria-label="Looking up hotel rates" />;
+  if (loading) return <div className="skeleton" style={{ height: 130 }} aria-label="Checking hotel rates" />;
   if (!stay) return null;
-  if (!stay.hotels.length)
+  if (!stay.offers.length)
     return (
       <div className="card small" style={{ padding: 12 }}>
-        No cached rates for {city} on these nights. The partner shows live prices.
+        No rates found for {city} on these nights. The partner shows live prices.
       </div>
     );
-  const best = stay.hotels[0];
+  const best = stay.offers[0];
+  const live = stay.offers.some((o) => o.freshness === "live");
   return (
     <div className="card stack price" style={{ gap: 10 }}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
@@ -335,26 +360,16 @@ function StayPrices({ stay, loading, city, nights, opened, mark }: { stay?: Trip
             {city} · {nights} {nights === 1 ? "night" : "nights"}
           </span>
           <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>
-            from {euro(best.priceFrom)} <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>total</span>
+            from {euro(best.price)} <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>total</span>
           </span>
         </span>
-        <span className="badge soft-real">{stay.hotels.length} found</span>
+        <span className={`badge ${live ? "soft-real" : "soft"}`}>{live ? "live prices" : "recent rates"}</span>
       </div>
-      <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: 6 }}>
-        {stay.hotels.map((h, i) => (
-          <li key={h.name} className="row" style={{ justifyContent: "space-between", padding: "8px 10px", borderRadius: 12, background: i === 0 ? "var(--bg)" : "transparent", fontSize: 14 }}>
-            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {h.name}
-              {h.stars ? <span className="small"> · {"★".repeat(Math.min(5, Math.round(h.stars)))}</span> : null}
-            </span>
-            <b style={{ flex: "none" }}>{euro(h.priceFrom)}</b>
-          </li>
+      <div className="stack" style={{ gap: 6 }}>
+        {stay.offers.map((o, i) => (
+          <OfferRow key={o.bookUrl + i} o={o} best={i === 0} opened={opened} mark={mark} unit="total" />
         ))}
-      </ul>
-      <a href={stay.searchUrl} target="_blank" rel="noopener noreferrer" className={`btn${opened.has(stay.searchUrl) ? " secondary" : ""}`} style={{ height: 46 }} onClick={() => mark(stay.searchUrl)}>
-        {opened.has(stay.searchUrl) ? "Open again" : "Compare rooms on Hotellook"}
-        <Icon name="external" size={16} />
-      </a>
+      </div>
     </div>
   );
 }

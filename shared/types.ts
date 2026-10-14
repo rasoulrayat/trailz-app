@@ -226,21 +226,35 @@ export interface Handoff {
   disclaimer: string;
 }
 
+/** One bookable price from one provider. The UI never cares which provider, only the tag. */
+export interface Offer {
+  provider: "google" | "aviasales" | "duffel" | "hotellook";
+  providerLabel: string;
+  /** "live" = fetched now; "cached" = seen by other travelers recently. */
+  freshness: "live" | "cached";
+  price: number;
+  currency: string;
+  /** Flights: "KLM · direct · 2h 10m". Stays: "Hotel Bacco · ★★★★ · 8.6". */
+  title: string;
+  detail?: string;
+  /** Flights: true when the dates are not the exact ones asked. */
+  approx?: boolean;
+  /** Where "Book" goes. Duffel offers use a hosted checkout created on tap (bookUrl = /api/…). */
+  bookUrl: string;
+  /** Which part of the price this is: per person (flights) or total stay. */
+  unit: "per person" | "total";
+}
+
 /** Prices shown on Compare & go before the person leaves the app. */
 export interface TripPrices {
   flights: {
     origin?: { code: string; name: string } | null;
     destination?: { code: string; name: string } | null;
-    quotes: { approx?: boolean; price: number; currency: string; airline: string; transfers: number; departureAt: string; returnAt?: string; url: string }[];
+    offers: Offer[];
     nights: number;
   } | null;
-  stays: {
-    city: string;
-    checkIn: string;
-    checkOut: string;
-    nights: number;
-    hotels: { name: string; stars: number; priceFrom: number; currency: string; url: string }[];
-    searchUrl: string;
-  }[];
+  stays: { city: string; checkIn: string; checkOut: string; nights: number; offers: Offer[]; searchUrl: string }[];
+  /** Which providers answered, for the footnote. */
+  sources: string[];
   note: string;
 }
