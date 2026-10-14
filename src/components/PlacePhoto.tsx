@@ -26,7 +26,7 @@ const cache = new Map<string, Promise<Gallery>>();
  * and a 400 px JPEG is roughly a fifth of the bytes. Other hosts are returned unchanged.
  */
 export function thumb(url: string, width: number): string {
-  return /upload\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-/, `/${width}px-`) : url;
+  return /\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-/, `/${width}px-`) : url;
 }
 
 /** Fetch galleries ahead of time and start the image downloads, so a screen that needs them opens already filled. */
