@@ -47,6 +47,7 @@
     "OMIO_PARTNER_ID": "",
     // Travelpayouts (one account for Kiwi.com, Booking.com, GetYourGuide, Omio …). From the long version of any
     // Travelpayouts link: marker=TP_MARKER, trs=TP_TRS, and p=<campaign id> per brand. Empty = plain partner links.
+    "GOOGLE_CLIENT_ID": "892982400205-2cvganv2su3ugjf6p2f65a4em8fpmdft.apps.googleusercontent.com",
     "TP_MARKER": "789861",
     "TP_TRS": "585453",
     "TP_KIWI_P": "",
@@ -60,6 +61,6 @@
     "DUFFEL_ALLOW_TEST": "1"
   }
   // Secrets (set with `npx wrangler secret put NAME` or in the dashboard):
-  //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token), SERPAPI_KEY (Google Flights/Hotels),
+  //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token), SERPAPI_KEY (Google Flights/Hotels), GOOGLE_CLIENT_SECRET (Google sign-in),
   //   DUFFEL_TOKEN (live airline fares + hosted checkout)
 }

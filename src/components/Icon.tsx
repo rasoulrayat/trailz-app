@@ -50,6 +50,13 @@ const PATHS = {
   volume: <path d="M4 10v4h3l4 4V6L7 10zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12" />,
   mute: <path d="M4 10v4h3l4 4V6L7 10zM16 9l5 5M21 9l-5 5" />,
   "chevron-up": <path d="m6 15 6-6 6 6" />,
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  logout: <path d="M10 17l5-5-5-5M15 12H3M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" />,
   paste: (
     <>
       <rect x="8" y="3" width="8" height="4" rx="1" />

@@ -3,7 +3,9 @@ import type { CheckResult, ExploreItem, ExploreResponse, MonthRating, SavedPlace
 import type { Env } from "./env";
 import { distanceKm, placeKey } from "./lib/route";
 
-type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
+type AppEnv = { Bindings: Env; Variables: AuthVars };
+import type { AuthVars } from "./auth-api";
+import { readProfile, VIBE_WORDS } from "./lib/auth";
 export const explore = new Hono<AppEnv>();
 
 interface Row {
@@ -31,7 +33,7 @@ explore.get("/explore", async (c) => {
   const db = c.env.DB;
   const deviceId = c.get("deviceId");
   const weekAgo = Date.now() - 7 * 86400_000;
-  const [rows, mySaves] = await Promise.all([
+  const [rows, mySaves, profile] = await Promise.all([
     db
       .prepare(
         `SELECT v.id, v.outcome, v.result_json, v.extract_json, v.thumbnail_url, v.author, v.platform, v.url, v.title, v.updated_at,
@@ -44,12 +46,15 @@ explore.get("/explore", async (c) => {
       .bind(weekAgo)
       .all<Row>(),
     db.prepare("SELECT name, country, lat, lng, vibe_json FROM saves WHERE device_id = ?").bind(deviceId).all<{ name: string; country: string | null; lat: number | null; lng: number | null; vibe_json: string }>(),
+    readProfile(db, deviceId),
   ]);
 
   const saves: Pick<SavedPlace, "name" | "country" | "lat" | "lng" | "vibe">[] = mySaves.results.map((s) => ({ ...s, vibe: JSON.parse(s.vibe_json) as string[] }));
   const myVibeCount = new Map<string, number>();
   saves.forEach((s) => s.vibe.forEach((v) => myVibeCount.set(placeKey(v), (myVibeCount.get(placeKey(v)) ?? 0) + 1)));
-  const myVibe = [...myVibeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([v]) => v);
+  // Saved places say the most about taste; the onboarding picks fill in before anything is saved.
+  (profile?.vibes ?? []).forEach((id) => (VIBE_WORDS[id] ?? []).forEach((w) => myVibeCount.set(w, (myVibeCount.get(w) ?? 0) + 0.5)));
+  const myVibe = [...myVibeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([v]) => v);
 
   const month = Number(c.req.query("month") || 0);
   const budget = Number(c.req.query("budget") || 0);

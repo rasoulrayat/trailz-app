@@ -39,8 +39,10 @@ import { getExtract, startExtract, SupadataError } from "./lib/supadata";
 import { trips } from "./trips-api";
 import { explore } from "./explore-api";
 import { share } from "./share-api";
+import { auth, SESSION_COOKIE, type AuthVars } from "./auth-api";
+import { ownerForUser, userForSession } from "./lib/auth";
 
-type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
+type AppEnv = { Bindings: Env; Variables: AuthVars };
 const app = new Hono<AppEnv>().basePath("/api");
 
 const LINK_MESSAGES: Record<LinkErrorCode, string> = {
@@ -56,7 +58,8 @@ const FRIENDLY_ERROR = "Something went wrong while checking this reel. Try again
 const fail = (c: Context<AppEnv>, status: 400 | 404 | 429 | 500, error: ApiError["error"], message: string) =>
   c.json<ApiError>({ error, message }, status);
 
-// Anonymous device id (sign-up comes in a later phase). Used for daily limits and history.
+// Who is asking: an anonymous device id (cookie), or the account behind a session cookie.
+// Everything a user owns is keyed by one owner id, so logging in on any phone shows the same saves and trips.
 app.use("*", async (c, next) => {
   let id = getCookie(c, "tz_device");
   if (!id || !/^[a-z0-9]{12,40}$/.test(id)) {
@@ -69,7 +72,10 @@ app.use("*", async (c, next) => {
       maxAge: 60 * 60 * 24 * 365,
     });
   }
-  c.set("deviceId", id);
+  c.set("rawDeviceId", id);
+  const user = await userForSession(c.env.DB, getCookie(c, SESSION_COOKIE)).catch(() => null);
+  c.set("user", user);
+  c.set("deviceId", user ? ownerForUser(user.id) : id);
   await next();
 });
 
@@ -368,6 +374,7 @@ app.get("/place-photos", async (c) => {
 });
 
 // ---------- Saved places and trips: see trips-api.ts ----------
+app.route("/", auth);
 app.route("/", trips);
 app.route("/", explore);
 app.route("/", share);

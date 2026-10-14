@@ -30,6 +30,9 @@ export interface Env {
   DUFFEL_MARKUP_RATE?: string;
   /** "1" shows Duffel's sandbox airline to users (testing the checkout flow only). */
   DUFFEL_ALLOW_TEST?: string;
+  /** Google sign-in: OAuth client id (public) and secret (Cloudflare secret). */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   TP_TRS?: string;
   TP_KIWI_P?: string;
   TP_BOOKING_P?: string;

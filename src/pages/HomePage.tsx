@@ -7,6 +7,8 @@ import { Img } from "../components/Img";
 import { usePlaceGallery } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
 import { Wordmark } from "../components/Wordmark";
+import { AccountButton } from "../components/Account";
+import { hasOnboarded } from "../auth";
 
 const LINK_ERRORS: string[] = ["no_link", "unsupported_site", "profile_link", "unavailable", "daily_limit"] satisfies LinkErrorCode[];
 
@@ -17,6 +19,11 @@ export function HomePage() {
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<CheckSummary[] | null>(null);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
+
+  // First visit: the intro, once. Deep links (a shared check, a trip) never go through it.
+  useEffect(() => {
+    if (!hasOnboarded()) navigate("/welcome", { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     api
@@ -60,6 +67,7 @@ export function HomePage() {
     <main className="page">
       <div className="topbar">
         <Wordmark />
+        <AccountButton />
       </div>
 
       <h1>Saw it on a reel? See it for real.</h1>

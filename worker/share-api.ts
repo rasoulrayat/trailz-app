@@ -4,7 +4,8 @@ import type { Env } from "./env";
 import { placeKey } from "./lib/route";
 import { getVideo, newId } from "./lib/store";
 
-type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
+type AppEnv = { Bindings: Env; Variables: AuthVars };
+import type { AuthVars } from "./auth-api";
 export const share = new Hono<AppEnv>();
 
 const token = () => newId() + newId().slice(0, 4);

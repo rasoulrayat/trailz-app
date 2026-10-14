@@ -133,7 +133,7 @@ export interface StartCheckResponse {
 }
 
 export interface ApiError {
-  error: LinkErrorCode | "not_found" | "bad_request" | "server_error";
+  error: LinkErrorCode | "not_found" | "bad_request" | "server_error" | "login_required";
   message: string;
 }
 
@@ -270,6 +270,30 @@ export interface TripPrices {
   /** Which providers answered, for the footnote. */
   sources: string[];
   note: string;
+}
+
+// ---------- Accounts + onboarding profile ----------
+
+export type Crew = "solo" | "partner" | "friends" | "family";
+
+/** Onboarding answers. Every field is optional: each question can be skipped. */
+export interface Profile {
+  /** Vibe ids from the onboarding picker, e.g. "beach", "mountains". */
+  vibes: string[];
+  crew?: Crew;
+  /** Rough budget per person per trip in EUR; 0 = no limit. */
+  budget?: number;
+  /** Home city, e.g. "Amsterdam". */
+  home?: string;
+  /** Set once the intro has been seen (or skipped). */
+  onboarded?: boolean;
+}
+
+export interface Me {
+  user: { id: string; name: string | null; email: string | null; avatar: string | null } | null;
+  profile: Profile | null;
+  /** Whether Google sign-in is configured on the server. */
+  canLogin: boolean;
 }
 
 // ---------- Explore (public feed of checked reels) ----------

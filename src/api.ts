@@ -1,4 +1,4 @@
-import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
+import type { ApiError, CheckStatus, CheckSummary, Handoff, Me, Mood, Profile, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
 
 export class ApiFailure extends Error {
   constructor(
@@ -119,4 +119,10 @@ export const shareApi = {
   vote: (token: string, vote: "in" | "out", name?: string) =>
     call<{ votes: SharePayload["votes"] }>(`/api/share/${encodeURIComponent(token)}/vote`, { method: "POST", body: JSON.stringify({ vote, name }) }),
   mine: (kind: "check" | "trip", id: string) => call<{ token: string | null; votes: SharePayload["votes"] | null }>(`/api/share/mine?kind=${kind}&id=${encodeURIComponent(id)}`),
+};
+
+export const meApi = {
+  get: () => call<Me>("/api/me"),
+  saveProfile: (patch: Partial<Profile>) => call<{ profile: Profile }>("/api/me/profile", { method: "PUT", body: JSON.stringify(patch) }),
+  logout: () => call<{ ok: true }>("/api/auth/logout", { method: "POST" }),
 };

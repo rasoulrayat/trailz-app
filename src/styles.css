@@ -434,3 +434,78 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .reel-hint { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-top: 4px; animation: reel-bob 1.6s ease-in-out infinite; }
 @keyframes reel-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @media (min-width: 560px) { .reel-stage > iframe { left: 50%; width: min(100%, 440px); transform: translateX(-50%); } }
+
+/* ---------- Account ---------- */
+.avatar { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; background: var(--navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; flex: none; text-decoration: none; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar.big { width: 56px; height: 56px; font-size: 22px; }
+.btn.google { background: #fff; color: #1f1f1f; border: 1px solid var(--line-strong); font-weight: 500; }
+.btn.google.light { border: 0; }
+.g-mark { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font: 700 14px/1 var(--display); color: var(--navy); background: var(--blue-tint); }
+.gate { border: 2px solid var(--navy); }
+.gate-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45; }
+.legal h2 { font-size: 16px; margin: 8px 0 0; }
+.legal p, .legal li { font-size: 14px; line-height: 1.55; margin: 0; }
+.legal ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Onboarding (first run) ---------- */
+.ob { position: fixed; inset: 0; z-index: 40; background: radial-gradient(120% 80% at 50% 0%, #16306b 0%, #0b1b3f 55%, #050b1a 100%); color: #fff; display: flex; flex-direction: column; overflow: hidden; }
+.ob-top { padding: max(12px, env(safe-area-inset-top)) 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.ob-bars { display: flex; gap: 4px; }
+.ob-bars span { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); overflow: hidden; position: relative; }
+.ob-bars span.done { background: #fff; }
+.ob-bars span.on::after { content: ""; position: absolute; inset: 0; background: #fff; transform-origin: left; animation: ob-fill 0.6s ease-out forwards; }
+@keyframes ob-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.ob-skip { background: none; border: 0; color: rgba(255, 255, 255, 0.75); font: 500 14px var(--font); padding: 8px 4px; }
+.ob-skip.center { text-align: center; width: 100%; padding: 12px; }
+.ob-step { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; animation: ob-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ob-step.from-left { animation-name: ob-in-left; }
+@keyframes ob-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes ob-in-left { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.ob-body { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 20px max(20px, env(safe-area-inset-bottom)); max-width: 480px; width: 100%; margin: 0 auto; }
+.ob-body.hook { justify-content: flex-end; }
+.ob-h { margin: 0; font-family: var(--display); font-size: 38px; line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.ob-h em { font-style: normal; color: #7ec8ff; }
+.ob-h.sm { font-size: 30px; }
+.ob-p { margin: 0; font-size: 15px; line-height: 1.5; color: rgba(255, 255, 255, 0.78); }
+.ob-cta { margin-top: auto; background: #fff; color: var(--navy); font-weight: 600; position: sticky; bottom: 0; box-shadow: 0 -12px 24px rgba(5, 11, 26, 0.6); }
+.ob-cta:active { transform: scale(0.98); }
+.ob-badge { width: 56px; height: 56px; border-radius: 50%; background: var(--real); color: #fff; display: flex; align-items: center; justify-content: center; animation: ob-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes ob-pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+.ob-input { width: 100%; height: 56px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff; font: 500 20px var(--font); padding: 0 18px; outline: none; }
+.ob-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.ob-input:focus { border-color: #7ec8ff; }
+.chip.ob-chip { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); color: #fff; gap: 4px; align-self: flex-start; }
+.chip.ob-chip.static { pointer-events: none; }
+
+/* hook card: the reel's claim vs reality */
+.hook-card { position: relative; width: 100%; max-width: 300px; margin: 0 auto 10px; animation: ob-float 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes ob-float { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+.hook-reel { border-radius: 22px; padding: 18px 18px 64px; min-height: 210px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; background: linear-gradient(160deg, #1b6fb8, #f3c6a0 85%); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
+.hook-reel b { font-family: var(--display); font-size: 24px; font-weight: 800; }
+.hook-reel > span:last-child { font-size: 13px; opacity: 0.9; animation: ob-strike 0.4s 1.4s both; }
+@keyframes ob-strike { to { text-decoration: line-through; opacity: 0.55; } }
+.hook-pill { align-self: flex-start; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.25); margin-bottom: auto; }
+.hook-real { position: absolute; right: -8px; bottom: -18px; max-width: 230px; background: #fff; color: var(--navy); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.35; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); transform: rotate(-3deg); animation: ob-stamp 0.45s 1.1s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes ob-stamp { from { transform: rotate(-3deg) scale(1.6); opacity: 0; } to { transform: rotate(-3deg) scale(1); opacity: 1; } }
+.hook-stamp { align-self: flex-start; font-family: var(--display); font-weight: 800; font-size: 18px; color: #8a5a00; }
+
+/* vibe tiles */
+.vibe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-bottom: 8px; }
+.vibe-tile { position: relative; aspect-ratio: 1; border-radius: 16px; border: 3px solid transparent; overflow: hidden; color: #fff; padding: 0; text-align: left; transition: transform 0.15s ease, border-color 0.15s ease; }
+.vibe-tile:active { transform: scale(0.97); }
+.vibe-tile.on { border-color: #fff; }
+.vibe-shade { position: absolute; inset: 0; background: linear-gradient(rgba(5, 11, 26, 0) 40%, rgba(5, 11, 26, 0.75)); pointer-events: none; }
+.vibe-label { position: absolute; left: 10px; right: 8px; bottom: 8px; font-family: var(--display); font-weight: 700; font-size: 13px; line-height: 1.15; }
+.vibe-check { position: absolute; right: 6px; top: 6px; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: var(--navy); display: flex; align-items: center; justify-content: center; transform: scale(0); transition: transform 0.18s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.vibe-tile.on .vibe-check { transform: scale(1); }
+
+/* one-tap options */
+.ob-option { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 18px; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.07); color: #fff; font: inherit; transition: transform 0.12s ease, background 0.15s ease; }
+.ob-option:active { transform: scale(0.98); }
+.ob-option.on { background: #fff; color: var(--navy); border-color: #fff; }
+.ob-option > span:last-of-type { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ob-option b { font-size: 17px; font-weight: 600; }
+.ob-option span span { font-size: 13px; opacity: 0.7; }
+.ob-option-icon { width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; flex: none; }
+.ob-option.on .ob-option-icon { background: var(--blue-tint); color: var(--blue); }

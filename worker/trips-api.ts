@@ -10,7 +10,9 @@ import { iataFor, rank, tripPrices } from "./lib/prices";
 import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 
-type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
+type AppEnv = { Bindings: Env; Variables: AuthVars };
+import type { AuthVars } from "./auth-api";
+import { readProfile } from "./lib/auth";
 export const trips = new Hono<AppEnv>();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,8 +160,11 @@ trips.post("/trips", async (c) => {
   if (!places.length) return bad(c, 400, "bad_request", "Add at least one place.");
 
   const days = Math.min(14, Math.max(2, Math.round(Number(b.days) || daysFor(places.length))));
-  const origin = (b.origin ?? "").trim().slice(0, 60) || DEFAULT_ORIGIN;
-  const travelers = Math.min(9, Math.max(1, Math.round(Number(b.travelers) || 1)));
+  // Onboarding answers fill in what the request leaves out: home city and who usually comes along.
+  const profile = await readProfile(c.env.DB, c.get("deviceId"));
+  const crewSize = { solo: 1, partner: 2, friends: 3, family: 3 } as const;
+  const origin = (b.origin ?? "").trim().slice(0, 60) || profile?.home || DEFAULT_ORIGIN;
+  const travelers = Math.min(9, Math.max(1, Math.round(Number(b.travelers) || (profile?.crew ? crewSize[profile.crew] : 1))));
   const budgetMode = !!b.budgetMode;
 
   // What the Reality Cards already found out: base cities and local tips make the plan consistent with the cards.
@@ -281,6 +286,7 @@ const searchRow = (provider: "kiwi" | "booking", label: string, url: string, ear
 
 /** Partner links for this trip, with dates and places filled in. */
 trips.get("/trips/:id/handoff", async (c) => {
+  if (!c.get("user")) return c.json<ApiError>({ error: "login_required", message: "Log in to see prices and book." }, 401);
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   const trip = toTrip(row);
@@ -290,6 +296,7 @@ trips.get("/trips/:id/handoff", async (c) => {
 
 /** Prices to show before leaving the app (Aviasales fares, Hotellook rates), when a Travelpayouts token is set. */
 trips.get("/trips/:id/prices", async (c) => {
+  if (!c.get("user")) return c.json<ApiError>({ error: "login_required", message: "Log in to see prices and book." }, 401);
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   if (isMock(c.env)) {
@@ -331,6 +338,7 @@ trips.get("/trips/:id/prices", async (c) => {
 
 /** "Book" on an airline fare from Duffel: create a hosted checkout page and send the person there. */
 trips.get("/trips/:id/duffel-link", async (c) => {
+  if (!c.get("user")) return c.json<ApiError>({ error: "login_required", message: "Log in to see prices and book." }, 401);
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row || !c.env.DUFFEL_TOKEN) return bad(c, 404, "not_found", "This booking link isn't available.");
   const origin = new URL(c.req.url).origin;

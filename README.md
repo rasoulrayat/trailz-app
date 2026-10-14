@@ -150,6 +150,27 @@ All accounts belong to the Dutch company with EU billing.
 - **Friends**: "Ask friends" on a card or a trip makes a share link (`/s/<token>`), a read-only page with
   *I'm in / Not for me* (one vote per device, name optional, no account). The owner sees the tally on the button.
 
+- **Watch first**: tapping an Explore tile opens the reel full-screen (`/explore/reel/:id`), muted and looping,
+  with the deciding facts and a "See the Reality Card" button underneath; swipe for the next reel. Only the reel
+  on screen plays. (Playing inside the grid would need hosting the video files, which the platforms don't allow.)
+
+## Phase 4: accounts and first run (built)
+
+- **No login to use it.** Checks, saves, trips, Explore and sharing work on the anonymous device cookie.
+- **Google sign-in** (`/api/auth/google/start` → Google → `/api/auth/google/callback`): plain OAuth code flow,
+  id token checked with Google's tokeninfo endpoint, 90-day session cookie (`tz_session`, hashed in D1 `sessions`).
+  Settings: var `GOOGLE_CLIENT_ID`, secret `GOOGLE_CLIENT_SECRET`; the redirect URI to register in Google Cloud
+  is `https://<your host>/api/auth/google/callback`. In mock mode "Continue with Google" signs in a sample user.
+- **One owner id.** A logged-in user's rows are keyed `u:<user id>`; on login the device's checks, saves, trips,
+  shares, votes and picks move to the account (`mergeDeviceIntoUser`), so every phone they log in on sees the same.
+- **Login only for booking**: `/trips/:id/book`, `/prices`, `/handoff` and the Duffel link need an account
+  (401 `login_required`); the page shows why and sends the person back to the same trip after Google.
+- **First run** (`/welcome`, shown once from Home; deep links skip it): a hook screen, then one-tap picks —
+  vibe tiles, who's coming, budget, home city (guessed from the time zone) — then "Continue with Google" or skip.
+  Picks are saved as they're made (`profiles`, per device or account) and used for Explore's *My vibe*
+  (`VIBE_WORDS`), the trip's origin and traveller count. `/me` shows the account and picks, replays the intro,
+  logs out. `/privacy` is the policy page the Google consent screen links to (set `CONTACT_EMAIL`).
+
 ## What's next (later phases)
 
 - Accounts (Clerk), so saves and trips follow the user across devices; home city instead of "Amsterdam".

@@ -16,6 +16,9 @@ import { BookPage } from "./pages/BookPage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { SharedPage } from "./pages/SharedPage";
 import { ReelViewerPage } from "./pages/ReelViewerPage";
+import { MePage } from "./pages/MePage";
+import { PrivacyPage } from "./pages/PrivacyPage";
+import { WelcomePage } from "./pages/WelcomePage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -24,6 +27,9 @@ createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/share" element={<SharePage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
+          <Route path="/me" element={<MePage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/check/:id" element={<CheckPage />} />
           <Route path="/check/:id/place" element={<PlacePage />} />
           <Route path="/check/:id/where" element={<WherePage />} />
