@@ -44,9 +44,14 @@ describe("partner hand-off links", () => {
 
   it("fills dates, places and travelers into each partner link", () => {
     const h = buildHandoff(trip, { kiwi: "trailz", booking: "123" });
-    expect(h.flights[0].url).toContain("/amsterdam/santorini/12/06/2027/15/06/2027");
-    expect(h.flights[0].url).toContain("adults=2");
-    expect(h.flights[0].url).toContain("affilid=trailz");
+    const f = new URL(h.flights[0].url);
+    expect(f.origin + f.pathname).toBe("https://www.kiwi.com/deep");
+    expect(f.searchParams.get("from")).toBe("Amsterdam");
+    expect(f.searchParams.get("to")).toBe("Santorini");
+    expect(f.searchParams.get("departure")).toBe("2027-06-12");
+    expect(f.searchParams.get("return")).toBe("2027-06-15");
+    expect(f.searchParams.get("adults")).toBe("2");
+    expect(f.searchParams.get("affilid")).toBe("trailz");
     expect(h.stay.map((s) => [s.city, s.nights])).toEqual([["Fira", 2], ["Pyrgos", 1]]);
     expect(h.stay[0].url).toContain("checkin=2027-06-12");
     expect(h.stay[0].url).toContain("checkout=2027-06-14");
@@ -58,21 +63,28 @@ describe("partner hand-off links", () => {
   });
 
   it("works without dates (flexible)", () => {
-    const h = buildHandoff({ ...trip, startDate: null });
-    expect(h.flights[0].url).toContain("/anytime/anytime");
+    const h = buildHandoff({ ...trip, startDate: null }, {}, { origin: "AMS", destination: "JTR" });
+    const f = new URL(h.flights[0].url);
+    expect(f.searchParams.get("from")).toBe("AMS");
+    expect(f.searchParams.get("to")).toBe("JTR");
+    expect(f.searchParams.has("departure")).toBe(false);
     expect(h.stay[0].url).not.toContain("checkin");
   });
 
   it("wraps partner links in Travelpayouts tracking when the ids are set", () => {
-    const tp = { marker: "339296", trs: "197987", kiwiP: "2211" };
-    const h = buildHandoff(trip, { tp });
-    const u = new URL(h.flights[0].url);
-    expect(u.origin + u.pathname).toBe("https://tp.media/r");
-    expect(u.searchParams.get("marker")).toBe("339296");
-    expect(u.searchParams.get("p")).toBe("2211");
-    expect(u.searchParams.get("u")).toContain("kiwi.com/en/search/results/amsterdam/santorini");
-    // No Booking campaign id: Booking stays a plain link.
-    expect(h.stay[0].url).toContain("booking.com");
+    const tp = { marker: "339296", trs: "197987", bookingP: "4132" };
+    const h = buildHandoff(trip, { tp }, { origin: "AMS", destination: "JTR" });
+    // Kiwi: the documented c111 click link, with our prefilled search inside custom_url.
+    const k = new URL(h.flights[0].url);
+    expect(k.host).toBe("c111.travelpayouts.com");
+    expect(k.searchParams.get("shmarker")).toBe("339296.flights");
+    expect(k.searchParams.get("promo_id")).toBe("3791");
+    expect(k.searchParams.get("custom_url")).toContain("kiwi.com/deep?from=AMS&to=JTR");
+    // Booking: tp.media redirect with the campaign id.
+    const b = new URL(h.stay[0].url);
+    expect(b.origin + b.pathname).toBe("https://tp.media/r");
+    expect(b.searchParams.get("p")).toBe("4132");
+    expect(b.searchParams.get("u")).toContain("booking.com");
     expect(tpWrap("https://x.com", undefined, "1")).toBe("https://x.com");
   });
 });

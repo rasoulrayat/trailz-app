@@ -188,8 +188,6 @@ const addDays = (iso: string, n: number) => {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
-const dmy = (iso: string) => iso.split("-").reverse().join("/"); // Kiwi uses DD/MM/YYYY
-const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export interface PartnerIds {
   kiwi?: string;
@@ -198,6 +196,12 @@ export interface PartnerIds {
   omio?: string;
   /** Travelpayouts: marker (partner id), trs (project id) and each brand's campaign ("p") id. */
   tp?: { marker: string; trs: string; kiwiP?: string; bookingP?: string; gygP?: string; omioP?: string };
+}
+
+/** Kiwi.com's documented Travelpayouts link: c111 click + promo 3791 + the search as custom_url. */
+export function tpKiwi(url: string, tp: PartnerIds["tp"]): string {
+  if (!tp?.marker) return url;
+  return `https://c111.travelpayouts.com/click?shmarker=${encodeURIComponent(tp.marker)}.flights&promo_id=${tp.kiwiP || "3791"}&source_type=customlink&type=click&custom_url=${encodeURIComponent(url)}`;
 }
 
 /**
@@ -216,7 +220,12 @@ export function tpWrap(url: string, tp: PartnerIds["tp"], p: string | undefined,
 }
 
 /** Links that open each partner with the trip's dates, places and travelers already filled in. */
-export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
+export function buildHandoff(
+  trip: Trip,
+  ids: PartnerIds = {},
+  /** IATA codes, when the airport lookup found them. */
+  codes?: { origin?: string; destination?: string; leave?: string },
+): Handoff {
   const start = trip.startDate ?? null;
   const nights = Math.max(1, trip.plan.days.length - 1);
   const end = start ? addDays(start, nights) : null;
@@ -224,13 +233,21 @@ export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
   const lastBase = trip.plan.days[trip.plan.days.length - 1]?.base || firstBase;
   const country = trip.places.find((p) => p.country)?.country ?? "";
 
-  // Flights: Kiwi.com search (origin → arrival city, return from the departure city).
+  // Flights: Kiwi.com's deep link (airport/city codes when we have them, otherwise names it can resolve).
   const arrive = trip.plan.gateway?.arrive || firstBase;
   const leave = trip.plan.gateway?.leave || lastBase;
   const dest = [arrive, country].filter(Boolean).join(", ");
-  const kiwiPath = `${slug(trip.origin)}/${slug(arrive)}${leave !== arrive ? `/${slug(leave)}/${slug(trip.origin)}` : ""}`;
-  const kiwi = new URL(`https://www.kiwi.com/en/search/results/${kiwiPath}/${start ? `${dmy(start)}/${dmy(end!)}` : "anytime/anytime"}`);
+  const kiwi = new URL("https://www.kiwi.com/deep");
+  kiwi.searchParams.set("from", codes?.origin ?? trip.origin);
+  kiwi.searchParams.set("to", codes?.destination ?? arrive);
+  if (start) {
+    kiwi.searchParams.set("departure", start);
+    kiwi.searchParams.set("return", end!);
+  }
+  if (leave !== arrive && codes?.leave) kiwi.searchParams.set("returnFrom", codes.leave);
   kiwi.searchParams.set("adults", String(trip.travelers));
+  kiwi.searchParams.set("lang", "en");
+  kiwi.searchParams.set("currency", "eur");
   if (ids.kiwi) kiwi.searchParams.set("affilid", ids.kiwi);
 
   // Stays: one Booking.com search per base town, with the nights spent there.
@@ -287,7 +304,7 @@ export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
 
   const tp = ids.tp;
   return {
-    flights: [{ partner: "Kiwi.com", url: tpWrap(kiwi.toString(), tp, tp?.kiwiP, "flights"), note: `${trip.origin} → ${dest}${start ? `, ${start} → ${end}` : ", dates flexible"} · ${trip.travelers} ${trip.travelers === 1 ? "traveler" : "travelers"}` }],
+    flights: [{ partner: "Kiwi.com", url: tpKiwi(kiwi.toString(), tp), note: `${trip.origin} → ${dest}${start ? `, ${start} → ${end}` : ", dates flexible"} · ${trip.travelers} ${trip.travelers === 1 ? "traveler" : "travelers"}` }],
     stay,
     activities,
     transport,

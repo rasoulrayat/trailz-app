@@ -18,6 +18,8 @@ export interface Env {
   OMIO_PARTNER_ID?: string;
   /** Travelpayouts tracking: marker (partner id), trs (project id), and each brand's campaign id ("p" in their links). */
   TP_MARKER?: string;
+  /** Secret: Travelpayouts API token (profile → API token). Enables prices before the hand-off. */
+  TP_TOKEN?: string;
   TP_TRS?: string;
   TP_KIWI_P?: string;
   TP_BOOKING_P?: string;

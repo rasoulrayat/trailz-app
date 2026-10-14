@@ -225,3 +225,22 @@ export interface Handoff {
   transport: { partner: string; url: string; note: string }[];
   disclaimer: string;
 }
+
+/** Prices shown on Compare & go before the person leaves the app. */
+export interface TripPrices {
+  flights: {
+    origin?: { code: string; name: string } | null;
+    destination?: { code: string; name: string } | null;
+    quotes: { price: number; currency: string; airline: string; transfers: number; departureAt: string; returnAt?: string; url: string }[];
+    nights: number;
+  } | null;
+  stays: {
+    city: string;
+    checkIn: string;
+    checkOut: string;
+    nights: number;
+    hotels: { name: string; stars: number; priceFrom: number; currency: string; url: string }[];
+    searchUrl: string;
+  }[];
+  note: string;
+}

@@ -1,4 +1,4 @@
-import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, Trip, TripSuggestion } from "../shared/types";
+import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, Trip, TripPrices, TripSuggestion } from "../shared/types";
 
 export class ApiFailure extends Error {
   constructor(
@@ -93,4 +93,5 @@ export const tripsApi = {
     call<{ trip: Trip }>(`/api/trips/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTrip: (id: string) => call<{ ok: true }>(`/api/trips/${encodeURIComponent(id)}`, { method: "DELETE" }),
   handoff: (id: string) => call<{ handoff: Handoff }>(`/api/trips/${encodeURIComponent(id)}/handoff`),
+  prices: (id: string) => call<{ prices: TripPrices | null; reason?: string }>(`/api/trips/${encodeURIComponent(id)}/prices`),
 };

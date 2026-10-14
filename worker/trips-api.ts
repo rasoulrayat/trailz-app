@@ -3,9 +3,10 @@ import type { ApiError, Handoff, Mood, RealityCard, SavedPlace, Trip, TripPlan }
 import { MOODS } from "../shared/types";
 import { DEFAULT_ORIGIN, isMock, type Env } from "./env";
 import { geminiConfig } from "./lib/analyze";
-import { mockPlan } from "./lib/mock";
+import { mockPlan, mockPrices } from "./lib/mock";
 import { placeKey } from "./lib/route";
 import { logError, newId } from "./lib/store";
+import { iataFor, tripPrices } from "./lib/prices";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 
 type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
@@ -221,7 +222,17 @@ trips.delete("/trips/:id", async (c) => {
 trips.get("/trips/:id/handoff", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
-  const handoff: Handoff = buildHandoff(toTrip(row), {
+  const trip = toTrip(row);
+  const country = trip.places.find((p) => p.country)?.country ?? null;
+  const arrive = trip.plan.gateway?.arrive || trip.plan.days[0]?.base || trip.places[0]?.name || "";
+  const leave = trip.plan.gateway?.leave || arrive;
+  const [o, d, l] = await Promise.all([
+    iataFor(c.env.DB, trip.origin),
+    iataFor(c.env.DB, [arrive, country].filter(Boolean).join(", ")),
+    leave !== arrive ? iataFor(c.env.DB, [leave, country].filter(Boolean).join(", ")) : Promise.resolve(null),
+  ]);
+  const codes = { origin: o?.code, destination: d?.code, leave: l?.code };
+  const handoff: Handoff = buildHandoff(trip, {
     kiwi: c.env.KIWI_AFFILIATE_ID,
     booking: c.env.BOOKING_AFFILIATE_ID,
     getyourguide: c.env.GYG_PARTNER_ID,
@@ -229,6 +240,22 @@ trips.get("/trips/:id/handoff", async (c) => {
     tp: c.env.TP_MARKER && c.env.TP_TRS
       ? { marker: c.env.TP_MARKER, trs: c.env.TP_TRS, kiwiP: c.env.TP_KIWI_P, bookingP: c.env.TP_BOOKING_P, gygP: c.env.TP_GYG_P, omioP: c.env.TP_OMIO_P }
       : undefined,
-  });
+  }, codes);
   return c.json({ handoff });
+});
+
+/** Prices to show before leaving the app (Aviasales fares, Hotellook rates), when a Travelpayouts token is set. */
+trips.get("/trips/:id/prices", async (c) => {
+  const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
+  if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
+  if (isMock(c.env)) return c.json({ prices: mockPrices(toTrip(row)) });
+  if (!c.env.TP_TOKEN) return c.json({ prices: null, reason: "no_token" });
+  try {
+    const prices = await tripPrices(c.env.DB, c.env.TP_TOKEN, c.env.TP_MARKER, toTrip(row));
+    c.header("cache-control", "private, max-age=600");
+    return c.json({ prices });
+  } catch (err) {
+    await logError(c.env.DB, "prices", err, row.id);
+    return c.json({ prices: null, reason: "error" });
+  }
 });

@@ -55,5 +55,5 @@
     "TP_OMIO_P": ""
   }
   // Secrets (set with `npx wrangler secret put NAME` or in the dashboard):
-  //   SUPADATA_API_KEY, GEMINI_API_KEY
+  //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token, for prices before the hand-off)
 }

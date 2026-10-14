@@ -4,7 +4,7 @@
  * The scenario is picked from words in the link, e.g. a link containing "italy"
  * gives the many-places result.
  */
-import type { PlaceRef, RealityCard, Mood, PlanDay, PlanItem, TripPlan } from "../../shared/types";
+import type { PlaceRef, RealityCard, Mood, PlanDay, PlanItem, Trip, TripPlan, TripPrices } from "../../shared/types";
 import type { VideoRecord } from "./extract-schema";
 import type { ExtractJob } from "./supadata";
 
@@ -222,5 +222,38 @@ export function mockPlan(places: { name: string; country?: string | null }[], mo
     estimate: { travel: 180, stay, activities: mood === "friends" ? 65 : 20, food: 22 * days },
     tips: ["Local buses cover the whole plan; skip the rental car.", "Book the guesthouse early for weekends; the island fills up."],
     gateway: { arrive: country === "Italy" ? "Naples" : country === "Greece" ? "Santorini" : base, leave: country === "Italy" ? "Naples" : country === "Greece" ? "Santorini" : base },
+  };
+}
+
+export function mockPrices(trip: Trip): TripPrices {
+  const start = trip.startDate ?? "2027-06-12";
+  const nights = Math.max(1, trip.plan.days.length - 1);
+  const base = trip.plan.days[0]?.base || trip.places[0]?.name || "town";
+  return {
+    flights: {
+      origin: { code: "AMS", name: "Amsterdam" },
+      destination: { code: "NAP", name: "Naples" },
+      nights,
+      quotes: [
+        { price: 164, currency: "EUR", airline: "HV", transfers: 0, departureAt: `${start}T07:10:00Z`, returnAt: `${start}T15:40:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16061?marker=0" },
+        { price: 198, currency: "EUR", airline: "KL", transfers: 0, departureAt: `${start}T09:35:00Z`, returnAt: `${start}T18:20:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16062?marker=0" },
+        { price: 143, currency: "EUR", airline: "FR", transfers: 1, departureAt: `${start}T06:00:00Z`, returnAt: `${start}T21:05:00Z`, url: "https://www.aviasales.com/search/AMS1206NAP16063?marker=0" },
+      ].sort((a, b) => a.price - b.price),
+    },
+    stays: [
+      {
+        city: base,
+        checkIn: start,
+        checkOut: start,
+        nights,
+        hotels: [
+          { name: "Casa Furore guesthouse", stars: 3, priceFrom: 72 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
+          { name: "Hotel Bacco", stars: 4, priceFrom: 118 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
+          { name: "Furore Inn Resort", stars: 5, priceFrom: 260 * nights, currency: "EUR", url: "https://search.hotellook.com/?marker=0" },
+        ],
+        searchUrl: "https://search.hotellook.com/?marker=0",
+      },
+    ],
+    note: "Sample prices (mock mode).",
   };
 }
