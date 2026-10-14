@@ -47,6 +47,10 @@ export interface RealityCard {
   gems: { name: string; why: string; authenticity: number }[];
   /** The city or town to base yourself in for this place, and how to enjoy it like a local. */
   base?: CityGuide;
+  /** Crowds by hour and day, for the "When to go" line. */
+  timing?: { quiet: string; busy: string; closed?: string; tip?: string };
+  /** The four practical facts that turn "I want this" into "I can do this". */
+  practical?: { flightHours: number; timeDiff: string; dailyBudget: number; visa: string; safety: string };
 }
 
 export interface CityGuide {
@@ -267,3 +271,54 @@ export interface TripPrices {
   sources: string[];
   note: string;
 }
+
+// ---------- Explore (public feed of checked reels) ----------
+
+export interface ExploreItem {
+  id: string;
+  outcome: "single" | "multi" | "vibe";
+  /** Cover: the reel's stored image, or null (the UI then shows a place photo). */
+  cover: string | null;
+  /** Place to fetch a photo for when there is no cover. */
+  photoQuery: string | null;
+  title: string;
+  sub: string;
+  country: string | null;
+  vibe: string[];
+  authenticity: number | null;
+  /** Cheapest typical cost per person (single-place cards). */
+  costFrom: number | null;
+  /** Best months (1–12) for single-place cards. */
+  bestMonths: number[];
+  /** Rating for the month asked for, if any. */
+  monthRating?: MonthRating | null;
+  checks: number;
+  checks7d: number;
+  saves: number;
+  author: string | null;
+  /** 0–1: how much its vibe overlaps with the viewer's saved vibe. */
+  vibeMatch: number;
+  /** km to the viewer's nearest saved place, when known. */
+  nearKm: number | null;
+  createdAt: number;
+}
+
+export interface ExploreResponse {
+  items: ExploreItem[];
+  /** The viewer's vibe words (from their saves), so the UI can label "My vibe". */
+  myVibe: string[];
+  hasSaves: boolean;
+}
+
+// ---------- Friends: share + vote ----------
+
+export interface ShareVotes {
+  in: number;
+  out: number;
+  names: string[];
+  mine?: "in" | "out" | null;
+}
+
+export type SharePayload =
+  | { kind: "check"; token: string; card: RealityCard; video: VideoMeta; votes: ShareVotes }
+  | { kind: "trip"; token: string; trip: Pick<Trip, "plan" | "places" | "mood" | "startDate" | "travelers" | "origin">; votes: ShareVotes };

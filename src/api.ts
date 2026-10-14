@@ -1,4 +1,4 @@
-import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, Trip, TripPrices, TripSuggestion } from "../shared/types";
+import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
 
 export class ApiFailure extends Error {
   constructor(
@@ -107,3 +107,16 @@ export function pricesShared(id: string, force = false) {
   return p;
 }
 export const forgetPrices = (id: string) => priceCache.delete(id);
+
+export const exploreApi = {
+  list: (params: Record<string, string>) => call<ExploreResponse>(`/api/explore?${new URLSearchParams(params).toString()}`),
+};
+
+export const shareApi = {
+  create: (kind: "check" | "trip", id: string, placeName?: string) =>
+    call<{ token: string; url: string }>("/api/share", { method: "POST", body: JSON.stringify({ kind, id, placeName }) }),
+  get: (token: string) => call<SharePayload>(`/api/share/${encodeURIComponent(token)}`),
+  vote: (token: string, vote: "in" | "out", name?: string) =>
+    call<{ votes: SharePayload["votes"] }>(`/api/share/${encodeURIComponent(token)}/vote`, { method: "POST", body: JSON.stringify({ vote, name }) }),
+  mine: (kind: "check" | "trip", id: string) => call<{ token: string | null; votes: SharePayload["votes"] | null }>(`/api/share/mine?kind=${kind}&id=${encodeURIComponent(id)}`),
+};

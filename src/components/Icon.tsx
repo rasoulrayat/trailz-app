@@ -55,6 +55,28 @@ const PATHS = {
   ),
   refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />,
   home: <path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z" />,
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2 5-5 2 2-5z" />
+    </>
+  ),
+  euro: <path d="M17 6.5A6 6 0 0 0 7.3 9H5v2h1.8a6.5 6.5 0 0 0 0 2H5v2h2.3A6 6 0 0 0 17 17.5M9 11h7M9 13h7" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  passport: (
+    <>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M8 17h8" />
+    </>
+  ),
+  shield: <path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z" />,
+  thumbs: <path d="M7 11v9H4v-9zM7 11l4-8a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2.3l-1 6A2 2 0 0 1 17 20H7" />,
   trips: (
     <>
       <rect x="3" y="7" width="18" height="13" rx="2" />

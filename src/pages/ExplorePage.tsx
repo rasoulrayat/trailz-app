@@ -1,0 +1,184 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
+import type { ExploreItem } from "../../shared/types";
+import { exploreApi } from "../api";
+import { Icon } from "../components/Icon";
+import { Img } from "../components/Img";
+import { usePlaceGallery } from "../components/PlacePhoto";
+import { TabBar } from "../components/TabBar";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const BUDGETS = [300, 500, 800];
+const SORTS: { id: string; label: string }[] = [
+  { id: "trending", label: "Trending" },
+  { id: "new", label: "New" },
+  { id: "real", label: "Most real" },
+];
+
+/** Reels everyone has checked, from stored results only. Filters never call an outside service. */
+export function ExplorePage() {
+  const [items, setItems] = useState<ExploreItem[] | null>(null);
+  const [myVibe, setMyVibe] = useState<string[]>([]);
+  const [hasSaves, setHasSaves] = useState(false);
+  const [vibe, setVibe] = useState(false);
+  const [near, setNear] = useState(false);
+  const [month, setMonth] = useState(0);
+  const [budget, setBudget] = useState(0);
+  const [sort, setSort] = useState("trending");
+  const [q, setQ] = useState("");
+  const [monthOpen, setMonthOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+
+  const params = useMemo(() => {
+    const p: Record<string, string> = { sort };
+    if (vibe) p.vibe = "1";
+    if (near) p.near = "1";
+    if (month) p.month = String(month);
+    if (budget) p.budget = String(budget);
+    if (q.trim()) p.q = q.trim();
+    return p;
+  }, [vibe, near, month, budget, sort, q]);
+
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      exploreApi
+        .list(params)
+        .then((r) => {
+          if (!live) return;
+          setItems(r.items);
+          setMyVibe(r.myVibe);
+          setHasSaves(r.hasSaves);
+        })
+        .catch(() => live && setItems([]));
+    }, q ? 250 : 0);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [params, q]);
+
+  const now = new Date().getMonth() + 1;
+  return (
+    <>
+      <main className="page" style={{ gap: 14 }}>
+        <div className="topbar">
+          <h1>Explore</h1>
+        </div>
+        <p className="lead" style={{ marginTop: -8 }}>Reels people checked, with what they're really like. No ads, no sponsored spots.</p>
+
+        <label className="search">
+          <Icon name="search" size={18} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Place, country or vibe" aria-label="Search reels" />
+          {q && (
+            <button className="icon-btn plain" style={{ width: 28, height: 28 }} aria-label="Clear" onClick={() => setQ("")}>
+              ×
+            </button>
+          )}
+        </label>
+
+        <div className="chips" style={{ gap: 6 }}>
+          <button className={`chip${vibe ? " on" : ""}`} aria-pressed={vibe} disabled={!myVibe.length} title={myVibe.length ? `Your vibe: ${myVibe.join(", ")}` : "Save a few places first"} onClick={() => setVibe((v) => !v)}>
+            <Icon name="sparkle" size={13} /> My vibe
+          </button>
+          <button className={`chip${near ? " on" : ""}`} aria-pressed={near} disabled={!hasSaves} title={hasSaves ? "Within 400 km of a place you saved" : "Save a place first"} onClick={() => setNear((v) => !v)}>
+            <Icon name="pin" size={13} /> Near my places
+          </button>
+          <button className={`chip${month ? " on" : ""}`} aria-expanded={monthOpen} onClick={() => { setMonthOpen((v) => !v); setBudgetOpen(false); }}>
+            <Icon name="calendar" size={13} /> {month ? `Good in ${MONTHS[month - 1]}` : "Good in…"}
+          </button>
+          <button className={`chip${budget ? " on" : ""}`} aria-expanded={budgetOpen} onClick={() => { setBudgetOpen((v) => !v); setMonthOpen(false); }}>
+            <Icon name="euro" size={13} /> {budget ? `Under €${budget}` : "Budget"}
+          </button>
+        </div>
+        {monthOpen && (
+          <div className="chips" style={{ gap: 6 }}>
+            <button className={`chip${!month ? " on" : ""}`} onClick={() => { setMonth(0); setMonthOpen(false); }}>Any month</button>
+            {Array.from({ length: 6 }, (_, i) => ((now - 1 + i) % 12) + 1).map((m) => (
+              <button key={m} className={`chip${month === m ? " on" : ""}`} onClick={() => { setMonth(m); setMonthOpen(false); }}>
+                {MONTHS[m - 1]}{m === now ? " (now)" : ""}
+              </button>
+            ))}
+          </div>
+        )}
+        {budgetOpen && (
+          <div className="chips" style={{ gap: 6 }}>
+            <button className={`chip${!budget ? " on" : ""}`} onClick={() => { setBudget(0); setBudgetOpen(false); }}>Any</button>
+            {BUDGETS.map((b) => (
+              <button key={b} className={`chip${budget === b ? " on" : ""}`} onClick={() => { setBudget(b); setBudgetOpen(false); }}>
+                Under €{b} <span className="small" style={{ marginLeft: 4 }}>per person</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <span className="small">{items ? `${items.length} reels` : ""}</span>
+          <div role="tablist" className="seg">
+            {SORTS.map((s) => (
+              <button key={s.id} role="tab" aria-selected={sort === s.id} className={`seg-btn${sort === s.id ? " on" : ""}`} onClick={() => setSort(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {items === null ? (
+          <div className="grid2">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="skeleton" style={{ height: 230, borderRadius: 18 }} />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="card stack" style={{ padding: 18, alignItems: "center", textAlign: "center", gap: 8 }}>
+            <span className="mood-icon">
+              <Icon name="compass" size={22} />
+            </span>
+            <h2>Nothing here yet</h2>
+            <p className="lead">{month || budget || vibe || near || q ? "Loosen a filter, or check a reel: it joins Explore for everyone." : "Every reel anyone checks appears here. Be the first."}</p>
+            <Link to="/" className="btn" style={{ width: "auto" }}>Check a reel</Link>
+          </div>
+        ) : (
+          <div className="grid2">
+            {items.map((it) => (
+              <ReelCard key={it.id} it={it} month={month} />
+            ))}
+          </div>
+        )}
+      </main>
+      <TabBar />
+    </>
+  );
+}
+
+function ReelCard({ it, month }: { it: ExploreItem; month: number }) {
+  const { photos } = usePlaceGallery(it.cover ? null : it.photoQuery);
+  const src = it.cover ?? photos[0]?.url ?? null;
+  const best = it.bestMonths.slice(0, 3).map((m) => MONTHS[m - 1]).join(" · ");
+  return (
+    <Link to={`/check/${it.id}`} className="reel">
+      <span className="reel-img">
+        <Img src={src} style={{ width: "100%", height: "100%" }} />
+        {it.authenticity !== null && (
+          <span className={`reel-score ${it.authenticity >= 7 ? "good" : it.authenticity >= 5 ? "mid" : "low"}`}>{it.authenticity}/10 real</span>
+        )}
+        {it.outcome === "multi" && <span className="reel-score">{it.title}</span>}
+        {it.vibeMatch >= 0.5 && (
+          <span className="reel-tag">
+            <Icon name="sparkle" size={10} /> your vibe
+          </span>
+        )}
+      </span>
+      <span className="reel-body">
+        <span className="reel-title">{it.outcome === "multi" ? it.sub || it.title : it.title}</span>
+        <span className="reel-sub">{it.outcome === "multi" ? `${it.title}` : it.sub}</span>
+        <span className="reel-meta">
+          {it.costFrom ? <span>from €{it.costFrom}</span> : null}
+          {month && it.monthRating ? <span className={it.monthRating === "best" ? "ok" : undefined}>{it.monthRating === "best" ? `best in ${MONTHS[month - 1]}` : `good in ${MONTHS[month - 1]}`}</span> : best ? <span>{best}</span> : null}
+          {it.nearKm !== null ? <span>{it.nearKm} km from your places</span> : null}
+          <span>{it.checks7d > 1 ? `${it.checks7d} checked this week` : `${it.checks} ${it.checks === 1 ? "check" : "checks"}`}</span>
+        </span>
+      </span>
+    </Link>
+  );
+}

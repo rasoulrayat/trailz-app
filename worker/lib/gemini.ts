@@ -184,6 +184,29 @@ const CARD_SCHEMA = {
       },
       required: ["city", "fromPlace", "vibe", "do", "eat", "skip", "localTip"],
     },
+    timing: {
+      type: "OBJECT",
+      description: "Crowds by hour and day at this exact spot.",
+      properties: {
+        quiet: { type: "STRING", description: "When it's quiet, e.g. 'before 9 am and after 6 pm'" },
+        busy: { type: "STRING", description: "When it's busiest, e.g. '11 am to 4 pm, worst at weekends'" },
+        closed: { type: "STRING", description: "Closed days or hours if any, e.g. 'closed Mondays'; empty if none" },
+        tip: { type: "STRING", description: "One timing tip, e.g. 'Tickets sell out two weeks ahead in summer'" },
+      },
+      required: ["quiet", "busy", "closed", "tip"],
+    },
+    practical: {
+      type: "OBJECT",
+      description: "Practical facts for a traveler with an EU passport leaving from the origin city.",
+      properties: {
+        flightHours: { type: "NUMBER", description: "Typical door-to-door flight time in hours from the origin, one decimal." },
+        timeDiff: { type: "STRING", description: "Time difference from the origin, e.g. '+1h' or 'same time'" },
+        dailyBudget: { type: "NUMBER", description: "Typical daily spend on the ground in euros (food, local transport, one activity)." },
+        visa: { type: "STRING", description: "Entry rule for EU passports in a few words, e.g. 'No visa, 90 days' or 'e-visa, ~€25, apply online'" },
+        safety: { type: "STRING", description: "One honest safety line, e.g. 'Safe; watch bags on the metro'" },
+      },
+      required: ["flightHours", "timeDiff", "dailyBudget", "visa", "safety"],
+    },
     gems: {
       type: "ARRAY",
       description: "2 or 3 nearby real places with the same appeal but fewer crowds.",
@@ -194,7 +217,7 @@ const CARD_SCHEMA = {
       },
     },
   },
-  required: ["country", "authenticity", "summary", "comparisons", "months", "cost", "base", "gems"],
+  required: ["country", "authenticity", "summary", "comparisons", "months", "cost", "base", "timing", "practical", "gems"],
 };
 
 interface RawCard {
@@ -206,6 +229,8 @@ interface RawCard {
   months?: string[];
   cost?: Partial<Record<"days" | "low" | "high" | "flights" | "stay" | "food", number>>;
   gems?: { name?: string; why?: string; authenticity?: number }[];
+  timing?: { quiet?: string; busy?: string; closed?: string; tip?: string };
+  practical?: { flightHours?: number; timeDiff?: string; dailyBudget?: number; visa?: string; safety?: string };
   base?: {
     city?: string;
     country?: string;
@@ -270,6 +295,8 @@ Traveler departs from: ${origin}`;
   const rules = `Write honest, specific, practical facts. If you are unsure about a fact, leave it out.
 "months": 12 ratings for January to December, based on this place's real weather, seasons and crowds.
 "gems": 2 or 3 real, less crowded places near ${place.name} with a similar appeal.
+"timing": when this exact spot is quiet and busy (hours, weekdays vs weekends), closed days, one timing tip.
+"practical": flight hours from ${origin}, time difference, daily spend on the ground, the entry rule for EU passports, one honest safety line.
 "base": the city to base yourself in for ${place.name} (if ${place.name} is an airport, station, hotel, beach or landmark: the city it belongs to or serves), and how to enjoy that city like a local rather than a tourist: real neighbourhoods, markets, the right time of day, what locals eat, what to skip.
 Costs are typical estimates in euros for one person for a trip of 3-5 days, including return travel from ${origin} (flights or trains, never 0); keep them realistic and round them.`;
   const prompt =
@@ -328,6 +355,17 @@ ${rules}`;
       .slice(0, 3)
       .map((g) => ({ name: g.name!, why: g.why!, authenticity: Math.round(clamp(g.authenticity, 0, 10, 7)) })),
     base: cleanBase(raw.base),
+    timing: raw.timing?.quiet && raw.timing.busy ? { quiet: raw.timing.quiet, busy: raw.timing.busy, closed: raw.timing.closed?.trim() || undefined, tip: raw.timing.tip?.trim() || undefined } : undefined,
+    practical:
+      raw.practical && typeof raw.practical.flightHours === "number" && raw.practical.visa
+        ? {
+            flightHours: Math.round(clamp(raw.practical.flightHours, 0.5, 40, 3) * 10) / 10,
+            timeDiff: raw.practical.timeDiff ?? "",
+            dailyBudget: Math.round(clamp(raw.practical.dailyBudget, 10, 1000, 60)),
+            visa: raw.practical.visa,
+            safety: raw.practical.safety ?? "",
+          }
+        : undefined,
   };
 }
 

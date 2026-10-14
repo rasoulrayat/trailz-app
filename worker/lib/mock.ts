@@ -147,6 +147,12 @@ export function mockCard(place: PlaceRef, origin: string): RealityCard {
           { name: "Pyrgos village", why: "Hilltop lanes and local tavernas", authenticity: 8 },
         ]
       : [{ name: `Villages near ${place.name}`, why: "Same scenery, smaller crowds", authenticity: 8 }],
+    timing: known
+      ? { quiet: "before 9 am and after 8 pm", busy: "11 am to sunset, worst at weekends", closed: undefined, tip: "Cruise ships dock around 10; check the port schedule and go the other way." }
+      : { quiet: "early morning", busy: "midday in July and August", closed: "some sights closed Mondays", tip: "Book the popular trail or ticket a few days ahead in summer." },
+    practical: known
+      ? { flightHours: 3.5, timeDiff: "+1h", dailyBudget: 70, visa: "No visa, EU", safety: "Safe; steep steps and scooters" }
+      : { flightHours: 2.5, timeDiff: "same time", dailyBudget: 55, visa: "No visa, EU", safety: "Safe; watch bags in crowds" },
     base: known
       ? {
           city: "Fira",

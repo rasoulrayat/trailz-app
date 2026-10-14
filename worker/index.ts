@@ -37,6 +37,8 @@ import {
 } from "./lib/store";
 import { getExtract, startExtract, SupadataError } from "./lib/supadata";
 import { trips } from "./trips-api";
+import { explore } from "./explore-api";
+import { share } from "./share-api";
 
 type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
 const app = new Hono<AppEnv>().basePath("/api");
@@ -359,6 +361,8 @@ app.get("/place-photos", async (c) => {
 
 // ---------- Saved places and trips: see trips-api.ts ----------
 app.route("/", trips);
+app.route("/", explore);
+app.route("/", share);
 
 // /api/health        → is the app up, and is it using real AI or sample results?
 // /api/health?ai=1   → also sends Gemini a tiny test question (tells you if the key and model work).

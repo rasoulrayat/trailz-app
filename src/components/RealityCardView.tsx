@@ -5,6 +5,8 @@ import type { NewSave } from "../api";
 import { planUrl } from "../plan-url";
 import { MapView } from "./MapView";
 import { SaveButton } from "./SaveButton";
+import { ShareButton } from "./ShareButton";
+import type { ReactNode } from "react";
 import { HeroPhotos, PhotoStrip, PlaceThumb, photoCredit } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
 
@@ -43,9 +45,12 @@ interface Props {
   checkId?: string;
   /** Vibe words from the reel, saved with the place. */
   vibe?: string[];
+  /** A shared link: no Save / Plan, and `footer` (the vote box) is shown instead. */
+  readOnly?: boolean;
+  footer?: ReactNode;
 }
 
-export function RealityCardView({ card, video, backTo, context, checkId, vibe }: Props) {
+export function RealityCardView({ card, video, backTo, context, checkId, vibe, readOnly, footer }: Props) {
   const { place } = card;
   const savePlace: NewSave = {
     name: place.name,
@@ -71,13 +76,7 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe }:
               <Link to={backTo} className="icon-btn on-media" aria-label="Back">
                 <Icon name="back" />
               </Link>
-              <button
-                className="icon-btn on-media"
-                aria-label="Share"
-                onClick={() => navigator.share?.({ title: `${place.name} · TrailZ`, url: location.href }).catch(() => {})}
-              >
-                <Icon name="share" size={18} />
-              </button>
+              {!readOnly && checkId && <ShareButton kind="check" id={checkId} placeName={context ? place.name : undefined} title={place.name} onMedia />}
             </div>
             {(video || photo) && (
               <div className="credit">
@@ -152,7 +151,10 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe }:
         {card.base && <CityGuideView guide={card.base} placeName={place.name} />}
 
         <section className="card stack" style={{ padding: 16, gap: 12 }}>
-          <h2 style={{ fontSize: 15 }}>Best time to go</h2>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <h2 style={{ fontSize: 15 }}>Best time to go</h2>
+            <RightNow months={card.months} />
+          </div>
           <div
             className="months"
             role="img"
@@ -172,7 +174,49 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe }:
             <span><i style={{ background: "var(--crowded)" }} />Overcrowded</span>
             <span><i style={{ background: "var(--line)" }} />Quiet, many places closed</span>
           </div>
+          {card.timing && (
+            <div className="stack" style={{ gap: 6, paddingTop: 6, borderTop: "1px solid var(--line-soft)" }}>
+              <h3 className="guide-h">When to go on the day</h3>
+              <div className="when">
+                <span><i className="dot live" />Quiet {card.timing.quiet}</span>
+                <span><i className="dot" style={{ background: "var(--crowded)" }} />Busy {card.timing.busy}</span>
+                {card.timing.closed && <span><i className="dot" />{card.timing.closed[0].toUpperCase() + card.timing.closed.slice(1)}</span>}
+              </div>
+              {card.timing.tip && <div className="small">{card.timing.tip}</div>}
+            </div>
+          )}
         </section>
+
+        {card.practical && (
+          <section className="practical" aria-label="Practical facts">
+            <div>
+              <Icon name="plane" size={18} />
+              <b>{card.practical.flightHours} h</b>
+              <span>flight from {card.cost.from}</span>
+            </div>
+            <div>
+              <Icon name="clock" size={18} />
+              <b>{card.practical.timeDiff}</b>
+              <span>time difference</span>
+            </div>
+            <div>
+              <Icon name="euro" size={18} />
+              <b>~€{card.practical.dailyBudget}</b>
+              <span>a day on the ground</span>
+            </div>
+            <div>
+              <Icon name="passport" size={18} />
+              <b>{card.practical.visa}</b>
+              <span>EU passport</span>
+            </div>
+            {card.practical.safety && (
+              <div className="wide">
+                <Icon name="shield" size={18} />
+                <span>{card.practical.safety}</span>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="card dark stack" style={{ gap: 12 }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
@@ -220,6 +264,15 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe }:
         )}
       </main>
 
+      {footer && <div className="page" style={{ paddingTop: 0 }}>{footer}</div>}
+      {readOnly ? (
+        <div className="actionbar">
+          <Link className="btn" style={{ flex: 1 }} to="/">
+            <Icon name="sparkle" size={18} />
+            Check your own reel on TrailZ
+          </Link>
+        </div>
+      ) : (
       <div className="actionbar">
         <SaveButton place={savePlace} />
         <Link className="btn" style={{ flex: 1 }} to={planUrl([savePlace])}>
@@ -227,6 +280,7 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe }:
           Plan this trip
         </Link>
       </div>
+      )}
     </>
   );
 }
@@ -297,5 +351,19 @@ function CityGuideView({ guide, placeName }: { guide: CityGuide; placeName: stri
         </div>
       )}
     </section>
+  );
+}
+
+/** "Right now: crowded" from this month's rating, with the next best month when now isn't it. */
+function RightNow({ months }: { months: MonthRating[] }) {
+  const m = new Date().getMonth();
+  const now = months[m];
+  const label = now === "best" ? "Best time now" : now === "good" ? "Good now" : now === "crowded" ? "Crowded now" : "Quiet now";
+  const nextBest = months.map((x, i) => (x === "best" ? i : -1)).filter((i) => i > m)[0] ?? months.indexOf("best");
+  return (
+    <span className={`badge ${now === "best" || now === "good" ? "soft-real" : now === "crowded" ? "reel" : "soft"}`} style={{ borderRadius: 999, padding: "4px 9px" }}>
+      {label}
+      {now !== "best" && nextBest >= 0 ? ` · best ${MONTH_NAMES[nextBest]}` : ""}
+    </span>
   );
 }

@@ -5,6 +5,7 @@ import { ApiFailure, pricesShared, tripsApi } from "../api";
 import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PhotoStrip } from "../components/PlacePhoto";
+import { ShareButton } from "../components/ShareButton";
 
 const KIND: Record<ItemKind, { icon: IconName; bg: string; fg: string }> = {
   travel: { icon: "plane", bg: "var(--blue-tint)", fg: "var(--blue)" },
@@ -99,9 +100,12 @@ export function TripPage() {
           <span className={`badge ${trip.status === "saved" ? "soft-real" : "soft"}`} style={{ borderRadius: 999, padding: "5px 10px" }}>
             {trip.status === "saved" ? "Saved trip" : "Draft"}
           </span>
-          <button className="icon-btn" aria-label="Delete this plan" onClick={remove}>
-            <Icon name="trash" size={18} />
-          </button>
+          <span className="row" style={{ gap: 6 }}>
+            <ShareButton kind="trip" id={trip.id} title={plan.title} />
+            <button className="icon-btn" aria-label="Delete this plan" onClick={remove}>
+              <Icon name="trash" size={18} />
+            </button>
+          </span>
         </div>
 
         <div className="stack" style={{ gap: 6 }}>

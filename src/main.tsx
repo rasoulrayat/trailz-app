@@ -13,6 +13,8 @@ import { PlanPage } from "./pages/PlanPage";
 import { TripPage } from "./pages/TripPage";
 import { TripsPage } from "./pages/TripsPage";
 import { BookPage } from "./pages/BookPage";
+import { ExplorePage } from "./pages/ExplorePage";
+import { SharedPage } from "./pages/SharedPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -24,6 +26,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/check/:id" element={<CheckPage />} />
           <Route path="/check/:id/place" element={<PlacePage />} />
           <Route path="/check/:id/where" element={<WherePage />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/s/:token" element={<SharedPage />} />
           <Route path="/saved" element={<SavedPage />} />
           <Route path="/plan" element={<PlanPage />} />
           <Route path="/trips" element={<TripsPage />} />
