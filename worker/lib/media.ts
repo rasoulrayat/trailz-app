@@ -168,7 +168,11 @@ export async function placeGallery(
         }[];
       };
     };
-    const files = [...(body.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    // Files named after the place first ("Mount Fuji from Kawaguchiko"), then the rest in search order.
+    const startsWithPlace = (t: string) => placeKey(t.replace(/^File:/i, "")).startsWith(placeKey(name));
+    const files = [...(body.query?.pages ?? [])].sort(
+      (a, b) => Number(startsWithPlace(b.title)) - Number(startsWithPlace(a.title)) || (a.index ?? 0) - (b.index ?? 0),
+    );
     for (const f of files) {
       const info = f.imageinfo?.[0];
       if (!info?.thumburl || info.mime !== "image/jpeg") continue;
