@@ -1,20 +1,48 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import type { SavedPlace, TripSuggestion } from "../../shared/types";
-import { Icon } from "../components/Icon";
+import { MOODS, type Mood, type SavedPlace } from "../../shared/types";
+import { ApiFailure, tripsApi } from "../api";
+import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PlaceThumb } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
+import { groupPlaces, type GroupBy, type PlaceGroup } from "../groups";
 import { planUrl } from "../plan-url";
 import { toggleSave, useSaves } from "../saves";
+
+const GROUPINGS: { id: GroupBy; label: string }[] = [
+  { id: "country", label: "Country" },
+  { id: "nearby", label: "Nearby" },
+  { id: "region", label: "Region" },
+];
+const MOOD_ICON: Record<Mood, IconName> = { solo: "coffee", energetic: "bolt", friends: "users" };
+const remember = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* ignore */
+  }
+};
+const recall = (k: string, fallback: string) => {
+  try {
+    return localStorage.getItem(k) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 const q = (p: SavedPlace) => [p.name, p.country].filter(Boolean).join(", ");
 
 export function SavedPage() {
-  const { items, suggestions, loaded } = useSaves();
+  const { items, loaded } = useSaves();
   const navigate = useNavigate();
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [by, setBy] = useState<GroupBy>(() => recall("tz_groupby", "country") as GroupBy);
+  const [mood, setMood] = useState<Mood>(() => recall("tz_mood", "energetic") as Mood);
+  useEffect(() => remember("tz_groupby", by), [by]);
+  useEffect(() => remember("tz_mood", mood), [mood]);
+  const groups = useMemo(() => groupPlaces(items, by), [items, by]);
 
   const togglePick = (id: string) =>
     setPicked((s) => {
@@ -57,7 +85,32 @@ export function SavedPage() {
           </div>
         ) : (
           <>
-            {!picking && suggestions.map((s) => <Forming key={s.placeIds.join()} s={s} places={items} />)}
+            {!picking && (
+              <section className="stack" style={{ gap: 12 }}>
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <h2>Magic trips</h2>
+                  <div role="tablist" aria-label="Group by" className="seg">
+                    {GROUPINGS.map((g) => (
+                      <button key={g.id} role="tab" aria-selected={by === g.id} className={`seg-btn${by === g.id ? " on" : ""}`} onClick={() => setBy(g.id)}>
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <span className="small">Trip mood:</span>
+                  {MOODS.map((m) => (
+                    <button key={m.id} type="button" className={`chip${mood === m.id ? " on" : ""}`} style={{ height: 30, gap: 5, fontSize: 12 }} aria-pressed={mood === m.id} onClick={() => setMood(m.id)}>
+                      <Icon name={MOOD_ICON[m.id]} size={13} />
+                      {m.title}
+                    </button>
+                  ))}
+                </div>
+                {groups.map((g) => (
+                  <GroupCard key={g.id} g={g} mood={mood} />
+                ))}
+              </section>
+            )}
 
             {picking && (
               <div className="tip">
@@ -117,29 +170,66 @@ export function SavedPage() {
   );
 }
 
-/** "A trip is forming": saved places that are close together, with the vibe they share. */
-function Forming({ s, places }: { s: TripSuggestion; places: SavedPlace[] }) {
-  const members = s.placeIds.map((id) => places.find((p) => p.id === id)).filter((p): p is SavedPlace => !!p);
+/** One group of saved places, with its Magic trip button. */
+function GroupCard({ g, mood }: { g: PlaceGroup; mood: Mood }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const q = (p: SavedPlace) => [p.name, p.country].filter(Boolean).join(", ");
+  const one = g.places.length === 1;
+
+  async function magic() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { trip } = await tripsApi.createTrip({ placeIds: g.places.map((p) => p.id), mood, budgetMode: false, days: g.days });
+      navigate(`/trips/${trip.id}`);
+    } catch (e) {
+      setError(e instanceof ApiFailure ? e.message : "Couldn't write the trip. Try again.");
+      setBusy(false);
+    }
+  }
+
   return (
-    <section className="forming">
-      <div className="forming-photos">
-        {members.slice(0, 3).map((p, i) => (
-          <PlaceThumb key={p.id} q={q(p)} title={p.name} style={{ width: "auto", height: "auto", borderRadius: 0, gridRow: i === 0 ? "span 2" : undefined }} />
+    <section className="forming" aria-label={g.title}>
+      <div className="forming-photos" style={one ? { gridTemplateColumns: "1fr", gridTemplateRows: "1fr" } : undefined}>
+        {g.places.slice(0, 3).map((p, i) => (
+          <PlaceThumb key={p.id} q={q(p)} title={p.name} style={{ width: "auto", height: "auto", borderRadius: 0, gridRow: i === 0 && !one ? "span 2" : undefined }} />
         ))}
       </div>
-      <div className="stack" style={{ gap: 6, padding: "12px 14px 14px" }}>
-        <span className="badge soft-real" style={{ alignSelf: "flex-start" }}>
-          <Icon name="sparkle" size={12} /> A trip is forming
-        </span>
-        <h2 style={{ fontSize: 20, fontFamily: "var(--display)" }}>{s.title}</h2>
-        <div className="small">
-          {[s.country, `${members.length} places`, `~${s.days} days`, s.vibe.length ? `your vibe: ${s.vibe.join(", ")}` : null].filter(Boolean).join(" · ")}
+      <div className="stack" style={{ gap: 8, padding: "12px 14px 14px" }}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <span style={{ minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: 20, fontFamily: "var(--display)", fontWeight: 800, letterSpacing: "-0.3px" }}>{g.title}</h3>
+            <span className="small">
+              {[g.sub, `${g.places.length} ${one ? "place" : "places"}`, `~${g.days} days`].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+          {g.vibe.length > 0 && <span className="badge soft" style={{ flex: "none", maxWidth: "45%", whiteSpace: "normal", textAlign: "right" }}>{g.vibe.join(" · ")}</span>}
         </div>
-        <MapView points={toPoints(members)} height={120} />
-        <Link to={planUrl([], s.placeIds)} className="btn" style={{ marginTop: 4 }}>
-          <Icon name="sparkle" size={18} />
-          Plan this trip
-        </Link>
+        <div className="chips" style={{ gap: 6 }}>
+          {g.places.map((p) => (
+            <span key={p.id} className="chip soft" style={{ height: 28, fontSize: 12 }}>
+              {p.name}
+            </span>
+          ))}
+        </div>
+        {!one && <MapView points={toPoints(g.places)} height={110} />}
+        {error && <div className="small" style={{ color: "var(--warn)" }}>{error}</div>}
+        <button className="btn" style={{ marginTop: 2 }} onClick={magic} disabled={busy}>
+          {busy ? (
+            <>
+              <span className="spinner" style={{ borderTopColor: "var(--sky)", borderColor: "rgba(255,255,255,0.3)" }} />
+              Writing your trip…
+            </>
+          ) : (
+            <>
+              <Icon name="sparkle" size={18} />
+              {one ? "Plan a trip here" : `Magic trip · ${g.places.length} places`}
+            </>
+          )}
+        </button>
       </div>
     </section>
   );

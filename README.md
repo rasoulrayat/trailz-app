@@ -121,7 +121,9 @@ All accounts belong to the Dutch company with EU billing.
 ## Phase 2: save → plan → book (built)
 
 - **Save** (heart) on every Reality Card and place. Per device until accounts exist.
-- **Saved** tab: "A trip is forming" groups saved places within ~300 km and shows their shared vibe.
+- **Saved** tab: **Magic trips**. Saved places are grouped by *Country*, *Nearby* (within ~120 km) or *Region* (nearby
+  countries, e.g. Southern Europe), each group with a title, photos, shared vibe and a one-tap **Magic trip** button that
+  writes the plan for the whole group in the chosen mood. "Pick places for a trip" remains for a manual selection.
 - **Plan**: mood (Solo & slow / Energetic / With friends), days, budget mode → Gemini writes a day-by-day plan
   that reuses what the Reality Cards found (base city, local tips, best months). Saved under **Trips**.
 - **Book** = two screens. *Trip setup*: month chips (the Reality Cards' best months marked), three suggested Friday
