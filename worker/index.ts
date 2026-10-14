@@ -16,6 +16,7 @@ import { pingGemini } from "./lib/gemini";
 import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
 import { flightQuotes } from "./lib/prices";
+import { duffelFlights, googleFlights } from "./lib/providers";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -374,6 +375,21 @@ app.get("/health", async (c) => {
     const month = new Date(Date.now() + 35 * 86400_000).toISOString().slice(0, 7);
     const q = await flightQuotes(c.env.DB, c.env.TP_TOKEN, c.env.TP_MARKER, "AMS", "LIS", month, null).catch((e) => String(e));
     out.travelpayouts = { ...(out.travelpayouts as object), test: Array.isArray(q) ? { ok: true, fares: q.length, cheapest: q[0]?.price ?? null } : { ok: false, error: q } };
+  }
+  // /api/health?providers=1 → one tiny live query per provider (AMS → LIS, ~5 weeks out). Costs 1 SerpApi search.
+  if (c.req.query("providers") === "1") {
+    const dep = new Date(Date.now() + 35 * 86400_000).toISOString().slice(0, 10);
+    const ret = new Date(Date.now() + 39 * 86400_000).toISOString().slice(0, 10);
+    const checks: Record<string, unknown> = {};
+    if (c.env.SERPAPI_KEY) {
+      const g = await googleFlights(c.env.DB, c.env.SERPAPI_KEY, Number(c.env.SERPAPI_MONTHLY_LIMIT || "250"), "AMS", "LIS", dep, ret, 1).catch((e) => String(e));
+      checks.google = Array.isArray(g) ? { ok: g.length > 0, offers: g.length, cheapest: g[0]?.price ?? null, title: g[0]?.title } : { ok: false, error: g };
+    } else checks.google = { ok: false, error: "SERPAPI_KEY not set" };
+    if (c.env.DUFFEL_TOKEN) {
+      const d = await duffelFlights(c.env.DB, c.env.DUFFEL_TOKEN, "AMS", "LIS", dep, ret, 1, "health").catch((e) => String(e));
+      checks.duffel = Array.isArray(d) ? { ok: d.length > 0, offers: d.length, cheapest: d[0]?.price ?? null, title: d[0]?.title, mode: c.env.DUFFEL_TOKEN.startsWith("duffel_test") ? "test" : "live" } : { ok: false, error: d };
+    } else checks.duffel = { ok: false, error: "DUFFEL_TOKEN not set" };
+    out.providers = checks;
   }
   if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(out);
   return c.json({ ...out, gemini: await pingGemini(geminiConfig(c.env)) });
