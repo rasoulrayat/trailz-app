@@ -47,6 +47,9 @@ const PATHS = {
     </>
   ),
   play: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
+  volume: <path d="M4 10v4h3l4 4V6L7 10zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12" />,
+  mute: <path d="M4 10v4h3l4 4V6L7 10zM16 9l5 5M21 9l-5 5" />,
+  "chevron-up": <path d="m6 15 6-6 6 6" />,
   paste: (
     <>
       <rect x="8" y="3" width="8" height="4" rx="1" />

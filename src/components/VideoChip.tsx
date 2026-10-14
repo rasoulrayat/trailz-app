@@ -13,13 +13,14 @@ const PLATFORM: Record<VideoMeta["platform"], string> = {
 export const platformLabel = (v: VideoMeta) => [PLATFORM[v.platform], v.author].filter(Boolean).join(" · ");
 
 /** The platform's own embedded player for this reel, so it plays inside TrailZ. */
-export function embedUrl(v: VideoMeta): string | null {
+export function embedUrl(v: VideoMeta, opts: { muted?: boolean } = {}): string | null {
   const u = v.url;
   let m: RegExpMatchArray | null;
+  const mute = opts.muted ? 1 : 0;
   if (v.platform === "youtube" && (m = u.match(/(?:v=|shorts\/|youtu\.be\/)([\w-]{6,})/)))
-    return `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&playsinline=1&rel=0`;
+    return `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&mute=${mute}&playsinline=1&rel=0&loop=1&playlist=${m[1]}`;
   if (v.platform === "tiktok" && (m = u.match(/\/video\/(\d+)/)))
-    return `https://www.tiktok.com/player/v1/${m[1]}?autoplay=1&loop=1&rel=0&description=0`;
+    return `https://www.tiktok.com/player/v1/${m[1]}?autoplay=1&mute=${mute}&loop=1&rel=0&description=0&music_info=0`;
   if (v.platform === "instagram" && (m = u.match(/\/(?:reel|reels|p|tv)\/([\w-]+)/)))
     return `https://www.instagram.com/reel/${m[1]}/embed/`;
   return null;

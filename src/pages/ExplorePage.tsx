@@ -6,6 +6,7 @@ import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
 import { usePlaceGallery } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
+import { setExploreFeed } from "../explore-feed";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const BUDGETS = [300, 500, 800];
@@ -47,6 +48,7 @@ export function ExplorePage() {
         .then((r) => {
           if (!live) return;
           setItems(r.items);
+          setExploreFeed(r.items);
           setMyVibe(r.myVibe);
           setHasSaves(r.hasSaves);
         })
@@ -150,7 +152,7 @@ export function ExplorePage() {
   );
 }
 
-/** One mosaic tile: picture first, the three deciding facts on top. */
+/** One mosaic tile: picture first, the three deciding facts on top. Tap plays the reel. */
 function Tile({ it, month, big }: { it: ExploreItem; month: number; big: boolean }) {
   const { photos } = usePlaceGallery(it.cover ? null : it.photoQuery);
   const src = it.cover ?? photos[0]?.url ?? null;
@@ -158,9 +160,12 @@ function Tile({ it, month, big }: { it: ExploreItem; month: number; big: boolean
   const title = it.outcome === "multi" ? it.sub || it.title : it.title;
   const sub = it.outcome === "multi" ? it.title : it.outcome === "vibe" ? it.sub : it.country ?? it.sub;
   return (
-    <Link to={`/check/${it.id}`} className={`tile${big ? " big" : ""}`} aria-label={`${title}${it.authenticity !== null ? `, ${it.authenticity} of 10 real` : ""}`}>
+    <Link to={`/explore/reel/${it.id}`} className={`tile${big ? " big" : ""}`} aria-label={`Watch: ${title}${it.authenticity !== null ? `, ${it.authenticity} of 10 real` : ""}`}>
       <Img src={src} style={{ position: "absolute", inset: 0 }} />
       <span className="tile-shade" />
+      <span className="tile-play" aria-hidden="true">
+        <Icon name="play" size={big ? 22 : 14} />
+      </span>
       {it.authenticity !== null && <span className={`reel-score ${it.authenticity >= 7 ? "good" : it.authenticity >= 5 ? "mid" : "low"}`}>{it.authenticity}/10</span>}
       {it.outcome === "multi" && <span className="reel-score">{it.title}</span>}
       {it.vibeMatch >= 0.5 && (

@@ -277,6 +277,8 @@ export interface TripPrices {
 export interface ExploreItem {
   id: string;
   outcome: "single" | "multi" | "vibe";
+  /** The reel itself, for the embedded player. */
+  video: VideoMeta;
   /** Cover: the reel's stored image, or null (the UI then shows a place photo). */
   cover: string | null;
   /** Place to fetch a photo for when there is no cover. */

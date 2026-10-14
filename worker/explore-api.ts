@@ -13,6 +13,9 @@ interface Row {
   extract_json: string | null;
   thumbnail_url: string | null;
   author: string | null;
+  platform: "tiktok" | "instagram" | "youtube";
+  url: string;
+  title: string | null;
   updated_at: number;
   checks: number;
   checks7d: number;
@@ -31,7 +34,7 @@ explore.get("/explore", async (c) => {
   const [rows, mySaves] = await Promise.all([
     db
       .prepare(
-        `SELECT v.id, v.outcome, v.result_json, v.extract_json, v.thumbnail_url, v.author, v.updated_at,
+        `SELECT v.id, v.outcome, v.result_json, v.extract_json, v.thumbnail_url, v.author, v.platform, v.url, v.title, v.updated_at,
                 (SELECT COUNT(*) FROM checks k WHERE k.video_id = v.id) AS checks,
                 (SELECT COUNT(*) FROM checks k WHERE k.video_id = v.id AND k.created_at > ?) AS checks7d,
                 (SELECT COUNT(*) FROM saves s WHERE s.check_id = v.id) AS saves
@@ -66,6 +69,7 @@ explore.get("/explore", async (c) => {
     const extract = r.extract_json ? (JSON.parse(r.extract_json) as { vibe_tags?: string[]; filmed_in?: string }) : {};
     const base = {
       id: r.id,
+      video: { platform: r.platform, url: r.url, title: r.title, author: r.author, thumbnailUrl: r.thumbnail_url },
       cover: r.thumbnail_url && r.thumbnail_url.startsWith("/api/img/") ? r.thumbnail_url : null,
       author: r.author,
       checks: r.checks,
