@@ -15,6 +15,7 @@ import { analyze, cardFor, geminiConfig } from "./lib/analyze";
 import { pingGemini } from "./lib/gemini";
 import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
+import { flightQuotes } from "./lib/prices";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -367,8 +368,15 @@ app.get("/health", async (c) => {
     keys: { supadata: !!c.env.SUPADATA_API_KEY, gemini: !!c.env.GEMINI_API_KEY },
     models: (c.env.GEMINI_MODEL || "").split(",").map((m) => m.trim()).filter(Boolean),
   };
-  if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(base);
-  return c.json({ ...base, gemini: await pingGemini(geminiConfig(c.env)) });
+  const out: Record<string, unknown> = { ...base, travelpayouts: { token: !!c.env.TP_TOKEN, marker: !!c.env.TP_MARKER, trs: !!c.env.TP_TRS } };
+  // /api/health?tp=1 → asks Aviasales for next month's cheapest AMS → LIS fare (checks the token).
+  if (c.req.query("tp") === "1" && c.env.TP_TOKEN) {
+    const month = new Date(Date.now() + 35 * 86400_000).toISOString().slice(0, 7);
+    const q = await flightQuotes(c.env.DB, c.env.TP_TOKEN, c.env.TP_MARKER, "AMS", "LIS", month, null).catch((e) => String(e));
+    out.travelpayouts = { ...(out.travelpayouts as object), test: Array.isArray(q) ? { ok: true, fares: q.length, cheapest: q[0]?.price ?? null } : { ok: false, error: q } };
+  }
+  if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(out);
+  return c.json({ ...out, gemini: await pingGemini(geminiConfig(c.env)) });
 });
 
 app.notFound((c) => fail(c, 404, "not_found", "Not found."));

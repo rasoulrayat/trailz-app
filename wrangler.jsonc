@@ -47,7 +47,7 @@
     "OMIO_PARTNER_ID": "",
     // Travelpayouts (one account for Kiwi.com, Booking.com, GetYourGuide, Omio …). From the long version of any
     // Travelpayouts link: marker=TP_MARKER, trs=TP_TRS, and p=<campaign id> per brand. Empty = plain partner links.
-    "TP_MARKER": "585453",
+    "TP_MARKER": "789861",
     "TP_TRS": "585453",
     "TP_KIWI_P": "",
     "TP_BOOKING_P": "",
