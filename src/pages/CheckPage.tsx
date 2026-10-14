@@ -21,6 +21,7 @@ export function CheckPage() {
   useEffect(() => {
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
+    let coverTries = 0;
     started.current = Date.now();
     setCheck(null);
     setError(null);
@@ -32,6 +33,8 @@ export function CheckPage() {
         setCheck(c);
         setElapsed(Date.now() - started.current);
         if (c.status === "extracting" || c.status === "analyzing") timer = setTimeout(tick, POLL_MS);
+        // The reel's cover is copied in the background: look again a few times until it's there.
+        else if (c.video.thumbnailUrl === null && coverTries++ < 4) timer = setTimeout(tick, 4000);
       } catch (err) {
         if (stop) return;
         if (err instanceof ApiFailure && err.code === "not_found") setError("We can't find this check.");

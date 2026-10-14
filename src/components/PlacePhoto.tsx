@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { Icon } from "./Icon";
+import { Img } from "./Img";
 
 export interface Photo {
   url: string;
@@ -148,10 +149,9 @@ export function PlaceThumb({
   const { photos } = usePlaceGallery(q);
   const [open, setOpen] = useState(false);
   const first = photos[0];
-  const look: CSSProperties = { ...style, ...(first ? { backgroundImage: `url("${first.url}")` } : null) };
   if (!first) {
     return (
-      <span className="thumb" aria-hidden="true" style={look}>
+      <span className="thumb" aria-hidden="true" style={style}>
         {children}
       </span>
     );
@@ -161,7 +161,7 @@ export function PlaceThumb({
       <button
         type="button"
         className="thumb thumb-btn"
-        style={look}
+        style={style}
         aria-label={`See ${photos.length} photos of ${title ?? q}`}
         onClick={(e) => {
           e.preventDefault();
@@ -169,6 +169,7 @@ export function PlaceThumb({
           setOpen(true);
         }}
       >
+        <Img src={first.url} style={{ position: "absolute", inset: 0, borderRadius: "inherit" }} />
         {photos.length > 1 && (
           <span className="thumb-count">
             <Icon name="photos" size={11} />
@@ -192,7 +193,7 @@ export function PhotoStrip({ q, title, height = 150, cardTo }: { q: string; titl
       <div className="strip" style={{ height }} aria-label={`Photos of ${title}`}>
         {photos.map((p, i) => (
           <button key={p.url} type="button" className="strip-photo" onClick={() => setOpen(i)} aria-label={`Open photo ${i + 1} of ${title}`}>
-            <img src={p.url} alt="" loading={i < 2 ? "eager" : "lazy"} />
+            <Img src={p.url} style={{ width: "100%", height: "100%" }} loading={i < 2 ? "eager" : "lazy"} />
           </button>
         ))}
       </div>
@@ -219,7 +220,8 @@ export function HeroPhotos({
   const [open, setOpen] = useState<number | null>(null);
   const current = photos[index] ?? null;
   return (
-    <header className="media" style={!photos.length && fallback ? { backgroundImage: `url("${fallback}")` } : undefined}>
+    <header className="media">
+      {!photos.length && fallback && <Img src={fallback} style={{ position: "absolute", inset: 0 }} />}
       {photos.length > 0 && (
         <div
           className="hero-track"
@@ -230,7 +232,7 @@ export function HeroPhotos({
         >
           {photos.map((p, i) => (
             <button key={p.url} type="button" className="hero-slide" onClick={() => setOpen(i)} aria-label={`Open photo ${i + 1} of ${title}`}>
-              <img src={p.url} alt="" loading={i === 0 ? "eager" : "lazy"} />
+              <Img src={p.url} style={{ width: "100%", height: "100%" }} loading={i === 0 ? "eager" : "lazy"} />
             </button>
           ))}
         </div>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import type { CheckSummary, LinkErrorCode } from "../../shared/types";
 import { api, ApiFailure } from "../api";
 import { Icon } from "../components/Icon";
+import { Img } from "../components/Img";
 import { usePlaceGallery } from "../components/PlacePhoto";
 import { Wordmark } from "../components/Wordmark";
 
@@ -140,10 +141,7 @@ export function HomePage() {
           recent.map((r) => (
             <Link key={r.id} to={`/check/${r.id}`} className="list-row">
               {r.video.thumbnailUrl || !r.photoQuery ? (
-                <span
-                  className="thumb"
-                  style={r.video.thumbnailUrl ? { backgroundImage: `url("${r.video.thumbnailUrl}")` } : undefined}
-                />
+                <Img src={r.video.thumbnailUrl} className="thumb" />
               ) : (
                 <RecentPhoto q={r.photoQuery} />
               )}
@@ -165,5 +163,5 @@ export function HomePage() {
 /** The reel has no cover: show a photo of its main place instead (not clickable here, the row is the link). */
 function RecentPhoto({ q }: { q: string }) {
   const { photos } = usePlaceGallery(q);
-  return <span className="thumb" style={photos[0] ? { backgroundImage: `url("${photos[0].url}")` } : undefined} />;
+  return <Img src={photos[0]?.url} className="thumb" />;
 }

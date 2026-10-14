@@ -147,6 +147,35 @@ export function mockCard(place: PlaceRef, origin: string): RealityCard {
           { name: "Pyrgos village", why: "Hilltop lanes and local tavernas", authenticity: 8 },
         ]
       : [{ name: `Villages near ${place.name}`, why: "Same scenery, smaller crowds", authenticity: 8 }],
+    base: known
+      ? {
+          city: "Fira",
+          country: "Greece",
+          fromPlace: "Oia is 25 min by local bus from Fira, Santorini's main town.",
+          vibe: "Pretty but built for tourists; the real island life is in the inland villages.",
+          do: [
+            { title: "Walk Fira to Imerovigli early", detail: "The caldera path at 7 am is empty; by 11 it's a queue of day-trippers." },
+            { title: "Pyrgos and Megalochori", detail: "Inland villages where people still live; cafés on the square, not on a cliff." },
+            { title: "Take the local bus, not a tour", detail: "€2 to anywhere; the tours stop at the same three photo spots." },
+          ],
+          eat: ["Tomato fritters (ntomatokeftedes) at a taverna in Pyrgos", "Fava and white eggplant, Santorini specialities"],
+          skip: ["Sunset dinner on the Oia cliff: triple prices for the same view you get from the castle for free"],
+          localTip: "Rent a scooter only if you've ridden before: the roads are steep and the hospital is small.",
+        }
+      : {
+          city: place.region || `${place.name} town`,
+          country: place.country,
+          fromPlace: `A short ride from ${place.name}.`,
+          vibe: "A working town, not a resort: quiet evenings, early mornings.",
+          do: [
+            { title: "Morning market", detail: "Locals shop before 10; that's when the town is itself." },
+            { title: "The old quarter after dark", detail: "Tour groups leave by 6 pm and the squares fill with families." },
+            { title: "A day trip by local bus", detail: "Cheap, slow and the best way to see how people actually live." },
+          ],
+          eat: ["The daily menu at a family-run place off the main square", "Whatever is in season at the market"],
+          skip: ["Restaurants with photo menus on the main square"],
+          localTip: "Shops close in the afternoon; plan museums for that window.",
+        },
   };
 }
 

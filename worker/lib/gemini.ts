@@ -160,6 +160,26 @@ const CARD_SCHEMA = {
       properties: { days: N, low: N, high: N, flights: N, stay: N, food: N },
       required: ["days", "low", "high", "flights", "stay", "food"],
     },
+    base: {
+      type: "OBJECT",
+      description:
+        "The city or town a visitor would base themselves in to experience this place. If the place is a city, that city. If it is an airport, station, hotel, beach, viewpoint or landmark, the city it belongs to or serves.",
+      properties: {
+        city: S,
+        country: S,
+        fromPlace: { type: "STRING", description: "How the place relates to the city, e.g. 'The airport is 25 min by train from the centre'." },
+        vibe: { type: "STRING", description: "One honest line on what the city is really like." },
+        do: {
+          type: "ARRAY",
+          description: "3 or 4 things to do the authentic, local way (neighbourhoods, markets, times of day), not the tourist way.",
+          items: { type: "OBJECT", properties: { title: S, detail: S }, required: ["title", "detail"] },
+        },
+        eat: { type: "ARRAY", description: "2 or 3 local dishes or the kind of place locals eat at.", items: S },
+        skip: { type: "ARRAY", description: "1 or 2 overrated tourist traps to skip.", items: S },
+        localTip: { type: "STRING", description: "One practical tip only locals would tell you (transport, timing, etiquette, money)." },
+      },
+      required: ["city", "fromPlace", "vibe", "do", "eat", "skip", "localTip"],
+    },
     gems: {
       type: "ARRAY",
       description: "2 or 3 nearby real places with the same appeal but fewer crowds.",
@@ -170,7 +190,7 @@ const CARD_SCHEMA = {
       },
     },
   },
-  required: ["country", "authenticity", "summary", "comparisons", "months", "cost", "gems"],
+  required: ["country", "authenticity", "summary", "comparisons", "months", "cost", "base", "gems"],
 };
 
 interface RawCard {
@@ -182,6 +202,16 @@ interface RawCard {
   months?: string[];
   cost?: Partial<Record<"days" | "low" | "high" | "flights" | "stay" | "food", number>>;
   gems?: { name?: string; why?: string; authenticity?: number }[];
+  base?: {
+    city?: string;
+    country?: string;
+    fromPlace?: string;
+    vibe?: string;
+    do?: { title?: string; detail?: string }[];
+    eat?: string[];
+    skip?: string[];
+    localTip?: string;
+  };
 }
 
 function reelContext(record: VideoRecord | null): string {
@@ -201,6 +231,25 @@ const clamp = (n: unknown, lo: number, hi: number, fallback: number) =>
   typeof n === "number" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
 const money = (n: unknown) => Math.round(clamp(n, 0, 100000, 0) / 10) * 10;
 
+const strList = (xs: unknown, max: number) =>
+  (Array.isArray(xs) ? xs : []).filter((x): x is string => typeof x === "string" && !!x.trim()).slice(0, max);
+
+function cleanBase(b: RawCard["base"]): RealityCard["base"] {
+  if (!b?.city?.trim()) return undefined;
+  const todo = (b.do ?? []).filter((d) => d.title && d.detail).slice(0, 4).map((d) => ({ title: d.title!, detail: d.detail! }));
+  if (!todo.length) return undefined;
+  return {
+    city: b.city.trim(),
+    country: b.country?.trim() || undefined,
+    fromPlace: b.fromPlace ?? "",
+    vibe: b.vibe ?? "",
+    do: todo,
+    eat: strList(b.eat, 3),
+    skip: strList(b.skip, 2),
+    localTip: b.localTip ?? "",
+  };
+}
+
 export async function generateRealityCard(
   cfg: GeminiConfig,
   place: PlaceRef,
@@ -217,6 +266,7 @@ Traveler departs from: ${origin}`;
   const rules = `Write honest, specific, practical facts. If you are unsure about a fact, leave it out.
 "months": 12 ratings for January to December, based on this place's real weather, seasons and crowds.
 "gems": 2 or 3 real, less crowded places near ${place.name} with a similar appeal.
+"base": the city to base yourself in for ${place.name} (if ${place.name} is an airport, station, hotel, beach or landmark: the city it belongs to or serves), and how to enjoy that city like a local rather than a tourist: real neighbourhoods, markets, the right time of day, what locals eat, what to skip.
 Costs are typical estimates in euros for one person for a trip of 3-5 days, including return travel from ${origin} (flights or trains, never 0); keep them realistic and round them.`;
   const prompt =
     relation === "lookalike"
@@ -273,6 +323,7 @@ ${rules}`;
       .filter((g) => g.name && g.why)
       .slice(0, 3)
       .map((g) => ({ name: g.name!, why: g.why!, authenticity: Math.round(clamp(g.authenticity, 0, 10, 7)) })),
+    base: cleanBase(raw.base),
   };
 }
 

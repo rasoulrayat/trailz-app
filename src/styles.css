@@ -214,3 +214,23 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .map-pin.sel { background: var(--blue); width: 30px; height: 30px; }
 .realmap .maplibregl-ctrl-attrib { font-size: 10px; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--blue); animation: spin 0.9s linear infinite; flex: none; }
+
+/* ---------- Images: shimmer while loading, then fade in ---------- */
+.img-box { display: block; background: var(--navy-2); }
+.img-box > img.img-fade { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.35s ease; }
+.img-box > img.img-fade.in { opacity: 1; }
+.img-shimmer { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.22), rgba(255,255,255,0.08)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+.thumb.img-box { padding: 0; }
+@media (prefers-reduced-motion: reduce) { .img-box > img.img-fade { transition: none; } .img-shimmer { animation: none; } }
+
+/* ---------- Reel player ---------- */
+.video-chip { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.play-badge { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: rgba(11, 27, 63, 0.7); color: #fff; display: flex; align-items: center; justify-content: center; }
+.player-box { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px; }
+.player-box iframe { width: 100%; max-width: 420px; height: 100%; max-height: 740px; border: 0; border-radius: 14px; background: #000; }
+
+/* ---------- Know the city ---------- */
+.guide-h { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.guide-line { font-size: 14px; line-height: 1.45; padding-left: 14px; position: relative; }
+.guide-line::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--real); }
+.guide-line.skip::before { background: var(--warn); }

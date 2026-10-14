@@ -1,8 +1,8 @@
 import { Link } from "react-router";
-import type { MonthRating, RealityCard, VideoMeta } from "../../shared/types";
+import type { CityGuide, MonthRating, RealityCard, VideoMeta } from "../../shared/types";
 import { Icon } from "./Icon";
 import { MapView } from "./MapView";
-import { HeroPhotos, PlaceThumb, photoCredit } from "./PlacePhoto";
+import { HeroPhotos, PhotoStrip, PlaceThumb, photoCredit } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
 
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
@@ -132,6 +132,8 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
           )}
         </section>
 
+        {card.base && <CityGuideView guide={card.base} placeName={place.name} />}
+
         <section className="card stack" style={{ padding: 16, gap: 12 }}>
           <h2 style={{ fontSize: 15 }}>Best time to go</h2>
           <div
@@ -223,5 +225,62 @@ function ComparisonRows({ reel, reality, last }: { reel: string; reality: string
       <span>{reality}</span>
       {!last && <hr />}
     </>
+  );
+}
+
+/** "Know the city": where to base yourself, and how to enjoy it like a local. */
+function CityGuideView({ guide, placeName }: { guide: CityGuide; placeName: string }) {
+  const q = [guide.city, guide.country].filter(Boolean).join(", ");
+  const sameAsPlace = guide.city.toLowerCase() === placeName.toLowerCase();
+  return (
+    <section className="card stack" style={{ padding: 16, gap: 12 }}>
+      <PhotoStrip q={q} title={guide.city} height={140} />
+      <div className="stack" style={{ gap: 4 }}>
+        <span className="small">{sameAsPlace ? "Know the city" : "Your base city"}</span>
+        <h2 style={{ fontSize: 22, fontFamily: "var(--display)" }}>{guide.city}</h2>
+        {guide.fromPlace && !sameAsPlace && <div className="small">{guide.fromPlace}</div>}
+        {guide.vibe && <p style={{ margin: "4px 0 0", fontSize: 14, lineHeight: 1.5 }}>{guide.vibe}</p>}
+      </div>
+
+      <div className="stack" style={{ gap: 10 }}>
+        <h3 className="guide-h">Do it like a local</h3>
+        {guide.do.map((d, i) => (
+          <div key={d.title} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+            <span className="num" style={{ background: "var(--real)" }}>{i + 1}</span>
+            <span style={{ minWidth: 0 }}>
+              <span className="row-title" style={{ fontSize: 14 }}>{d.title}</span>
+              <span className="row-sub" style={{ whiteSpace: "normal" }}>{d.detail}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {guide.eat.length > 0 && (
+        <div className="stack" style={{ gap: 6 }}>
+          <h3 className="guide-h">Eat</h3>
+          {guide.eat.map((e) => (
+            <div key={e} className="guide-line">{e}</div>
+          ))}
+        </div>
+      )}
+      {guide.skip.length > 0 && (
+        <div className="stack" style={{ gap: 6 }}>
+          <h3 className="guide-h" style={{ color: "var(--warn)" }}>Skip</h3>
+          {guide.skip.map((e) => (
+            <div key={e} className="guide-line skip">{e}</div>
+          ))}
+        </div>
+      )}
+      {guide.localTip && (
+        <div className="tip">
+          <span style={{ color: "var(--blue)", flex: "none", marginTop: 1 }}>
+            <Icon name="sparkle" size={18} />
+          </span>
+          <span>
+            <b>Local tip:</b> {guide.localTip}
+          </span>
+        </div>
+      )}
+    </section>
   );
 }

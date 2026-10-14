@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import type { CheckResult, CheckStatus, PlaceRef } from "../../shared/types";
 import { api, prefetchCards } from "../api";
 import { Icon } from "./Icon";
+import { Img } from "./Img";
 import { MapView, toPoints } from "./MapView";
 import { PhotoStrip, PlaceThumb } from "./PlacePhoto";
 import { platformLabel, VideoChip } from "./VideoChip";
@@ -83,10 +84,7 @@ export function PickView({ check, result }: { check: CheckStatus; result: Of<"pi
     <main className="page" style={{ gap: 18 }}>
       <TopBar check={check} />
       <div className="row" style={{ gap: 14 }}>
-        <span
-          className="thumb"
-          style={{ width: 64, height: 86, backgroundImage: check.video.thumbnailUrl ? `url("${check.video.thumbnailUrl}")` : undefined }}
-        />
+        <Img src={check.video.thumbnailUrl} className="thumb" style={{ width: 64, height: 86 }} />
         <div>
           <h1 style={{ fontSize: 28 }}>{one ? "Is this the place?" : "Is it one of these?"}</h1>
           <div className="small" style={{ marginTop: 4 }}>{result.whatWeSaw}</div>

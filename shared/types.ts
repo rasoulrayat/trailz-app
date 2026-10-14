@@ -45,6 +45,25 @@ export interface RealityCard {
     food: number;
   };
   gems: { name: string; why: string; authenticity: number }[];
+  /** The city or town to base yourself in for this place, and how to enjoy it like a local. */
+  base?: CityGuide;
+}
+
+export interface CityGuide {
+  city: string;
+  country?: string;
+  /** e.g. "The reel's airport serves this city" or "40 min by bus from the beach". */
+  fromPlace: string;
+  /** One honest line on what the city is like. */
+  vibe: string;
+  /** 3-4 things to do the authentic way, not the tourist way. */
+  do: { title: string; detail: string }[];
+  /** 2-3 local foods or places to eat. */
+  eat: string[];
+  /** 1-2 tourist traps to skip. */
+  skip: string[];
+  /** One tip only locals would tell you. */
+  localTip: string;
 }
 
 export interface PlaceRef {
