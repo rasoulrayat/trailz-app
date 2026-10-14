@@ -43,6 +43,8 @@ export async function iataFor(db: D1Database, place: string, fetcher: typeof fet
 // ---------- Flights: Aviasales Data API (cheapest fares seen in the last 48 h) ----------
 
 export interface FlightQuote {
+  /** True when this fare is for nearby dates, not the exact ones (nothing cached for the exact dates). */
+  approx?: boolean;
   price: number;
   currency: string;
   airline: string;
@@ -63,41 +65,58 @@ export async function flightQuotes(
   returnAt: string | null,
   fetcher: typeof fetch = fetch,
 ): Promise<FlightQuote[]> {
-  const key = `fl:${origin}:${destination}:${departureAt}:${returnAt ?? "ow"}`;
+  const key = `fl2:${origin}:${destination}:${departureAt}:${returnAt ?? "ow"}`;
   return cached(db, key, 6 * 3600_000, async () => {
-    try {
-      const u = new URL("https://api.travelpayouts.com/aviasales/v3/prices_for_dates");
-      u.searchParams.set("origin", origin);
-      u.searchParams.set("destination", destination);
-      u.searchParams.set("departure_at", departureAt);
-      if (returnAt) u.searchParams.set("return_at", returnAt);
-      u.searchParams.set("currency", "eur");
-      u.searchParams.set("market", "nl");
-      u.searchParams.set("one_way", returnAt ? "false" : "true");
-      u.searchParams.set("limit", "5");
-      u.searchParams.set("sorting", "price");
-      const res = await fetcher(u.toString(), { headers: { "x-access-token": token, "accept-encoding": "gzip" }, signal: withTimeout(8000) });
-      if (!res.ok) return [];
-      const body = (await res.json()) as {
-        data?: { price: number; airline: string; transfers: number; return_transfers?: number; departure_at: string; return_at?: string; link: string; currency?: string }[];
-      };
-      return (body.data ?? []).slice(0, 3).map((d) => {
-        const link = new URL(`https://www.aviasales.com${d.link}`);
-        if (marker) link.searchParams.set("marker", marker);
-        return {
-          price: Math.round(d.price),
-          currency: (d.currency ?? "eur").toUpperCase(),
-          airline: d.airline,
-          transfers: Math.max(d.transfers ?? 0, d.return_transfers ?? 0),
-          departureAt: d.departure_at,
-          returnAt: d.return_at,
-          url: link.toString(),
-        };
-      });
-    } catch {
-      return [];
-    }
+    const exact = await fetchFares(token, marker, origin, destination, departureAt, returnAt, fetcher);
+    if (exact.length) return exact;
+    // Nothing for the exact dates: the cheapest fares in the same month, marked as nearby dates.
+    const month = departureAt.slice(0, 7);
+    const near = await fetchFares(token, marker, origin, destination, month, returnAt ? returnAt.slice(0, 7) : null, fetcher);
+    return near.map((q) => ({ ...q, approx: true }));
   });
+}
+
+async function fetchFares(
+  token: string,
+  marker: string | undefined,
+  origin: string,
+  destination: string,
+  departureAt: string,
+  returnAt: string | null,
+  fetcher: typeof fetch,
+): Promise<FlightQuote[]> {
+  try {
+    const u = new URL("https://api.travelpayouts.com/aviasales/v3/prices_for_dates");
+    u.searchParams.set("origin", origin);
+    u.searchParams.set("destination", destination);
+    u.searchParams.set("departure_at", departureAt);
+    if (returnAt) u.searchParams.set("return_at", returnAt);
+    u.searchParams.set("currency", "eur");
+    u.searchParams.set("market", "nl");
+    u.searchParams.set("one_way", returnAt ? "false" : "true");
+    u.searchParams.set("limit", "5");
+    u.searchParams.set("sorting", "price");
+    const res = await fetcher(u.toString(), { headers: { "x-access-token": token, "accept-encoding": "gzip" }, signal: withTimeout(8000) });
+    if (!res.ok) return [];
+    const body = (await res.json()) as {
+      data?: { price: number; airline: string; transfers: number; return_transfers?: number; departure_at: string; return_at?: string; link: string; currency?: string }[];
+    };
+    return (body.data ?? []).slice(0, 3).map((d) => {
+      const link = new URL(`https://www.aviasales.com${d.link}`);
+      if (marker) link.searchParams.set("marker", marker);
+      return {
+        price: Math.round(d.price),
+        currency: (d.currency ?? "eur").toUpperCase(),
+        airline: d.airline,
+        transfers: Math.max(d.transfers ?? 0, d.return_transfers ?? 0),
+        departureAt: d.departure_at,
+        returnAt: d.return_at,
+        url: link.toString(),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 // ---------- Hotels: Hotellook cache API (prices per city and dates) ----------

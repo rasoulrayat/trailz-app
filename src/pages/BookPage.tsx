@@ -284,15 +284,19 @@ function FlightPrices({ prices, opened, mark }: { prices: TripPrices | null | "l
       </div>
     );
   const best = f.quotes[0];
+  const approx = !!best.approx;
   return (
     <div className="card stack price" style={{ gap: 10 }}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <span>
-          <span className="small">Return flights {route}</span>
+          <span className="small">Return flights {route}{approx ? " · nearby dates" : ""}</span>
           <span style={{ display: "block", fontFamily: "var(--display)", fontWeight: 800, fontSize: 26 }}>from {euro(best.price)}</span>
         </span>
-        <span className="badge soft-real">seen in the last 48 h</span>
+        <span className={`badge ${approx ? "soft" : "soft-real"}`}>{approx ? "same month" : "seen in the last 48 h"}</span>
       </div>
+      {approx && (
+        <div className="small">Nothing cached for your exact dates yet; these are the cheapest fares seen this month. Your dates are kept in the Kiwi.com search.</div>
+      )}
       <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: 6 }}>
         {f.quotes.map((q, i) => (
           <li key={q.url} className="row" style={{ justifyContent: "space-between", padding: "8px 10px", borderRadius: 12, background: i === 0 ? "var(--bg)" : "transparent", fontSize: 14 }}>
