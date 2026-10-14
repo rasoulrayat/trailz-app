@@ -16,7 +16,7 @@ import { pingGemini } from "./lib/gemini";
 import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
 import { flightQuotes } from "./lib/prices";
-import { duffelFlights, googleFlights } from "./lib/providers";
+import { debugHotels, duffelCheckoutLink, duffelFlights, googleFlights } from "./lib/providers";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -389,6 +389,18 @@ app.get("/health", async (c) => {
       const d = await duffelFlights(c.env.DB, c.env.DUFFEL_TOKEN, "AMS", "LIS", dep, ret, 1, "health").catch((e) => String(e));
       checks.duffel = Array.isArray(d) ? { ok: d.length > 0, offers: d.length, cheapest: d[0]?.price ?? null, title: d[0]?.title, mode: c.env.DUFFEL_TOKEN.startsWith("duffel_test") ? "test" : "live" } : { ok: false, error: d };
     } else checks.duffel = { ok: false, error: "DUFFEL_TOKEN not set" };
+    // &hotels=City, Country → what Hotellook and Google Hotels return for a stay 5 weeks out (debugging).
+    const hotelsQ = c.req.query("hotels");
+    if (hotelsQ && c.env.TP_TOKEN) {
+      const [city, country] = hotelsQ.split(",").map((x) => x.trim());
+      const h = await debugHotels(c.env.DB, c.env.TP_TOKEN, c.env.SERPAPI_KEY, city, country ?? null, dep, ret);
+      checks.hotels = h;
+    }
+    // &links=1 → can Duffel create a hosted checkout link (test mode)?
+    if (c.req.query("links") === "1" && c.env.DUFFEL_TOKEN) {
+      const url = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, { reference: "trailz-health", successUrl: "https://example.com/ok", failureUrl: "https://example.com/no", markupRate: 0.03, currency: "EUR" });
+      checks.duffelLinks = { ok: !!url, url: url ? url.slice(0, 60) + "…" : null };
+    }
     out.providers = checks;
   }
   if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(out);
