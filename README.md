@@ -139,10 +139,13 @@ All accounts belong to the Dutch company with EU billing.
 
 ## Phase 3: discover and decide (built)
 
-- **Explore** tab: every reel anyone checked, from stored results only (no AI or partner calls). Filters: *My vibe*
+- **Explore** tab: an image-first mosaic (every 7th tile large) of every reel anyone checked, from stored results
+  only (no AI or partner calls); each tile carries the deciding facts (score, cost, best months). Filters: *My vibe*
   (overlap with the vibe words of your saves), *Near my places* (within 400 km of a save), *Good in <month>*,
   *Under €…*, search; sort by Trending (checks this week), New, Most real.
-- **Reality Card**: "Right now" chip from this month's rating, "When to go on the day" (quiet / busy / closed, tip),
+- **Reality Card** is ordered by what decides a trip: an "In short" box (score + verdict, best months, cost, flight
+  hours + entry rule), then 1 · How real, 2 · When to go, 3 · Real cost, then the map, base city and alternatives.
+  Also: "Right now" chip from this month's rating, "When to go on the day" (quiet / busy / closed, tip),
   and a practicalities strip (flight hours, time difference, daily spend, EU-passport entry rule, safety line).
 - **Friends**: "Ask friends" on a card or a trip makes a share link (`/s/<token>`), a read-only page with
   *I'm in / Not for me* (one vote per device, name optional, no account). The owner sees the tally on the button.

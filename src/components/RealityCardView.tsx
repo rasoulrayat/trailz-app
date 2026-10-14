@@ -115,24 +115,11 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
           {card.summary && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{card.summary}</p>}
         </div>
 
-        {place.lat != null && place.lng != null && (
-          <section className="stack" style={{ gap: 8 }}>
-            <MapView points={[{ lat: place.lat, lng: place.lng, label: "", name: place.name, selected: true }]} height={170} />
-            <a
-              className="small"
-              style={{ display: "inline-flex", gap: 4, alignItems: "center", color: "var(--blue)" }}
-              href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open in Google Maps <Icon name="external" size={12} />
-            </a>
-          </section>
-        )}
+        <Decision card={card} />
 
         <section className="card stack" style={{ padding: 16, gap: 12 }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 style={{ fontSize: 15 }}>How real is this reel?</h2>
+            <h2 style={{ fontSize: 15 }}>1 · How real is this reel?</h2>
             <div className="big-number" style={{ fontSize: 28 }}>
               {card.authenticity}
               <span style={{ fontSize: 16, color: "var(--muted)" }}>/10</span>
@@ -148,11 +135,9 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
           )}
         </section>
 
-        {card.base && <CityGuideView guide={card.base} placeName={place.name} />}
-
         <section className="card stack" style={{ padding: 16, gap: 12 }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2 style={{ fontSize: 15 }}>Best time to go</h2>
+            <h2 style={{ fontSize: 15 }}>2 · When to go</h2>
             <RightNow months={card.months} />
           </div>
           <div
@@ -220,7 +205,7 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
 
         <section className="card dark stack" style={{ gap: 12 }}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 style={{ fontSize: 15 }}>Real cost from {card.cost.from}</h2>
+            <h2 style={{ fontSize: 15 }}>3 · Real cost from {card.cost.from}</h2>
             <span style={{ fontSize: 12, color: "var(--muted-on-dark)" }}>{card.cost.days} days · 1 person</span>
           </div>
           <div className="big-number">
@@ -244,6 +229,23 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
             AI estimate from typical prices. Live prices come when you plan.
           </div>
         </section>
+
+        {place.lat != null && place.lng != null && (
+          <section className="stack" style={{ gap: 8 }}>
+            <MapView points={[{ lat: place.lat, lng: place.lng, label: "", name: place.name, selected: true }]} height={170} />
+            <a
+              className="small"
+              style={{ display: "inline-flex", gap: 4, alignItems: "center", color: "var(--blue)" }}
+              href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Google Maps <Icon name="external" size={12} />
+            </a>
+          </section>
+        )}
+
+        {card.base && <CityGuideView guide={card.base} placeName={place.name} />}
 
         {card.gems.length > 0 && (
           <section className="stack">
@@ -365,5 +367,44 @@ function RightNow({ months }: { months: MonthRating[] }) {
       {label}
       {now !== "best" && nextBest >= 0 ? ` · best ${MONTH_NAMES[nextBest]}` : ""}
     </span>
+  );
+}
+
+/** The five-second read: the three facts that decide a trip. */
+function Decision({ card }: { card: RealityCard }) {
+  const m = new Date().getMonth();
+  const best = card.months.map((x, i) => (x === "best" ? MONTH_NAMES[i] : null)).filter(Boolean) as string[];
+  const nowWord = card.months[m] === "best" ? "best time now" : card.months[m] === "good" ? "good now" : card.months[m] === "crowded" ? "crowded now" : "quiet now";
+  const verdict = card.authenticity >= 7 ? "Worth it, as shown" : card.authenticity >= 5 ? "Worth it, with caveats" : "Not what the reel shows";
+  return (
+    <section className="decision-box" aria-label="In short">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <span className="guide-h" style={{ color: "var(--muted-on-dark)" }}>In short</span>
+        <span className="small" style={{ color: "var(--muted-on-dark)" }}>{nowWord}</span>
+      </div>
+      <div className="decision-row">
+        <span className={`decision-score ${scoreClass(card.authenticity)}`}>{card.authenticity}</span>
+        <span>
+          <b>{verdict}</b>
+          <span>{card.comparisons[0] ? card.comparisons[0].reality : card.summary}</span>
+        </span>
+      </div>
+      <div className="decision-facts">
+        <span>
+          <Icon name="calendar" size={14} />
+          {best.length ? `Best ${best.slice(0, 3).join(", ")}` : "Any month"}
+        </span>
+        <span>
+          <Icon name="euro" size={14} />
+          €{card.cost.low.toLocaleString("en-US")}–{card.cost.high.toLocaleString("en-US")} · {card.cost.days} days
+        </span>
+        {card.practical && (
+          <span>
+            <Icon name="plane" size={14} />
+            {card.practical.flightHours} h · {card.practical.visa}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }

@@ -64,8 +64,8 @@ export function ExplorePage() {
       <main className="page" style={{ gap: 14 }}>
         <div className="topbar">
           <h1>Explore</h1>
+          <span className="small">{items ? `${items.length} reels` : ""}</span>
         </div>
-        <p className="lead" style={{ marginTop: -8 }}>Reels people checked, with what they're really like. No ads, no sponsored spots.</p>
 
         <label className="search">
           <Icon name="search" size={18} />
@@ -77,7 +77,7 @@ export function ExplorePage() {
           )}
         </label>
 
-        <div className="chips" style={{ gap: 6 }}>
+        <div className="chips scroll" style={{ gap: 6 }}>
           <button className={`chip${vibe ? " on" : ""}`} aria-pressed={vibe} disabled={!myVibe.length} title={myVibe.length ? `Your vibe: ${myVibe.join(", ")}` : "Save a few places first"} onClick={() => setVibe((v) => !v)}>
             <Icon name="sparkle" size={13} /> My vibe
           </button>
@@ -112,8 +112,7 @@ export function ExplorePage() {
           </div>
         )}
 
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <span className="small">{items ? `${items.length} reels` : ""}</span>
+        <div className="row" style={{ justifyContent: "flex-end" }}>
           <div role="tablist" className="seg">
             {SORTS.map((s) => (
               <button key={s.id} role="tab" aria-selected={sort === s.id} className={`seg-btn${sort === s.id ? " on" : ""}`} onClick={() => setSort(s.id)}>
@@ -124,9 +123,9 @@ export function ExplorePage() {
         </div>
 
         {items === null ? (
-          <div className="grid2">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="skeleton" style={{ height: 230, borderRadius: 18 }} />
+          <div className="mosaic">
+            {Array.from({ length: 9 }, (_, i) => (
+              <div key={i} className={`skeleton tile${i === 1 ? " big" : ""}`} />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -139,9 +138,9 @@ export function ExplorePage() {
             <Link to="/" className="btn" style={{ width: "auto" }}>Check a reel</Link>
           </div>
         ) : (
-          <div className="grid2">
-            {items.map((it) => (
-              <ReelCard key={it.id} it={it} month={month} />
+          <div className="mosaic">
+            {items.map((it, i) => (
+              <Tile key={it.id} it={it} month={month} big={i % 7 === 1} />
             ))}
           </div>
         )}
@@ -151,33 +150,39 @@ export function ExplorePage() {
   );
 }
 
-function ReelCard({ it, month }: { it: ExploreItem; month: number }) {
+/** One mosaic tile: picture first, the three deciding facts on top. */
+function Tile({ it, month, big }: { it: ExploreItem; month: number; big: boolean }) {
   const { photos } = usePlaceGallery(it.cover ? null : it.photoQuery);
   const src = it.cover ?? photos[0]?.url ?? null;
-  const best = it.bestMonths.slice(0, 3).map((m) => MONTHS[m - 1]).join(" · ");
+  const when = month && it.monthRating ? (it.monthRating === "best" ? `best in ${MONTHS[month - 1]}` : `good in ${MONTHS[month - 1]}`) : it.bestMonths.length ? `best ${it.bestMonths.slice(0, 2).map((m) => MONTHS[m - 1]).join("/")}` : null;
+  const title = it.outcome === "multi" ? it.sub || it.title : it.title;
+  const sub = it.outcome === "multi" ? it.title : it.outcome === "vibe" ? it.sub : it.country ?? it.sub;
   return (
-    <Link to={`/check/${it.id}`} className="reel">
-      <span className="reel-img">
-        <Img src={src} style={{ width: "100%", height: "100%" }} />
-        {it.authenticity !== null && (
-          <span className={`reel-score ${it.authenticity >= 7 ? "good" : it.authenticity >= 5 ? "mid" : "low"}`}>{it.authenticity}/10 real</span>
-        )}
-        {it.outcome === "multi" && <span className="reel-score">{it.title}</span>}
-        {it.vibeMatch >= 0.5 && (
-          <span className="reel-tag">
-            <Icon name="sparkle" size={10} /> your vibe
+    <Link to={`/check/${it.id}`} className={`tile${big ? " big" : ""}`} aria-label={`${title}${it.authenticity !== null ? `, ${it.authenticity} of 10 real` : ""}`}>
+      <Img src={src} style={{ position: "absolute", inset: 0 }} />
+      <span className="tile-shade" />
+      {it.authenticity !== null && <span className={`reel-score ${it.authenticity >= 7 ? "good" : it.authenticity >= 5 ? "mid" : "low"}`}>{it.authenticity}/10</span>}
+      {it.outcome === "multi" && <span className="reel-score">{it.title}</span>}
+      {it.vibeMatch >= 0.5 && (
+        <span className="reel-tag">
+          <Icon name="sparkle" size={10} /> your vibe
+        </span>
+      )}
+      <span className="tile-text">
+        <b>{title}</b>
+        <span>{sub}</span>
+        {big && (
+          <span className="tile-facts">
+            {it.costFrom ? <span>from €{it.costFrom}</span> : null}
+            {when ? <span>{when}</span> : null}
+            {it.checks7d > 1 ? <span>{it.checks7d} this week</span> : null}
           </span>
         )}
-      </span>
-      <span className="reel-body">
-        <span className="reel-title">{it.outcome === "multi" ? it.sub || it.title : it.title}</span>
-        <span className="reel-sub">{it.outcome === "multi" ? `${it.title}` : it.sub}</span>
-        <span className="reel-meta">
-          {it.costFrom ? <span>from €{it.costFrom}</span> : null}
-          {month && it.monthRating ? <span className={it.monthRating === "best" ? "ok" : undefined}>{it.monthRating === "best" ? `best in ${MONTHS[month - 1]}` : `good in ${MONTHS[month - 1]}`}</span> : best ? <span>{best}</span> : null}
-          {it.nearKm !== null ? <span>{it.nearKm} km from your places</span> : null}
-          <span>{it.checks7d > 1 ? `${it.checks7d} checked this week` : `${it.checks} ${it.checks === 1 ? "check" : "checks"}`}</span>
-        </span>
+        {!big && (it.costFrom || when) && (
+          <span className="tile-facts">
+            <span>{month && when ? when : it.costFrom ? `€${it.costFrom}+` : when}</span>
+          </span>
+        )}
       </span>
     </Link>
   );
