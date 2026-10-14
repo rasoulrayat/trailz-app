@@ -85,7 +85,17 @@ export function SavedPage() {
           </div>
         ) : (
           <>
-            {!picking && (
+            {!picking && items.length < 3 && (
+              <div className="tip">
+                <span style={{ color: "var(--blue)", flex: "none" }}>
+                  <Icon name="sparkle" size={18} />
+                </span>
+                <span>
+                  <b>Magic trips</b> switch on at 3 saved places. {3 - items.length} more to go: we'll group what's near each other and write the trip in one tap.
+                </span>
+              </div>
+            )}
+            {!picking && items.length >= 3 && (
               <section className="stack" style={{ gap: 12 }}>
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <h2>Magic trips</h2>
@@ -106,9 +116,12 @@ export function SavedPage() {
                     </button>
                   ))}
                 </div>
-                {groups.map((g) => (
+                {groups.filter((g) => g.places.length >= 2).map((g) => (
                   <GroupCard key={g.id} g={g} mood={mood} />
                 ))}
+                {groups.every((g) => g.places.length < 2) && (
+                  <div className="small">No two saved places are grouped together yet. Try "Region", or pick places by hand.</div>
+                )}
               </section>
             )}
 
