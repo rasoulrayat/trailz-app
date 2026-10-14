@@ -55,7 +55,9 @@
     "TP_OMIO_P": "",
     // Live price providers (keys are secrets, see above). SerpApi free plan = 250 searches/month.
     "SERPAPI_MONTHLY_LIMIT": "250",
-    "DUFFEL_MARKUP_RATE": "0.03"
+    "DUFFEL_MARKUP_RATE": "0.03",
+    // With a test token Duffel returns a pretend airline; "1" shows it anyway (to try the checkout flow).
+    "DUFFEL_ALLOW_TEST": "1"
   }
   // Secrets (set with `npx wrangler secret put NAME` or in the dashboard):
   //   SUPADATA_API_KEY, GEMINI_API_KEY, TP_TOKEN (Travelpayouts API token), SERPAPI_KEY (Google Flights/Hotels),

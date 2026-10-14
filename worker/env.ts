@@ -28,6 +28,8 @@ export interface Env {
   DUFFEL_TOKEN?: string;
   /** Our markup on Duffel bookings, e.g. "0.03" = 3 %. */
   DUFFEL_MARKUP_RATE?: string;
+  /** "1" shows Duffel's sandbox airline to users (testing the checkout flow only). */
+  DUFFEL_ALLOW_TEST?: string;
   TP_TRS?: string;
   TP_KIWI_P?: string;
   TP_BOOKING_P?: string;

@@ -17,6 +17,7 @@ export function BookPage() {
   const [prices, setPrices] = useState<TripPrices | null | "loading">(null);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // A trip without dates goes to setup; with dates, straight to prices (prefetched from the trip page).
   useEffect(() => {
@@ -31,6 +32,10 @@ export function BookPage() {
   useEffect(() => {
     if (params.get("booked") === "flights" && trip && !trip.booked.flights) {
       tripsApi.updateTrip(trip.id, { booked: { flights: true } }).then((r) => setTrip(r.trip));
+      setParams({}, { replace: true });
+    }
+    if (params.get("error") === "duffel") {
+      setNotice("The airline checkout couldn't open. Pick another option, or try again in a minute.");
       setParams({}, { replace: true });
     }
   }, [params, trip, setParams]);
@@ -70,5 +75,17 @@ export function BookPage() {
       </main>
     );
   if (editing) return <TripSetup trip={trip} onDone={done} busy={busy} />;
-  return <PricedTrip trip={trip} handoff={handoff} prices={prices} onBooked={booked} onChangeDates={() => setEditing(true)} />;
+  return (
+    <>
+      {notice && (
+        <div className="notice" role="status">
+          <span style={{ flex: 1 }}>{notice}</span>
+          <button className="icon-btn plain" style={{ width: 32, height: 32 }} aria-label="Dismiss" onClick={() => setNotice(null)}>
+            ×
+          </button>
+        </div>
+      )}
+      <PricedTrip trip={trip} handoff={handoff} prices={prices} onBooked={booked} onChangeDates={() => setEditing(true)} />
+    </>
+  );
 }

@@ -316,6 +316,7 @@ trips.get("/trips/:id/prices", async (c) => {
         serpApiKey: c.env.SERPAPI_KEY,
         serpMonthlyLimit: Number(c.env.SERPAPI_MONTHLY_LIMIT || "250"),
         duffelToken: c.env.DUFFEL_TOKEN,
+        duffelAllowTest: c.env.DUFFEL_ALLOW_TEST === "1",
       },
       trip,
       searches,
@@ -333,15 +334,16 @@ trips.get("/trips/:id/duffel-link", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row || !c.env.DUFFEL_TOKEN) return bad(c, 404, "not_found", "This booking link isn't available.");
   const origin = new URL(c.req.url).origin;
-  const url = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, {
+  const { url, error } = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, {
     reference: `trailz-${row.id}-${Date.now().toString(36)}`,
     successUrl: `${origin}/trips/${row.id}/book?booked=flights`,
-    failureUrl: `${origin}/trips/${row.id}/book`,
+    failureUrl: `${origin}/trips/${row.id}/book?error=duffel`,
     markupRate: Number(c.env.DUFFEL_MARKUP_RATE || "0.03"),
     currency: "EUR",
+    logoUrl: `${origin}/icons/icon-512.png`,
   });
   if (!url) {
-    await logError(c.env.DB, "duffel-link", "no checkout url", row.id);
+    await logError(c.env.DB, "duffel-link", error ?? "no checkout url", row.id);
     return c.redirect(`/trips/${row.id}/book?error=duffel`, 302);
   }
   return c.redirect(url, 302);

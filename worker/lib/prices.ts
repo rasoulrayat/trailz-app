@@ -120,100 +120,6 @@ async function fetchFares(
   }
 }
 
-// ---------- Hotels: Hotellook cache API (prices per city and dates) ----------
-
-export interface HotelQuote {
-  name: string;
-  stars: number;
-  priceFrom: number;
-  currency: string;
-  /** Tracked Hotellook search link. */
-  url: string;
-}
-
-export async function hotelQuotes(
-  db: D1Database,
-  token: string,
-  marker: string | undefined,
-  city: string,
-  country: string | null,
-  checkIn: string,
-  checkOut: string,
-  adults: number,
-  fetcher: typeof fetch = fetch,
-): Promise<{ hotels: HotelQuote[]; searchUrl: string }> {
-  const location = [city, country].filter(Boolean).join(", ");
-  const search = new URL("https://search.hotellook.com/");
-  search.searchParams.set("destination", location);
-  search.searchParams.set("checkIn", checkIn);
-  search.searchParams.set("checkOut", checkOut);
-  search.searchParams.set("adults", String(adults));
-  search.searchParams.set("currency", "eur");
-  search.searchParams.set("language", "en");
-  if (marker) search.searchParams.set("marker", marker);
-  const key = `ht2:${placeKey(location)}:${checkIn}:${checkOut}`;
-  const hotels = await cached(db, key, 6 * 3600_000, async () => {
-    const rows = await hotelCache(token, { location }, checkIn, checkOut, fetcher);
-    if (rows.length) return rows;
-    // Small towns: resolve Hotellook's own location id first, then ask by id.
-    const id = await hotellookLocationId(db, token, city, country, fetcher);
-    if (id) return hotelCache(token, { locationId: id }, checkIn, checkOut, fetcher);
-    return [];
-  });
-  return { hotels: hotels.map((h) => ({ ...h, url: search.toString() })), searchUrl: search.toString() };
-}
-
-async function hotelCache(
-  token: string,
-  where: { location?: string; locationId?: number },
-  checkIn: string,
-  checkOut: string,
-  fetcher: typeof fetch,
-): Promise<Omit<HotelQuote, "url">[]> {
-  try {
-    const u = new URL("https://engine.hotellook.com/api/v2/cache.json");
-    if (where.locationId) u.searchParams.set("locationId", String(where.locationId));
-    else u.searchParams.set("location", where.location ?? "");
-    u.searchParams.set("checkIn", checkIn);
-    u.searchParams.set("checkOut", checkOut);
-    u.searchParams.set("currency", "eur");
-    u.searchParams.set("limit", "8");
-    u.searchParams.set("token", token);
-    const res = await fetcher(u.toString(), { signal: withTimeout(8000) });
-    if (!res.ok) return [];
-    const rows = (await res.json()) as { hotelName: string; stars: number; priceFrom: number }[];
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .filter((r) => r.priceFrom > 0)
-      .sort((a, b) => a.priceFrom - b.priceFrom)
-      .slice(0, 3)
-      .map((r) => ({ name: r.hotelName, stars: r.stars ?? 0, priceFrom: Math.round(r.priceFrom), currency: "EUR" }));
-  } catch {
-    return [];
-  }
-}
-
-async function hotellookLocationId(db: D1Database, token: string, city: string, country: string | null, fetcher: typeof fetch): Promise<number | null> {
-  return cached(db, `hl-loc:${placeKey(`${city} ${country ?? ""}`)}`, 30 * 24 * 3600_000, async () => {
-    try {
-      const u = new URL("https://engine.hotellook.com/api/v2/lookup.json");
-      u.searchParams.set("query", city);
-      u.searchParams.set("lang", "en");
-      u.searchParams.set("lookFor", "city");
-      u.searchParams.set("limit", "5");
-      u.searchParams.set("token", token);
-      const res = await fetcher(u.toString(), { signal: withTimeout(6000) });
-      if (!res.ok) return null;
-      const body = (await res.json()) as { results?: { locations?: { id: string | number; cityName?: string; countryName?: string; fullName?: string }[] } };
-      const locs = body.results?.locations ?? [];
-      const hit = (country && locs.find((l) => placeKey(l.countryName ?? "") === placeKey(country))) ?? locs[0];
-      return hit ? Number(hit.id) : null;
-    } catch {
-      return null;
-    }
-  });
-}
-
 const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -226,6 +132,8 @@ export interface ProviderKeys {
   serpApiKey?: string;
   serpMonthlyLimit: number;
   duffelToken?: string;
+  /** Show Duffel's sandbox airline ("Duffel Airways") to users: only for testing the checkout flow. */
+  duffelAllowTest?: boolean;
 }
 
 const toFlightOffer = (q: FlightQuote, earns: boolean): Offer => ({
@@ -240,17 +148,6 @@ const toFlightOffer = (q: FlightQuote, earns: boolean): Offer => ({
   approx: q.approx,
   bookUrl: q.url,
   unit: "per person",
-});
-const toStayOffer = (h: HotelQuote, earns: boolean): Offer => ({
-  provider: "hotellook",
-  providerLabel: "Hotellook",
-  earns,
-  freshness: "cached",
-  price: h.priceFrom,
-  currency: h.currency,
-  title: `${h.name}${h.stars ? ` · ${"★".repeat(Math.min(5, Math.round(h.stars)))}` : ""}`,
-  bookUrl: h.url,
-  unit: "total",
 });
 
 /**
@@ -302,7 +199,8 @@ export async function tripPrices(
     const ret = addDays(start, nights);
     const jobs: Promise<Offer[]>[] = [];
     if (keys.serpApiKey) jobs.push(googleFlights(db, keys.serpApiKey, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers).then((o) => (o.length && sources.add("Google Flights"), o)));
-    if (keys.duffelToken) jobs.push(duffelFlights(db, keys.duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
+    const duffelToken = keys.duffelToken && (keys.duffelAllowTest || !keys.duffelToken.startsWith("duffel_test")) ? keys.duffelToken : undefined;
+    if (duffelToken) jobs.push(duffelFlights(db, duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
     if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map((x) => toFlightOffer(x, !!keys.tpMarker)))));
     const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
     const all = results.flat();
@@ -329,18 +227,9 @@ export async function tripPrices(
       const checkOut = addDays(start, b.from + b.nights);
       const jobs: Promise<Offer[]>[] = [];
       if (keys.serpApiKey) jobs.push(googleHotels(db, keys.serpApiKey, keys.serpMonthlyLimit, b.city, country, checkIn, checkOut, trip.travelers).then((o) => (o.length && sources.add("Google Hotels"), o)));
-      let searchUrl = "";
-      if (keys.tpToken) {
-        jobs.push(
-          hotelQuotes(db, keys.tpToken, keys.tpMarker, b.city, country, checkIn, checkOut, trip.travelers).then((q) => {
-            searchUrl = q.searchUrl;
-            if (q.hotels.length) sources.add("Hotellook");
-            return q.hotels.map((h) => toStayOffer(h, !!keys.tpMarker));
-          }),
-        );
-      }
       const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
-      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank([...results.flat(), ...(searches.stay[b.city] ?? [])]), searchUrl });
+      const partner = searches.stay[b.city] ?? [];
+      stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank([...results.flat(), ...partner]), searchUrl: partner[0]?.bookUrl ?? "" });
     }
   }
   const list = [...sources];

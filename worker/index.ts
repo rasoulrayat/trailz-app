@@ -391,15 +391,14 @@ app.get("/health", async (c) => {
     } else checks.duffel = { ok: false, error: "DUFFEL_TOKEN not set" };
     // &hotels=City, Country → what Hotellook and Google Hotels return for a stay 5 weeks out (debugging).
     const hotelsQ = c.req.query("hotels");
-    if (hotelsQ && c.env.TP_TOKEN) {
+    if (hotelsQ) {
       const [city, country] = hotelsQ.split(",").map((x) => x.trim());
-      const h = await debugHotels(c.env.DB, c.env.TP_TOKEN, c.env.SERPAPI_KEY, city, country ?? null, dep, ret);
-      checks.hotels = h;
+      checks.hotels = await debugHotels(c.env.SERPAPI_KEY, city, country ?? null, dep, ret);
     }
     // &links=1 → can Duffel create a hosted checkout link (test mode)?
     if (c.req.query("links") === "1" && c.env.DUFFEL_TOKEN) {
-      const url = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, { reference: "trailz-health", successUrl: "https://example.com/ok", failureUrl: "https://example.com/no", markupRate: 0.03, currency: "EUR" });
-      checks.duffelLinks = { ok: !!url, url: url ? url.slice(0, 60) + "…" : null };
+      const r = await duffelCheckoutLink(c.env.DUFFEL_TOKEN, { reference: "trailz-health", successUrl: "https://example.com/ok", failureUrl: "https://example.com/no", markupRate: 0.03, currency: "EUR" });
+      checks.duffelLinks = { ok: !!r.url, url: r.url ? r.url.slice(0, 60) + "…" : null, error: r.error };
     }
     out.providers = checks;
   }

@@ -132,9 +132,10 @@ export async function googleHotels(
         }[];
       };
       const searchUrl = `https://www.google.com/travel/hotels/${encodeURIComponent(q)}?q=${encodeURIComponent(q)}&dates=${checkIn},${checkOut}&adults=${adults}&curr=EUR`;
-      return (body.properties ?? [])
-        .map((p) => ({ p, total: p.total_rate?.extracted_lowest ?? 0 }))
-        .filter((x) => x.total > 0 && x.p.overall_rating !== undefined && x.p.overall_rating >= 7.5)
+      // Google rates hotels out of 5. Keep well-rated places (≥ 4.0), cheapest first; fall back to any priced.
+      const priced = (body.properties ?? []).map((p) => ({ p, total: p.total_rate?.extracted_lowest ?? 0 })).filter((x) => x.total > 0);
+      const good = priced.filter((x) => (x.p.overall_rating ?? 0) >= 4.0);
+      return (good.length >= 2 ? good : priced)
         .sort((a, b) => a.total - b.total)
         .slice(0, 3)
         .map(({ p, total }) => ({
@@ -144,7 +145,8 @@ export async function googleHotels(
           freshness: "live" as const,
           price: Math.round(total),
           currency: "EUR",
-          title: `${p.name}${p.extracted_hotel_class ? ` · ${"★".repeat(Math.min(5, p.extracted_hotel_class))}` : ""}${p.overall_rating ? ` · ${p.overall_rating}` : ""}`,
+          title: `${p.name}${p.extracted_hotel_class ? ` · ${"★".repeat(Math.min(5, p.extracted_hotel_class))}` : ""}${p.overall_rating ? ` · ${p.overall_rating}/5` : ""}`,
+          detail: p.rate_per_night?.extracted_lowest ? `€${Math.round(p.rate_per_night.extracted_lowest)} a night` : undefined,
           bookUrl: p.link || searchUrl,
           unit: "total" as const,
         }));
@@ -210,12 +212,12 @@ export async function duffelFlights(
   });
 }
 
-/** Duffel Links: a hosted booking page; the markup is our earning. */
+/** Duffel Links: a hosted booking page; the markup is our earning. Returns the URL, or the error text. */
 export async function duffelCheckoutLink(
   token: string,
-  opts: { reference: string; successUrl: string; failureUrl: string; markupRate: number; currency: string },
+  opts: { reference: string; successUrl: string; failureUrl: string; markupRate: number; currency: string; logoUrl?: string },
   fetcher: typeof fetch = fetch,
-): Promise<string | null> {
+): Promise<{ url: string | null; error?: string }> {
   try {
     const res = await fetcher("https://api.duffel.com/links/sessions", {
       method: "POST",
@@ -226,78 +228,47 @@ export async function duffelCheckoutLink(
           success_url: opts.successUrl,
           failure_url: opts.failureUrl,
           abandonment_url: opts.failureUrl,
-          checkout_display_text: "Booked through TrailZ",
-          markup_rate: String(opts.markupRate),
           traveller_currency: opts.currency,
-          flights: { enabled: true },
-          stays: { enabled: true },
+          markup_amount: "0.00",
+          markup_currency: opts.currency,
+          markup_rate: opts.markupRate.toFixed(2),
+          primary_color: "#0B1B3F",
+          secondary_color: "#5AA9FF",
+          ...(opts.logoUrl ? { logo_url: opts.logoUrl } : {}),
+          checkout_display_text: "Booked through TrailZ. Your ticket comes from the airline.",
+          flights: { enabled: "true" },
+          stays: { enabled: "false" },
         },
       }),
       signal: withTimeout(10000),
     });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { data?: { url?: string } };
-    return body.data?.url ?? null;
-  } catch {
-    return null;
+    const text = await res.text();
+    if (!res.ok) return { url: null, error: `${res.status} ${text.slice(0, 400)}` };
+    const body = JSON.parse(text) as { data?: { url?: string } };
+    return body.data?.url ? { url: body.data.url } : { url: null, error: `no url in ${text.slice(0, 200)}` };
+  } catch (e) {
+    return { url: null, error: String(e) };
   }
 }
 
-
-/** Debug helper for /api/health: raw-ish answers from the hotel providers. */
-export async function debugHotels(_db: D1Database, tpToken: string, serpKey: string | undefined, city: string, country: string | null, checkIn: string, checkOut: string) {
-  const out: Record<string, unknown> = {};
+/** Debug helper for /api/health: what Google Hotels returns. */
+export async function debugHotels(serpKey: string | undefined, city: string, country: string | null, checkIn: string, checkOut: string) {
+  if (!serpKey) return { error: "SERPAPI_KEY not set" };
   try {
-    const u = new URL("https://engine.hotellook.com/api/v2/lookup.json");
-    u.searchParams.set("query", city);
-    u.searchParams.set("lang", "en");
-    u.searchParams.set("lookFor", "city");
-    u.searchParams.set("limit", "3");
-    u.searchParams.set("token", tpToken);
-    const res = await fetch(u.toString(), { signal: withTimeout(8000) });
-    const text = await res.text();
-    out.hotellookLookup = { status: res.status, body: text.slice(0, 300) };
+    const u = new URL("https://serpapi.com/search.json");
+    u.searchParams.set("engine", "google_hotels");
+    u.searchParams.set("q", [city, country].filter(Boolean).join(", "));
+    u.searchParams.set("check_in_date", checkIn);
+    u.searchParams.set("check_out_date", checkOut);
+    u.searchParams.set("adults", "1");
+    u.searchParams.set("currency", "EUR");
+    u.searchParams.set("hl", "en");
+    u.searchParams.set("api_key", serpKey);
+    const res = await fetch(u.toString(), { signal: withTimeout(15000) });
+    const body = (await res.json()) as { properties?: Record<string, unknown>[]; error?: string };
+    const p = body.properties?.[0];
+    return { status: res.status, error: body.error, count: body.properties?.length ?? 0, first: p ? { name: p.name, total_rate: p.total_rate, overall_rating: p.overall_rating } : null };
   } catch (e) {
-    out.hotellookLookup = { error: String(e) };
+    return { error: String(e) };
   }
-  try {
-    const u = new URL("https://engine.hotellook.com/api/v2/cache.json");
-    u.searchParams.set("location", [city, country].filter(Boolean).join(", "));
-    u.searchParams.set("checkIn", checkIn);
-    u.searchParams.set("checkOut", checkOut);
-    u.searchParams.set("currency", "eur");
-    u.searchParams.set("limit", "3");
-    u.searchParams.set("token", tpToken);
-    const res = await fetch(u.toString(), { signal: withTimeout(8000) });
-    const text = await res.text();
-    out.hotellookCache = { status: res.status, body: text.slice(0, 300) };
-  } catch (e) {
-    out.hotellookCache = { error: String(e) };
-  }
-  if (serpKey) {
-    try {
-      const u = new URL("https://serpapi.com/search.json");
-      u.searchParams.set("engine", "google_hotels");
-      u.searchParams.set("q", [city, country].filter(Boolean).join(", "));
-      u.searchParams.set("check_in_date", checkIn);
-      u.searchParams.set("check_out_date", checkOut);
-      u.searchParams.set("adults", "1");
-      u.searchParams.set("currency", "EUR");
-      u.searchParams.set("hl", "en");
-      u.searchParams.set("api_key", serpKey);
-      const res = await fetch(u.toString(), { signal: withTimeout(15000) });
-      const body = (await res.json()) as { properties?: Record<string, unknown>[]; error?: string; search_metadata?: { status?: string } };
-      const p = body.properties?.[0];
-      out.googleHotels = {
-        status: res.status,
-        error: body.error,
-        count: body.properties?.length ?? 0,
-        firstKeys: p ? Object.keys(p).slice(0, 25) : [],
-        first: p ? { name: p.name, rate_per_night: p.rate_per_night, total_rate: p.total_rate, overall_rating: p.overall_rating, hotel_class: p.hotel_class, extracted_hotel_class: p.extracted_hotel_class, link: p.link } : null,
-      };
-    } catch (e) {
-      out.googleHotels = { error: String(e) };
-    }
-  }
-  return out;
 }

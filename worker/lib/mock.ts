@@ -257,14 +257,13 @@ export function mockPrices(trip: Trip): TripPrices {
         })(),
         nights,
         offers: [
-          h("google", "Google Hotels", "live", 72 * nights, "Casa Furore guesthouse · ★★★ · 8.7"),
-          h("hotellook", "Hotellook", "cached", 69 * nights, "B&B Il Pino · ★★★"),
-          h("google", "Google Hotels", "live", 118 * nights, "Hotel Bacco · ★★★★ · 9.1"),
+          h("google", "Google Hotels", "live", 72 * nights, "Casa Furore guesthouse · ★★★ · 4.6/5"),
+          h("google", "Google Hotels", "live", 118 * nights, "Hotel Bacco · ★★★★ · 4.8/5"),
         ].sort((a, b) => a.price - b.price),
         searchUrl: "https://example.com/stay",
       },
     ],
-    sources: ["Google Flights", "airlines via Duffel", "Aviasales", "Google Hotels", "Hotellook"],
+    sources: ["Google Flights", "airlines via Duffel", "Aviasales", "Google Hotels"],
     note: "Sample prices (mock mode).",
   };
 }
