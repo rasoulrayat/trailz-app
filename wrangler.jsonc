@@ -40,6 +40,11 @@
     "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com",
     // Contact address sent to OpenStreetMap's geocoder (required by its usage policy).
     "GEOCODER_CONTACT": "[YOUR CONTACT EMAIL]",
+    // Shown on the privacy page ("delete my data"). Must be real before the Google consent screen goes public.
+    "CONTACT_EMAIL": "[YOUR CONTACT EMAIL]",
+    // Google sign-in: the OAuth client id is public; the secret is GOOGLE_CLIENT_SECRET (secret).
+    // Register https://<host>/api/auth/google/callback as the redirect URI in Google Cloud.
+    "GOOGLE_CLIENT_ID": "892982400205-2cvganv2su3ugjf6p2f65a4em8fpmdft.apps.googleusercontent.com",
     // Partner affiliate ids: fill in once each partner program is approved (links work without them).
     "KIWI_AFFILIATE_ID": "",
     "BOOKING_AFFILIATE_ID": "",
@@ -47,7 +52,6 @@
     "OMIO_PARTNER_ID": "",
     // Travelpayouts (one account for Kiwi.com, Booking.com, GetYourGuide, Omio …). From the long version of any
     // Travelpayouts link: marker=TP_MARKER, trs=TP_TRS, and p=<campaign id> per brand. Empty = plain partner links.
-    "GOOGLE_CLIENT_ID": "892982400205-2cvganv2su3ugjf6p2f65a4em8fpmdft.apps.googleusercontent.com",
     "TP_MARKER": "789861",
     "TP_TRS": "585453",
     "TP_KIWI_P": "",

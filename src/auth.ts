@@ -6,7 +6,7 @@ import { meApi } from "./api";
 interface State extends Me {
   loaded: boolean;
 }
-let state: State = { user: null, profile: null, canLogin: true, loaded: false };
+let state: State = { user: null, profile: null, canLogin: true, contact: null, loaded: false };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const set = (next: Partial<State>) => {

@@ -40,6 +40,7 @@ import { trips } from "./trips-api";
 import { explore } from "./explore-api";
 import { share } from "./share-api";
 import { auth, SESSION_COOKIE, type AuthVars } from "./auth-api";
+import { dbReport, settingsReport, summarize } from "./health";
 import { ownerForUser, userForSession } from "./lib/auth";
 
 type AppEnv = { Bindings: Env; Variables: AuthVars };
@@ -381,14 +382,23 @@ app.route("/", share);
 
 // /api/health        → is the app up, and is it using real AI or sample results?
 // /api/health?ai=1   → also sends Gemini a tiny test question (tells you if the key and model work).
+// ---------- GET /api/health : every setting and table the app needs, with what to do about each ----------
+// ?tp=1 tests the Travelpayouts token, ?providers=1 Google/Duffel (costs 1 SerpApi search), ?ai=1 pings Gemini.
 app.get("/health", async (c) => {
-  const base = {
-    ok: true,
+  const origin = new URL(c.req.url).origin;
+  const settings = settingsReport(c.env, origin);
+  const db = await dbReport(c.env.DB);
+  const summary = summarize(settings, db);
+  const out: Record<string, unknown> = {
+    ...summary,
     mock: isMock(c.env),
-    keys: { supadata: !!c.env.SUPADATA_API_KEY, gemini: !!c.env.GEMINI_API_KEY },
     models: (c.env.GEMINI_MODEL || "").split(",").map((m) => m.trim()).filter(Boolean),
+    settings,
+    db,
+    google: { loginEnabled: isMock(c.env) || !!(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET), redirectUri: `${origin}/api/auth/google/callback`, privacyUrl: `${origin}/privacy` },
+    travelpayouts: { token: !!c.env.TP_TOKEN, marker: !!c.env.TP_MARKER, trs: !!c.env.TP_TRS },
+    liveTests: "add ?tp=1 (Travelpayouts), ?providers=1 (Google Flights + Duffel; &links=1 checkout; &hotels=City, Country), ?ai=1 (Gemini)",
   };
-  const out: Record<string, unknown> = { ...base, travelpayouts: { token: !!c.env.TP_TOKEN, marker: !!c.env.TP_MARKER, trs: !!c.env.TP_TRS } };
   // /api/health?tp=1 → asks Aviasales for next month's cheapest AMS → LIS fare (checks the token).
   if (c.req.query("tp") === "1" && c.env.TP_TOKEN) {
     const month = new Date(Date.now() + 35 * 86400_000).toISOString().slice(0, 7);

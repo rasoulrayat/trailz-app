@@ -99,6 +99,7 @@ auth.get("/me", async (c) => {
     user: u ? { id: u.id, name: u.name, email: u.email, avatar: u.avatar_url } : null,
     profile,
     canLogin: canLogin(c.env),
+    contact: c.env.CONTACT_EMAIL && !c.env.CONTACT_EMAIL.startsWith("[") ? c.env.CONTACT_EMAIL : null,
   };
   c.header("cache-control", "private, no-store");
   return c.json(me);

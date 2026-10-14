@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router";
+import { useMe } from "../auth";
 import { Icon } from "../components/Icon";
-
-/** Where people write to delete their data. Set this before the Google consent screen goes public. */
-export const CONTACT_EMAIL = "[contact email]";
 
 /** Plain-language privacy policy. Linked from the account page and from the Google sign-in consent screen. */
 export function PrivacyPage() {
   const navigate = useNavigate();
+  const { contact } = useMe();
+  const CONTACT_EMAIL = contact ?? "the address on our Instagram page";
   return (
     <main className="page legal" style={{ gap: 14 }}>
       <div className="topbar">
@@ -43,7 +43,7 @@ export function PrivacyPage() {
       <p>We do not sell personal data.</p>
 
       <h2>Delete your data</h2>
-      <p>Log out to detach this phone. To delete your account and everything linked to it, email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> from the address you logged in with; we delete within 30 days. Checked videos stay in Explore because they aren't linked to you.</p>
+      <p>Log out to detach this phone. To delete your account and everything linked to it, email {contact ? <a href={`mailto:${contact}`}>{contact}</a> : CONTACT_EMAIL} from the address you logged in with; we delete within 30 days. Checked videos stay in Explore because they aren't linked to you.</p>
 
       <h2>Contact</h2>
       <p>{CONTACT_EMAIL}</p>

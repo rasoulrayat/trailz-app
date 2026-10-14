@@ -6,6 +6,8 @@ export interface Env {
   GEMINI_MODEL: string;
   GEMINI_BASE_URL: string;
   GEOCODER_CONTACT: string;
+  /** Shown on the privacy page. */
+  CONTACT_EMAIL?: string;
   SUPADATA_API_KEY?: string;
   GEMINI_API_KEY?: string;
   /** Cloudflare Workers AI: backup when Gemini is overloaded. */

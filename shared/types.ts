@@ -294,6 +294,8 @@ export interface Me {
   profile: Profile | null;
   /** Whether Google sign-in is configured on the server. */
   canLogin: boolean;
+  /** Address for data requests (privacy page). */
+  contact: string | null;
 }
 
 // ---------- Explore (public feed of checked reels) ----------
