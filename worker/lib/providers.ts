@@ -245,7 +245,7 @@ export async function duffelCheckoutLink(
 
 
 /** Debug helper for /api/health: raw-ish answers from the hotel providers. */
-export async function debugHotels(db: D1Database, tpToken: string, serpKey: string | undefined, city: string, country: string | null, checkIn: string, checkOut: string) {
+export async function debugHotels(_db: D1Database, tpToken: string, serpKey: string | undefined, city: string, country: string | null, checkIn: string, checkOut: string) {
   const out: Record<string, unknown> = {};
   try {
     const u = new URL("https://engine.hotellook.com/api/v2/lookup.json");
