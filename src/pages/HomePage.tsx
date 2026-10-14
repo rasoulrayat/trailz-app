@@ -5,6 +5,7 @@ import { api, ApiFailure } from "../api";
 import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
 import { usePlaceGallery } from "../components/PlacePhoto";
+import { TabBar } from "../components/TabBar";
 import { Wordmark } from "../components/Wordmark";
 
 const LINK_ERRORS: string[] = ["no_link", "unsupported_site", "profile_link", "unavailable", "daily_limit"] satisfies LinkErrorCode[];
@@ -55,6 +56,7 @@ export function HomePage() {
   const showWorksWith = error && LINK_ERRORS.includes(error.code) && error.code !== "daily_limit";
 
   return (
+    <>
     <main className="page">
       <div className="topbar">
         <Wordmark />
@@ -157,6 +159,8 @@ export function HomePage() {
         )}
       </section>
     </main>
+      <TabBar />
+    </>
   );
 }
 

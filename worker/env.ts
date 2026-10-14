@@ -11,6 +11,11 @@ export interface Env {
   /** Cloudflare Workers AI: backup when Gemini is overloaded. */
   AI?: { run(model: string, input: unknown): Promise<unknown> };
   FALLBACK_MODEL?: string;
+  /** Partner affiliate ids (optional until the partner programs are approved). */
+  KIWI_AFFILIATE_ID?: string;
+  BOOKING_AFFILIATE_ID?: string;
+  GYG_PARTNER_ID?: string;
+  OMIO_PARTNER_ID?: string;
 }
 
 export const isMock = (env: Env) => env.MOCK_AI === "1" || !env.SUPADATA_API_KEY;

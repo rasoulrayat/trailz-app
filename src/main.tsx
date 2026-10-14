@@ -8,6 +8,11 @@ import { PlacePage } from "./pages/PlacePage";
 import { WherePage } from "./pages/WherePage";
 import { SharePage } from "./pages/SharePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { SavedPage } from "./pages/SavedPage";
+import { PlanPage } from "./pages/PlanPage";
+import { TripPage } from "./pages/TripPage";
+import { TripsPage } from "./pages/TripsPage";
+import { BookPage } from "./pages/BookPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -19,6 +24,11 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/check/:id" element={<CheckPage />} />
           <Route path="/check/:id/place" element={<PlacePage />} />
           <Route path="/check/:id/where" element={<WherePage />} />
+          <Route path="/saved" element={<SavedPage />} />
+          <Route path="/plan" element={<PlanPage />} />
+          <Route path="/trips" element={<TripsPage />} />
+          <Route path="/trips/:id" element={<TripPage />} />
+          <Route path="/trips/:id/book" element={<BookPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>

@@ -119,6 +119,10 @@ async function generateJsonFrom<T>(
   throw new Error(`No AI model answered. ${skipped.join(" | ") || "GEMINI_MODEL is empty"}`);
 }
 
+/** JSON generation for other modules (trip plans). */
+export const generateJsonPublic = <T>(cfg: GeminiConfig, prompt: string, schema: object, fetcher: typeof fetch = fetch) =>
+  generateJson<T>(cfg, prompt, schema, fetcher);
+
 /** Small live test used by /api/health?ai=1: which model answers with this key. */
 export async function pingGemini(cfg: GeminiConfig, fetcher: typeof fetch = fetch) {
   try {

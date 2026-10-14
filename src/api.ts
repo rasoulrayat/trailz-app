@@ -1,4 +1,4 @@
-import type { ApiError, CheckStatus, CheckSummary, RealityCard, StartCheckResponse } from "../shared/types";
+import type { ApiError, CheckStatus, CheckSummary, Handoff, Mood, RealityCard, SavedPlace, StartCheckResponse, Trip, TripSuggestion } from "../shared/types";
 
 export class ApiFailure extends Error {
   constructor(
@@ -69,3 +69,28 @@ export async function prefetchCards(id: string, names: string[]) {
     await placeCardShared(id, name).catch(() => {});
   }
 }
+
+// ---------- Saved places and trips ----------
+export type SavesResponse = { items: SavedPlace[]; suggestions: TripSuggestion[] };
+export type NewSave = Omit<SavedPlace, "id" | "createdAt">;
+
+export const tripsApi = {
+  listSaves: () => call<SavesResponse>("/api/saves"),
+  save: (place: NewSave) => call<SavesResponse>("/api/saves", { method: "POST", body: JSON.stringify(place) }),
+  unsave: (id: string) => call<SavesResponse>(`/api/saves/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  listTrips: () => call<{ items: Trip[] }>("/api/trips"),
+  getTrip: (id: string) => call<{ trip: Trip }>(`/api/trips/${encodeURIComponent(id)}`),
+  createTrip: (body: {
+    placeIds?: string[];
+    places?: NewSave[];
+    mood: Mood;
+    budgetMode: boolean;
+    days?: number;
+    origin?: string;
+    travelers?: number;
+  }) => call<{ trip: Trip }>("/api/trips", { method: "POST", body: JSON.stringify(body) }),
+  updateTrip: (id: string, body: { status?: "saved"; startDate?: string | null; origin?: string; travelers?: number }) =>
+    call<{ trip: Trip }>(`/api/trips/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteTrip: (id: string) => call<{ ok: true }>(`/api/trips/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  handoff: (id: string) => call<{ handoff: Handoff }>(`/api/trips/${encodeURIComponent(id)}/handoff`),
+};

@@ -1,7 +1,10 @@
 import { Link } from "react-router";
 import type { CityGuide, MonthRating, RealityCard, VideoMeta } from "../../shared/types";
 import { Icon } from "./Icon";
+import type { NewSave } from "../api";
+import { planUrl } from "../plan-url";
 import { MapView } from "./MapView";
+import { SaveButton } from "./SaveButton";
 import { HeroPhotos, PhotoStrip, PlaceThumb, photoCredit } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
 
@@ -36,10 +39,24 @@ interface Props {
   backTo: string;
   /** Shown above the place name, e.g. "From a reel with 8 places". */
   context?: string;
+  /** The check this card came from (lets a saved place reopen its card). */
+  checkId?: string;
+  /** Vibe words from the reel, saved with the place. */
+  vibe?: string[];
 }
 
-export function RealityCardView({ card, video, backTo, context }: Props) {
+export function RealityCardView({ card, video, backTo, context, checkId, vibe }: Props) {
   const { place } = card;
+  const savePlace: NewSave = {
+    name: place.name,
+    region: place.region ?? null,
+    country: place.country || null,
+    lat: place.lat ?? null,
+    lng: place.lng ?? null,
+    vibe: vibe ?? [],
+    checkId: checkId ?? null,
+    authenticity: card.authenticity,
+  };
   const best = card.months.map((m, i) => (m === "best" ? MONTH_NAMES[i] : null)).filter(Boolean);
   const crowded = card.months.map((m, i) => (m === "crowded" ? MONTH_NAMES[i] : null)).filter(Boolean);
   const photoQuery = [place.name, place.country].filter(Boolean).join(", ");
@@ -204,13 +221,11 @@ export function RealityCardView({ card, video, backTo, context }: Props) {
       </main>
 
       <div className="actionbar">
-        <button className="btn secondary" style={{ width: "auto" }} disabled title="Saving comes with accounts">
-          <Icon name="heart" size={18} />
-          Save
-        </button>
-        <button className="btn" style={{ flex: 1 }} disabled title="Trip planning is the next phase">
-          Plan this trip · soon
-        </button>
+        <SaveButton place={savePlace} />
+        <Link className="btn" style={{ flex: 1 }} to={planUrl([savePlace])}>
+          <Icon name="sparkle" size={18} />
+          Plan this trip
+        </Link>
       </div>
     </>
   );

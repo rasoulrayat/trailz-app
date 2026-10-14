@@ -39,7 +39,12 @@
     "FALLBACK_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com",
     // Contact address sent to OpenStreetMap's geocoder (required by its usage policy).
-    "GEOCODER_CONTACT": "[YOUR CONTACT EMAIL]"
+    "GEOCODER_CONTACT": "[YOUR CONTACT EMAIL]",
+    // Partner affiliate ids: fill in once each partner program is approved (links work without them).
+    "KIWI_AFFILIATE_ID": "",
+    "BOOKING_AFFILIATE_ID": "",
+    "GYG_PARTNER_ID": "",
+    "OMIO_PARTNER_ID": ""
   }
   // Secrets (set with `npx wrangler secret put NAME` or in the dashboard):
   //   SUPADATA_API_KEY, GEMINI_API_KEY

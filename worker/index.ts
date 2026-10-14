@@ -34,6 +34,7 @@ import {
   type VideoRow,
 } from "./lib/store";
 import { getExtract, startExtract, SupadataError } from "./lib/supadata";
+import { trips } from "./trips-api";
 
 type AppEnv = { Bindings: Env; Variables: { deviceId: string } };
 const app = new Hono<AppEnv>().basePath("/api");
@@ -353,6 +354,9 @@ app.get("/place-photos", async (c) => {
   c.header("cache-control", gallery.photos.length ? "public, max-age=86400" : "public, max-age=600");
   return c.json(gallery);
 });
+
+// ---------- Saved places and trips: see trips-api.ts ----------
+app.route("/", trips);
 
 // /api/health        → is the app up, and is it using real AI or sample results?
 // /api/health?ai=1   → also sends Gemini a tiny test question (tells you if the key and model work).

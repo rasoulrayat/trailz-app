@@ -54,6 +54,54 @@ const PATHS = {
     </>
   ),
   refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />,
+  home: <path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z" />,
+  trips: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </>
+  ),
+  plane: (
+    <>
+      <path d="M2 16l20-6-20-6 4 6z" />
+      <path d="M6 10h8" />
+    </>
+  ),
+  bed: (
+    <>
+      <path d="M3 18V7M3 13h18v5M21 18v-3a3 3 0 0 0-3-3h-7v1" />
+      <circle cx="7" cy="10" r="2" />
+    </>
+  ),
+  fork: <path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 0-3 3-3 7h3" />,
+  sun: (
+    <>
+      <circle cx="12" cy="14" r="4" />
+      <path d="M12 4v2M4 14H2M22 14h-2M5.6 7.6 7 9M18.4 7.6 17 9M3 20h18" />
+    </>
+  ),
+  coffee: (
+    <>
+      <path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" />
+      <path d="M16 10h2a2 2 0 0 1 0 4h-2M6 3v2M10 3v2" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6M16 4.5a3.5 3.5 0 0 1 0 7M22 20c0-3-2-5-5-5.6" />
+    </>
+  ),
+  bolt: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  minus: <path d="M5 12h14" />,
+  plus: <path d="M12 5v14M5 12h14" />,
   photos: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

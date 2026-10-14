@@ -4,7 +4,7 @@
  * The scenario is picked from words in the link, e.g. a link containing "italy"
  * gives the many-places result.
  */
-import type { PlaceRef, RealityCard } from "../../shared/types";
+import type { PlaceRef, RealityCard, Mood, PlanDay, PlanItem, TripPlan } from "../../shared/types";
 import type { VideoRecord } from "./extract-schema";
 import type { ExtractJob } from "./supadata";
 
@@ -184,3 +184,43 @@ export const MOCK_VIBE_SUGGESTIONS = [
   { name: "Calanques, Marseille", country: "France", why: "Limestone coves, reachable by train", authenticity: 8, lat: 43.2128, lng: 5.4442 },
   { name: "Ksamil", country: "Albania", why: "Cheapest option, busy in August", authenticity: 6, lat: 39.7686, lng: 20.0007 },
 ];
+
+export function mockPlan(places: { name: string; country?: string | null }[], mood: Mood, days: number, origin: string): TripPlan {
+  const first = places[0]?.name ?? "the first place";
+  const country = places.find((p) => p.country)?.country ?? "";
+  const base = country === "Greece" ? "Fira" : places[0]?.name ?? "town";
+  const moodTitle = { solo: "slow & real", energetic: "all in", friends: "with the crew" }[mood];
+  const dayList: PlanDay[] = [];
+  for (let d = 1; d <= days; d++) {
+    const items: PlanItem[] =
+      d === 1
+        ? [
+            { time: "07:10", kind: "travel", title: `Fly ${origin} → ${country || first}`, detail: "1 stop · about 5 h · budget airline", cost: 180, book: "flights" },
+            { time: "14:30", kind: "stay", title: `Check in · ${base}`, detail: `${days - 1} nights · family-run guesthouse`, cost: 70 * (days - 1), book: "stay" },
+            { time: "16:00", kind: "see", title: `${first}, before the crowds`, detail: "Walk there in the late light; the reel's spot is quiet after 5 pm", cost: 0, fromReel: true },
+            { time: "20:00", kind: "eat", title: "Dinner at a family taverna", detail: "~€18 · locals' pick, no booking", cost: 18 },
+          ]
+        : d === days
+          ? [
+              { time: "08:00", kind: "free", title: "Slow morning", detail: "Coffee on the square, last walk", cost: 4 },
+              { time: "11:00", kind: "do", title: "Market for gifts", detail: "Local produce, better than the airport shop", cost: 15 },
+              { time: "15:40", kind: "travel", title: `Fly back to ${origin}`, detail: "Direct · 3 h 20", cost: 0, book: "flights" },
+            ]
+          : [
+              { time: "06:30", kind: "see", title: `${places[Math.min(d - 1, places.length - 1)]?.name ?? first} at sunrise`, detail: "Empty before 8; the reel was shot at this hour", cost: 0, fromReel: true },
+              { time: "09:30", kind: "eat", title: "Breakfast at the bakery", detail: "Where the fishermen eat", cost: 6 },
+              { time: "11:00", kind: "do", title: mood === "energetic" ? "Coastal hike" : mood === "friends" ? "Boat day with swim stops" : "Quiet cove, book in hand", detail: mood === "friends" ? "Small group · 5 h" : "Bring water · 3 h", cost: mood === "friends" ? 65 : 0, book: mood === "friends" ? "activity" : undefined },
+              { time: "19:30", kind: "eat", title: "Sunset from the castle, then dinner", detail: "Free view, no cliff-bar prices", cost: 20 },
+            ];
+    dayList.push({ day: d, title: d === 1 ? `Arrive, settle in ${base}` : d === days ? "Home" : `Day ${d} · ${base}`, base, items });
+  }
+  const stay = 70 * (days - 1);
+  return {
+    title: `${first}, ${moodTitle}`,
+    summary: `A ${days}-day loop based in ${base}, with your saved places at the quiet hours. Nothing is more than an hour from the bed.`,
+    days: dayList,
+    estimate: { travel: 180, stay, activities: mood === "friends" ? 65 : 20, food: 22 * days },
+    tips: ["Local buses cover the whole plan; skip the rental car.", "Book the guesthouse early for weekends; the island fills up."],
+    gateway: { arrive: country === "Italy" ? "Naples" : country === "Greece" ? "Santorini" : base, leave: country === "Italy" ? "Naples" : country === "Greece" ? "Santorini" : base },
+  };
+}

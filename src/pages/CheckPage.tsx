@@ -59,7 +59,7 @@ export function CheckPage() {
   const r = check.result;
   switch (r.outcome) {
     case "single":
-      return <RealityCardView card={r.card} video={check.video} backTo="/" />;
+      return <RealityCardView card={r.card} video={check.video} backTo="/" checkId={check.id} />;
     case "multi":
       return <MultiView check={check} result={r} />;
     case "pick":

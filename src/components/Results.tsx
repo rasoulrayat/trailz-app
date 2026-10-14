@@ -5,7 +5,9 @@ import { api, prefetchCards } from "../api";
 import { Icon } from "./Icon";
 import { Img } from "./Img";
 import { MapView, toPoints } from "./MapView";
+import { planUrl } from "../plan-url";
 import { PhotoStrip, PlaceThumb } from "./PlacePhoto";
+import { SaveButton } from "./SaveButton";
 import { platformLabel, VideoChip } from "./VideoChip";
 
 type Of<T extends CheckResult["outcome"]> = Extract<CheckResult, { outcome: T }>;
@@ -206,9 +208,12 @@ export function VibeView({ check, result }: { check: CheckStatus; result: Of<"vi
                 </span>
                 <span className={`badge ${s.authenticity >= 7 ? "real" : "reel"}`}>{s.authenticity}/10</span>
               </Link>
-              <Link to={to} className="btn secondary" style={{ height: 44 }}>
-                See the Reality Card <Icon name="arrow" size={16} />
-              </Link>
+              <div className="row" style={{ gap: 8 }}>
+                <SaveButton compact place={{ name: s.name, country: s.country, lat: s.lat ?? null, lng: s.lng ?? null, vibe: result.vibe, checkId: check.id, authenticity: s.authenticity }} />
+                <Link to={to} className="btn secondary" style={{ height: 44, flex: 1 }}>
+                  See the Reality Card <Icon name="arrow" size={16} />
+                </Link>
+              </div>
             </article>
           );
         })}
@@ -327,9 +332,19 @@ export function MultiView({ check, result }: { check: CheckStatus; result: Of<"m
         </ul>
       </main>
       <div className="actionbar col">
-        <button className="btn" disabled title="Trip planning is the next phase">
-          Plan a route with {selected.size} {selected.size === 1 ? "place" : "places"} · soon
-        </button>
+        <Link
+          className={`btn${selected.size ? "" : " disabled"}`}
+          to={planUrl(
+            [...selected].map((i) => {
+              const p = result.places[i];
+              return { name: p.name, region: p.region ?? null, country: p.country ?? null, lat: p.lat ?? null, lng: p.lng ?? null, vibe: [], checkId: check.id, authenticity: null };
+            }),
+          )}
+          onClick={(e) => !selected.size && e.preventDefault()}
+        >
+          <Icon name="sparkle" size={18} />
+          Plan a trip with {selected.size} {selected.size === 1 ? "place" : "places"}
+        </Link>
         <span className="small" style={{ textAlign: "center" }}>
           Tap a place to see its Reality Card
         </span>
@@ -387,6 +402,7 @@ function PlaceRow({
           </span>
         </span>
       </Link>
+      <SaveButton compact place={{ name: place.name, region: place.region ?? null, country: place.country ?? null, lat: place.lat ?? null, lng: place.lng ?? null, vibe: [], checkId, authenticity: null }} />
     </li>
   );
 }

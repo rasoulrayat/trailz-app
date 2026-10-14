@@ -132,3 +132,96 @@ export interface ApiError {
   error: LinkErrorCode | "not_found" | "bad_request" | "server_error";
   message: string;
 }
+
+// ---------- Saved places and trips (phase 2) ----------
+
+/** A place the user hearted. Enough to show it, map it, and reopen its Reality Card. */
+export interface SavedPlace {
+  id: string;
+  name: string;
+  region?: string | null;
+  country?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  /** Vibe words from the reel it came from: this is how we learn the user's taste. */
+  vibe: string[];
+  /** The check it came from, to reopen the Reality Card. */
+  checkId?: string | null;
+  authenticity?: number | null;
+  createdAt: number;
+}
+
+/** Saved places that are close together: "a trip is forming". */
+export interface TripSuggestion {
+  title: string;
+  placeIds: string[];
+  /** Days a relaxed visit would take. */
+  days: number;
+  vibe: string[];
+  country?: string | null;
+}
+
+export type Mood = "solo" | "energetic" | "friends";
+
+export const MOODS: { id: Mood; title: string; line: string }[] = [
+  { id: "solo", title: "Solo & slow", line: "Mornings alone, long walks, a book on a square" },
+  { id: "energetic", title: "Energetic", line: "Early starts, hikes, as much as a day can hold" },
+  { id: "friends", title: "With friends", line: "Shared tables, late nights, easy logistics" },
+];
+
+export type ItemKind = "travel" | "stay" | "see" | "do" | "eat" | "free";
+
+export interface PlanItem {
+  time: string;
+  kind: ItemKind;
+  title: string;
+  detail: string;
+  /** Typical cost per person in euros; 0 = free. */
+  cost: number;
+  /** True when this is one of the user's own saved / reel places. */
+  fromReel?: boolean;
+  /** Which partner can book it, if any. */
+  book?: "flights" | "stay" | "activity" | "transport";
+}
+
+export interface PlanDay {
+  day: number;
+  title: string;
+  /** Town the night is spent in. */
+  base: string;
+  items: PlanItem[];
+}
+
+export interface TripPlan {
+  title: string;
+  summary: string;
+  days: PlanDay[];
+  estimate: { travel: number; stay: number; activities: number; food: number };
+  tips: string[];
+  /** Cities with the airport or main station the trip arrives in and leaves from (for flight searches). */
+  gateway?: { arrive: string; leave: string };
+}
+
+export interface Trip {
+  id: string;
+  status: "draft" | "saved";
+  mood: Mood;
+  budgetMode: boolean;
+  origin: string;
+  travelers: number;
+  /** ISO date of day 1, when the user has chosen dates. */
+  startDate?: string | null;
+  places: SavedPlace[];
+  plan: TripPlan;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Partner links with the trip's dates and places filled in. */
+export interface Handoff {
+  flights: { partner: string; url: string; note: string }[];
+  stay: { partner: string; url: string; note: string; city: string; nights: number }[];
+  activities: { partner: string; url: string; note: string; place: string }[];
+  transport: { partner: string; url: string; note: string }[];
+  disclaimer: string;
+}

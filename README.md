@@ -118,10 +118,22 @@ All accounts belong to the Dutch company with EU billing.
 - [ ] Maps use free OpenFreeMap tiles (OpenStreetMap data). Fine to start; consider sponsoring them or self-hosting at scale.
 - [ ] Video covers are copied into D1 (`images` table). Move them to R2 when there are many.
 
+## Phase 2: save → plan → book (built)
+
+- **Save** (heart) on every Reality Card and place. Per device until accounts exist.
+- **Saved** tab: "A trip is forming" groups saved places within ~300 km and shows their shared vibe.
+- **Plan**: mood (Solo & slow / Energetic / With friends), days, budget mode → Gemini writes a day-by-day plan
+  that reuses what the Reality Cards found (base city, local tips, best months). Saved under **Trips**.
+- **Book**: dates (or flexible), departure city, travelers → **Compare & go** opens each partner with everything
+  filled in: Kiwi.com (flights), Booking.com (one search per base town), GetYourGuide (activities), Omio (trains/buses).
+  Affiliate ids go in `wrangler.jsonc` vars (`KIWI_AFFILIATE_ID`, `BOOKING_AFFILIATE_ID`, `GYG_PARTNER_ID`, `OMIO_PARTNER_ID`).
+  Nothing is charged in TrailZ.
+
 ## What's next (later phases)
 
-- Accounts (Clerk), saved boards, home city instead of "Amsterdam".
-- Trip setup → AI itinerary → Compare & Go with partner prices (Kiwi.com, Booking.com, …).
+- Accounts (Clerk), so saves and trips follow the user across devices; home city instead of "Amsterdam".
+- Live prices from partner APIs inside Compare & go (today: deep links to their search pages).
+- Funnel analytics: reel checked → card viewed → saved → plan made → partner click.
 - Explore feed of curated reels.
 - Admin console behind Cloudflare Access (AI review queue uses the `feedback` table already collected).
 - Native app wrapper (Capacitor) for the iPhone share sheet.
