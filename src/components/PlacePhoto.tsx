@@ -21,7 +21,25 @@ const EMPTY: Gallery = { photos: [], pageUrl: null };
 // One request per place name for the whole session.
 const cache = new Map<string, Promise<Gallery>>();
 
-function loadGallery(q: string): Promise<Gallery> {
+/**
+ * A smaller copy of a Wikimedia thumbnail (our galleries come as 1000 px). Tiles don't need more than ~400 px,
+ * and a 400 px JPEG is roughly a fifth of the bytes. Other hosts are returned unchanged.
+ */
+export function thumb(url: string, width: number): string {
+  return /upload\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-/, `/${width}px-`) : url;
+}
+
+/** Fetch galleries ahead of time and start the image downloads, so a screen that needs them opens already filled. */
+export function prefetchGalleries(queries: string[], width = 400) {
+  queries.forEach((q) =>
+    loadGallery(q).then((g) => {
+      const first = g.photos[0];
+      if (first) new Image().src = thumb(first.url, width);
+    }),
+  );
+}
+
+export function loadGallery(q: string): Promise<Gallery> {
   let p = cache.get(q);
   if (!p) {
     p = fetch(`/api/place-photos?q=${encodeURIComponent(q)}`)

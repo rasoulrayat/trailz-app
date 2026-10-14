@@ -5,7 +5,7 @@ import { markOnboarded, saveProfile, useMe } from "../auth";
 import { GoogleButton } from "../components/Account";
 import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
-import { usePlaceGallery } from "../components/PlacePhoto";
+import { prefetchGalleries, thumb, usePlaceGallery } from "../components/PlacePhoto";
 import { BUDGETS, budgetLabel, CREWS, guessHomeCity, VIBES } from "../onboarding-data";
 
 const STEPS = 6;
@@ -23,6 +23,11 @@ export function WelcomePage() {
   const [dir, setDir] = useState<1 | -1>(1);
   const [picks, setPicks] = useState<Profile>({ vibes: [] });
   const seeded = useRef(false);
+
+  // The vibe photos start downloading while the hook screen is on, so the grid opens already filled.
+  useEffect(() => {
+    prefetchGalleries(VIBES.map((v) => v.photoQuery), 360);
+  }, []);
 
   // Editing existing picks: start from what's saved.
   useEffect(() => {
@@ -179,7 +184,7 @@ function VibeStep({ picked, onChange, onNext }: { picked: string[]; onChange: (v
 
 function VibeTile({ id, label, photoQuery, tint, on, onToggle }: { id: string; label: string; photoQuery: string; tint: string; on: boolean; onToggle: () => void }) {
   const { photos } = usePlaceGallery(photoQuery);
-  const src = photos[0]?.url ?? null;
+  const src = photos[0] ? thumb(photos[0].url, 360) : null;
   return (
     <button type="button" className={`vibe-tile${on ? " on" : ""}`} style={{ background: tint }} aria-pressed={on} onClick={onToggle} data-vibe={id}>
       {src && <Img src={src} style={{ position: "absolute", inset: 0 }} />}

@@ -4,7 +4,7 @@ import type { ExploreItem } from "../../shared/types";
 import { exploreApi } from "../api";
 import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
-import { usePlaceGallery } from "../components/PlacePhoto";
+import { thumb, usePlaceGallery } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
 import { setExploreFeed } from "../explore-feed";
 
@@ -155,7 +155,7 @@ export function ExplorePage() {
 /** One mosaic tile: picture first, the three deciding facts on top. Tap plays the reel. */
 function Tile({ it, month, big }: { it: ExploreItem; month: number; big: boolean }) {
   const { photos } = usePlaceGallery(it.cover ? null : it.photoQuery);
-  const src = it.cover ?? photos[0]?.url ?? null;
+  const src = it.cover ?? (photos[0] ? thumb(photos[0].url, big ? 640 : 400) : null);
   const when = month && it.monthRating ? (it.monthRating === "best" ? `best in ${MONTHS[month - 1]}` : `good in ${MONTHS[month - 1]}`) : it.bestMonths.length ? `best ${it.bestMonths.slice(0, 2).map((m) => MONTHS[m - 1]).join("/")}` : null;
   const title = it.outcome === "multi" ? it.sub || it.title : it.title;
   const sub = it.outcome === "multi" ? it.title : it.outcome === "vibe" ? it.sub : it.country ?? it.sub;

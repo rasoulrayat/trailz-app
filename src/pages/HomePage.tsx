@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import type { CheckSummary, LinkErrorCode } from "../../shared/types";
-import { api, ApiFailure } from "../api";
+import type { CheckSummary, ExploreItem, LinkErrorCode } from "../../shared/types";
+import { api, ApiFailure, exploreApi } from "../api";
+import { setExploreFeed } from "../explore-feed";
 import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
-import { usePlaceGallery } from "../components/PlacePhoto";
+import { thumb, usePlaceGallery } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
 import { Wordmark } from "../components/Wordmark";
 import { AccountButton } from "../components/Account";
@@ -18,6 +19,7 @@ export function HomePage() {
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<CheckSummary[] | null>(null);
+  const [trending, setTrending] = useState<ExploreItem[] | null>(null);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
 
   // First visit: the intro, once. Deep links (a shared check, a trip) never go through it.
@@ -30,6 +32,15 @@ export function HomePage() {
       .listChecks()
       .then((r) => setRecent(r.items))
       .catch(() => setRecent([]));
+    // What everyone is checking this week, from stored results only.
+    exploreApi
+      .list({ sort: "trending" })
+      .then((r) => {
+        const items = r.items.slice(0, 10);
+        setTrending(items);
+        setExploreFeed(items);
+      })
+      .catch(() => setTrending([]));
   }, []);
 
   async function submit(e?: FormEvent, value = input) {
@@ -64,13 +75,20 @@ export function HomePage() {
 
   return (
     <>
-    <main className="page">
+    <main className="page home">
       <div className="topbar">
         <Wordmark />
         <AccountButton />
       </div>
 
-      <h1>Saw it on a reel? See it for real.</h1>
+      <section className="hero">
+        <h1 className="hero-h">
+          Saw it on a reel?
+          <br />
+          <em>See it for real.</em>
+        </h1>
+        <p className="lead">Paste a TikTok, Reel or Short. Get the truth: crowds, cost, best month.</p>
+      </section>
 
       <form className="stack" onSubmit={submit} noValidate>
         <div className={`paste${error ? " error" : ""}`}>
@@ -141,12 +159,36 @@ export function HomePage() {
         </section>
       )}
 
+      <section className="stack" style={{ gap: 12 }}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>Trending this week</h2>
+          <Link to="/explore" className="small" style={{ color: "var(--blue)", fontWeight: 500 }}>
+            See all
+          </Link>
+        </div>
+        <div className="reel-row">
+          {trending === null
+            ? Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton tile trend" />)
+            : trending.length === 0
+              ? <div className="empty" style={{ flex: 1 }}>Be the first: every reel you check shows up here for everyone.</div>
+              : trending.map((it) => <TrendCard key={it.id} it={it} />)}
+        </div>
+      </section>
+
+      {recent !== null && recent.length === 0 ? (
+        <section className="stack" style={{ gap: 10 }}>
+          <h2 style={{ margin: 0 }}>How it works</h2>
+          <ol className="how">
+            <li><div><b>Paste a link</b><span>any TikTok, Reel or Short</span></div></li>
+            <li><div><b>Get the Reality Card</b><span>how real it is, when to go, what it costs</span></div></li>
+            <li><div><b>Save → trip → book</b><span>your saves become a plan with real prices</span></div></li>
+          </ol>
+        </section>
+      ) : (
       <section className="stack">
         <h2>Your recent checks</h2>
         {recent === null ? (
           <div className="skeleton" style={{ height: 76 }} />
-        ) : recent.length === 0 ? (
-          <div className="empty">Your checked reels will show up here.</div>
         ) : (
           recent.map((r) => (
             <Link key={r.id} to={`/check/${r.id}`} className="list-row">
@@ -166,6 +208,7 @@ export function HomePage() {
           ))
         )}
       </section>
+      )}
     </main>
       <TabBar />
     </>
@@ -175,5 +218,33 @@ export function HomePage() {
 /** The reel has no cover: show a photo of its main place instead (not clickable here, the row is the link). */
 function RecentPhoto({ q }: { q: string }) {
   const { photos } = usePlaceGallery(q);
-  return <Img src={photos[0]?.url} className="thumb" />;
+  return <Img src={photos[0] ? thumb(photos[0].url, 200) : undefined} className="thumb" />;
+}
+
+/** One trending reel: cover, score, place. Tap plays it. */
+function TrendCard({ it }: { it: ExploreItem }) {
+  const { photos } = usePlaceGallery(it.cover ? null : it.photoQuery);
+  const src = it.cover ?? (photos[0] ? thumb(photos[0].url, 400) : null);
+  const title = it.outcome === "multi" ? it.sub || it.title : it.title;
+  const sub = it.outcome === "multi" ? it.title : it.outcome === "vibe" ? it.sub : it.country ?? it.sub;
+  return (
+    <Link to={`/explore/reel/${it.id}`} className="tile trend" aria-label={`Watch: ${title}`}>
+      <Img src={src} style={{ position: "absolute", inset: 0 }} />
+      <span className="tile-shade" />
+      {it.authenticity !== null && <span className={`reel-score ${it.authenticity >= 7 ? "good" : it.authenticity >= 5 ? "mid" : "low"}`}>{it.authenticity}/10</span>}
+      {it.outcome === "multi" && <span className="reel-score">{it.title}</span>}
+      <span className="tile-play" aria-hidden="true">
+        <Icon name="play" size={14} />
+      </span>
+      <span className="tile-text">
+        <b>{title}</b>
+        <span>{sub}</span>
+        {it.checks7d > 1 && (
+          <span className="tile-facts">
+            <span>{it.checks7d} this week</span>
+          </span>
+        )}
+      </span>
+    </Link>
+  );
 }
