@@ -226,6 +226,9 @@ trips.get("/trips/:id/handoff", async (c) => {
     booking: c.env.BOOKING_AFFILIATE_ID,
     getyourguide: c.env.GYG_PARTNER_ID,
     omio: c.env.OMIO_PARTNER_ID,
+    tp: c.env.TP_MARKER && c.env.TP_TRS
+      ? { marker: c.env.TP_MARKER, trs: c.env.TP_TRS, kiwiP: c.env.TP_KIWI_P, bookingP: c.env.TP_BOOKING_P, gygP: c.env.TP_GYG_P, omioP: c.env.TP_OMIO_P }
+      : undefined,
   });
   return c.json({ handoff });
 });

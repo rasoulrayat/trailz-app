@@ -126,7 +126,9 @@ All accounts belong to the Dutch company with EU billing.
   that reuses what the Reality Cards found (base city, local tips, best months). Saved under **Trips**.
 - **Book**: dates (or flexible), departure city, travelers → **Compare & go** opens each partner with everything
   filled in: Kiwi.com (flights), Booking.com (one search per base town), GetYourGuide (activities), Omio (trains/buses).
-  Affiliate ids go in `wrangler.jsonc` vars (`KIWI_AFFILIATE_ID`, `BOOKING_AFFILIATE_ID`, `GYG_PARTNER_ID`, `OMIO_PARTNER_ID`).
+  Tracking: with a **Travelpayouts** account, set `TP_MARKER`, `TP_TRS` and the brand campaign ids (`TP_KIWI_P`, `TP_BOOKING_P`,
+  `TP_GYG_P`, `TP_OMIO_P`) in `wrangler.jsonc`; every partner link is then wrapped in Travelpayouts tracking with the trip's
+  search filled in. Direct affiliate ids (`KIWI_AFFILIATE_ID`, `BOOKING_AFFILIATE_ID`, `GYG_PARTNER_ID`, `OMIO_PARTNER_ID`) also work.
   Nothing is charged in TrailZ.
 
 ## What's next (later phases)

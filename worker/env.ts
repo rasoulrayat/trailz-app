@@ -16,6 +16,13 @@ export interface Env {
   BOOKING_AFFILIATE_ID?: string;
   GYG_PARTNER_ID?: string;
   OMIO_PARTNER_ID?: string;
+  /** Travelpayouts tracking: marker (partner id), trs (project id), and each brand's campaign id ("p" in their links). */
+  TP_MARKER?: string;
+  TP_TRS?: string;
+  TP_KIWI_P?: string;
+  TP_BOOKING_P?: string;
+  TP_GYG_P?: string;
+  TP_OMIO_P?: string;
 }
 
 export const isMock = (env: Env) => env.MOCK_AI === "1" || !env.SUPADATA_API_KEY;

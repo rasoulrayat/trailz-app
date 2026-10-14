@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SavedPlace, Trip } from "../shared/types";
-import { buildHandoff, daysFor, suggestTrips } from "../worker/lib/trips";
+import { buildHandoff, daysFor, suggestTrips, tpWrap } from "../worker/lib/trips";
 
 const save = (name: string, country: string, lat: number, lng: number, vibe: string[] = []): SavedPlace => ({
   id: name.toLowerCase(), name, country, lat, lng, vibe, createdAt: 0,
@@ -61,5 +61,18 @@ describe("partner hand-off links", () => {
     const h = buildHandoff({ ...trip, startDate: null });
     expect(h.flights[0].url).toContain("/anytime/anytime");
     expect(h.stay[0].url).not.toContain("checkin");
+  });
+
+  it("wraps partner links in Travelpayouts tracking when the ids are set", () => {
+    const tp = { marker: "339296", trs: "197987", kiwiP: "2211" };
+    const h = buildHandoff(trip, { tp });
+    const u = new URL(h.flights[0].url);
+    expect(u.origin + u.pathname).toBe("https://tp.media/r");
+    expect(u.searchParams.get("marker")).toBe("339296");
+    expect(u.searchParams.get("p")).toBe("2211");
+    expect(u.searchParams.get("u")).toContain("kiwi.com/en/search/results/amsterdam/santorini");
+    // No Booking campaign id: Booking stays a plain link.
+    expect(h.stay[0].url).toContain("booking.com");
+    expect(tpWrap("https://x.com", undefined, "1")).toBe("https://x.com");
   });
 });

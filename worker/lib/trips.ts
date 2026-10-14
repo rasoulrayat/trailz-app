@@ -196,6 +196,23 @@ export interface PartnerIds {
   booking?: string;
   getyourguide?: string;
   omio?: string;
+  /** Travelpayouts: marker (partner id), trs (project id) and each brand's campaign ("p") id. */
+  tp?: { marker: string; trs: string; kiwiP?: string; bookingP?: string; gygP?: string; omioP?: string };
+}
+
+/**
+ * Wrap a partner URL in Travelpayouts tracking (their "destination page" deeplink), so the booking
+ * is credited to TrailZ. Without a campaign id for the brand, the plain URL is returned.
+ */
+export function tpWrap(url: string, tp: PartnerIds["tp"], p: string | undefined, subId = "trailz"): string {
+  if (!tp?.marker || !tp.trs || !p) return url;
+  const u = new URL("https://tp.media/r");
+  u.searchParams.set("marker", tp.marker);
+  u.searchParams.set("trs", tp.trs);
+  u.searchParams.set("p", p);
+  u.searchParams.set("u", url);
+  u.searchParams.set("sub_id", subId);
+  return u.toString();
 }
 
 /** Links that open each partner with the trip's dates, places and travelers already filled in. */
@@ -238,7 +255,7 @@ export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
     if (ids.booking) u.searchParams.set("aid", ids.booking);
     return {
       partner: "Booking.com",
-      url: u.toString(),
+      url: tpWrap(u.toString(), ids.tp, ids.tp?.bookingP, "stay"),
       city: b.city,
       nights: b.nights,
       note: `${b.nights} ${b.nights === 1 ? "night" : "nights"} in ${b.city}${start ? `, ${addDays(start, b.from)} → ${addDays(start, b.from + b.nights)}` : ""}`,
@@ -254,7 +271,7 @@ export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
       u.searchParams.set("q", `${it.title} ${firstBase}`);
       if (start) u.searchParams.set("date_from", addDays(start, day - 1));
       if (ids.getyourguide) u.searchParams.set("partner_id", ids.getyourguide);
-      return { partner: "GetYourGuide", url: u.toString(), place: it.title, note: `Day ${day} · ${it.time}` };
+      return { partner: "GetYourGuide", url: tpWrap(u.toString(), ids.tp, ids.tp?.gygP, "activity"), place: it.title, note: `Day ${day} · ${it.time}` };
     });
 
   // Trains and buses between bases: Omio.
@@ -262,14 +279,15 @@ export function buildHandoff(trip: Trip, ids: PartnerIds = {}): Handoff {
     ? [
         {
           partner: "Omio",
-          url: `https://www.omio.com/${ids.omio ? `?partner=${encodeURIComponent(ids.omio)}` : ""}`,
+          url: tpWrap(`https://www.omio.com/${ids.omio ? `?partner=${encodeURIComponent(ids.omio)}` : ""}`, ids.tp, ids.tp?.omioP, "transport"),
           note: `Trains and buses ${bases.map((b) => b.city).join(" → ")}`,
         },
       ]
     : [];
 
+  const tp = ids.tp;
   return {
-    flights: [{ partner: "Kiwi.com", url: kiwi.toString(), note: `${trip.origin} → ${dest}${start ? `, ${start} → ${end}` : ", dates flexible"} · ${trip.travelers} ${trip.travelers === 1 ? "traveler" : "travelers"}` }],
+    flights: [{ partner: "Kiwi.com", url: tpWrap(kiwi.toString(), tp, tp?.kiwiP, "flights"), note: `${trip.origin} → ${dest}${start ? `, ${start} → ${end}` : ", dates flexible"} · ${trip.travelers} ${trip.travelers === 1 ? "traveler" : "travelers"}` }],
     stay,
     activities,
     transport,
