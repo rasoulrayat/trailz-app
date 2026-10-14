@@ -15,7 +15,7 @@ import { analyze, cardFor, geminiConfig } from "./lib/analyze";
 import { pingGemini } from "./lib/gemini";
 import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
-import { flightQuotes } from "./lib/prices";
+import { cached, flightQuotes } from "./lib/prices";
 import { debugHotels, duffelCheckoutLink, duffelFlights, googleFlights } from "./lib/providers";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
@@ -99,9 +99,15 @@ app.post("/checks", async (c) => {
   // 1. Is it a supported video link at all? (instant, free)
   let parsed = parseLink(input);
   if (parsed.kind === "short") {
+    // Short links (vm.tiktok.com, Instagram "share") resolve once; the answer is kept for 30 days.
+    const shortUrl = parsed.url;
     parsed = isMock(env)
       ? { kind: "error", code: "unsupported_site" }
-      : await resolveShortLink(parsed.url).catch(() => ({ kind: "error" as const, code: "unavailable" as const }));
+      : await cached(env.DB, `short:${shortUrl}`, 30 * 24 * 3600_000, async () => {
+          const r = await resolveShortLink(shortUrl).catch(() => ({ kind: "error" as const, code: "unavailable" as const }));
+          if (r.kind === "error") throw new Error("short link not resolved"); // don't cache failures
+          return r;
+        }).catch(() => ({ kind: "error" as const, code: "unavailable" as const }));
   }
   if (parsed.kind !== "video") {
     const code = parsed.kind === "error" ? parsed.code : "unsupported_site";
@@ -231,6 +237,8 @@ app.get("/checks/:id", async (c) => {
   if (current.thumbnail_url === null) {
     c.executionCtx.waitUntil(fillVideoMeta(c.env, v.id).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
   }
+  // A finished check never changes: let the browser and Cloudflare keep it.
+  if (current.status === "ready" && current.thumbnail_url !== null) c.header("cache-control", "public, max-age=3600, stale-while-revalidate=86400");
   return c.json<CheckStatus>(toStatus(current));
 });
 
