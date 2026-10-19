@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { Handoff, Offer, Trip, TripPrices } from "../../../shared/types";
 import { Icon, type IconName } from "../../components/Icon";
+import { TabBar } from "../../components/TabBar";
 
 const euro = (n: number) => `€${Math.round(n).toLocaleString("en-US")}`;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -196,7 +197,7 @@ export function PricedTrip({
         </p>
       </main>
 
-      <div className="actionbar col">
+      <div className="actionbar col above-tabs">
         {next ? (
           <button className="btn" onClick={() => document.getElementById(`sec-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
             Next: book your {stepWords(next.label)}
@@ -210,6 +211,7 @@ export function PricedTrip({
           </Link>
         )}
       </div>
+      <TabBar />
 
       {pending && (
         <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Did you book it?">

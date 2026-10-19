@@ -6,6 +6,7 @@ import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PhotoStrip } from "../components/PlacePhoto";
 import { ShareButton } from "../components/ShareButton";
+import { TabBar } from "../components/TabBar";
 
 const KIND: Record<ItemKind, { icon: IconName; bg: string; fg: string }> = {
   travel: { icon: "plane", bg: "var(--blue-tint)", fg: "var(--blue)" },
@@ -203,7 +204,7 @@ export function TripPage() {
         )}
       </main>
 
-      <div className="actionbar col">
+      <div className="actionbar col above-tabs">
         <div className="row" style={{ gap: 10 }}>
           {trip.status !== "saved" && (
             <button className="btn secondary" style={{ width: "auto" }} onClick={save} disabled={saving}>
@@ -218,6 +219,7 @@ export function TripPage() {
         </div>
         <span className="small" style={{ textAlign: "center" }}>You'll book each part with our partners. Nothing is charged here.</span>
       </div>
+      <TabBar />
     </>
   );
 }

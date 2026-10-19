@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { PhotoStrip } from "../components/PlacePhoto";
 import { PricedTrip } from "./book/PricedTrip";
 import { TripSetup } from "./book/TripSetup";
+import { TabBar } from "../components/TabBar";
 
 /**
  * Book = two screens. Trip setup (when, from where, how many) and then the priced trip:
@@ -106,6 +107,7 @@ function BookingGate({ trip }: { trip: Trip }) {
   const first = trip.places[0];
   const q = first ? [first.name, first.country].filter(Boolean).join(", ") : trip.plan.title;
   return (
+    <>
     <main className="page" style={{ gap: 16 }}>
       <div className="topbar">
         <Link to={`/trips/${trip.id}`} className="icon-btn plain" aria-label="Back to the trip">
@@ -137,5 +139,7 @@ function BookingGate({ trip }: { trip: Trip }) {
         <p className="small" style={{ margin: 0, textAlign: "center" }}>Free. We never post or read anything on your behalf.</p>
       </div>
     </main>
+    <TabBar />
+    </>
   );
 }

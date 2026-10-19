@@ -144,6 +144,8 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 /* Bottom action bar */
 .actionbar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 20px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; }
 .actionbar.col { flex-direction: column; gap: 8px; }
+/* An action bar on a screen that also shows the floating tab bar: it sits just above the pill. */
+.actionbar.above-tabs { bottom: calc(88px + env(safe-area-inset-bottom)); }
 
 /* Analyzing */
 .spinner-ring { width: 132px; height: 132px; border-radius: 50%; border: 10px solid var(--line); border-top-color: var(--sky); border-right-color: var(--sky); animation: spin 1.1s linear infinite; }

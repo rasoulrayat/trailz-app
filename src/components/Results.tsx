@@ -9,6 +9,7 @@ import { planUrl } from "../plan-url";
 import { PhotoStrip, PlaceThumb } from "./PlacePhoto";
 import { SaveButton } from "./SaveButton";
 import { platformLabel, VideoChip } from "./VideoChip";
+import { TabBar } from "./TabBar";
 
 type Of<T extends CheckResult["outcome"]> = Extract<CheckResult, { outcome: T }>;
 
@@ -331,7 +332,7 @@ export function MultiView({ check, result }: { check: CheckStatus; result: Of<"m
           )}
         </ul>
       </main>
-      <div className="actionbar col">
+      <div className="actionbar col above-tabs">
         <Link
           className={`btn${selected.size ? "" : " disabled"}`}
           to={planUrl(
@@ -349,6 +350,7 @@ export function MultiView({ check, result }: { check: CheckStatus; result: Of<"m
           Tap a place to see its Reality Card
         </span>
       </div>
+      <TabBar />
     </>
   );
 }
