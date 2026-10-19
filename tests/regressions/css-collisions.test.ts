@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  */
 describe("styles.css", () => {
   it("defines each selector only once", () => {
-    const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const css = readFileSync(new URL("../../src/styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     const seen = new Map<string, number>();
     const dupes: string[] = [];
     // top-level rules only (skip @media/@keyframes bodies)
