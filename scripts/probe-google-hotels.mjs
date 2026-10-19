@@ -1,29 +1,31 @@
 // Round 2: entity pages + a dates/guests "ts" we build ourselves, each in a fresh browser (no remembered dates).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright-core";
-const out = "probe2"; mkdirSync(out, { recursive: true });
+const out = "probe3"; mkdirSync(out, { recursive: true });
 const enc = encodeURIComponent;
 const varint = (n) => { const b = []; while (n > 127) { b.push((n & 127) | 128); n = Math.floor(n / 128); } b.push(n); return b; };
 const field = (no, bytes) => [(no << 3) | 2, ...varint(bytes.length), ...bytes];
 const num = (no, n) => [(no << 3) | 0, ...varint(n)];
 const date = (iso) => { const [y, m, d] = iso.split("-").map(Number); return [...num(1, y), ...num(2, m), ...num(3, d)]; };
-const ts = (checkIn, checkOut, guests, currency = "EUR") => {
+const ts = (checkIn, checkOut, guests, currency = "EUR", raw = null) => {
   const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86400000);
-  const stay = [...field(2, [...field(1, date(checkIn)), ...field(2, date(checkOut)), ...num(3, nights)]), ...field(6, num(1, guests))];
+  const stay = [...field(2, [...field(1, date(checkIn)), ...field(2, date(checkOut)), ...num(3, nights)]), ...field(6, raw ?? num(1, guests))];
   const msg = [...num(1, 1), ...field(3, [...field(1, field(3, [])), ...field(2, stay)]), ...field(5, [...field(1, field(7, [...Buffer.from(currency)])), ...field(3, [])])];
   return Buffer.from(msg).toString("base64url");
 };
 const E = (tok, extra = "") => `https://www.google.com/travel/hotels/entity/${tok}?hl=en&gl=nl&curr=EUR${extra}`;
 const RITZ = "ChkIv_HyiNKHpf6yARoML2cvMXozdGJnZ3BzEAE", H10 = "ChgIjayklaXUgth3GgwvZy8xcHAydF9qdDEQAQ", BROWNS = "ChkIhLCQwvjO2IYWGg0vZy8xMXE0bTZieDkyEAE";
+const t = (raw) => ts("2026-12-03", "2026-12-06", 0, "EUR", raw);
 const C = {
-  h10_plain: E(H10),
-  h10_ts_g2: E(H10, `&ts=${ts("2026-12-03", "2026-12-06", 2)}`),
-  h10_ts_g3: E(H10, `&ts=${ts("2026-12-03", "2026-12-06", 3)}`),
-  ritz_ts_g4: E(RITZ, `&ts=${ts("2027-02-10", "2027-02-14", 4)}`),
-  browns_ts_g3: E(BROWNS, `&ts=${ts("2026-12-03", "2026-12-06", 3)}`),
-  browns_ts_g1: E(BROWNS, `&ts=${ts("2026-12-03", "2026-12-05", 1)}`),
-  nl_city_g3: `https://www.google.com/travel/search?q=${enc("hotels in Lisbon 3 Dec 2026 - 6 Dec 2026 3 adults")}&hl=en&gl=nl&curr=EUR`,
-  nl_hotel_g3: `https://www.google.com/travel/search?q=${enc("Brown's Avenue Hotel, Lisbon 3 Dec 2026 - 6 Dec 2026 3 adults")}&hl=en&gl=nl&curr=EUR`,
+  g_rep2x3: E(BROWNS, `&ts=${t([8, 2, 8, 2, 8, 2])}`),
+  g_rep1x3: E(BROWNS, `&ts=${t([8, 1, 8, 1, 8, 1])}`),
+  g_packed2x3: E(BROWNS, `&ts=${t([10, 3, 2, 2, 2])}`),
+  g_f2_3: E(BROWNS, `&ts=${t([16, 3])}`),
+  g_f1_2_f2_3: E(BROWNS, `&ts=${t([8, 2, 16, 3])}`),
+  g_rep2x4: E(BROWNS, `&ts=${t([8, 2, 8, 2, 8, 2, 8, 2])}`),
+  g_rep2x1: E(BROWNS, `&ts=${t([8, 2])}`),
+  search_city_ts: `https://www.google.com/travel/search?q=${enc("hotels in Lisbon")}&hl=en&gl=nl&curr=EUR&ts=${ts("2026-12-03", "2026-12-06", 2)}`,
+  search_place_ts: `https://www.google.com/travel/search?q=${enc("Positano, Italy")}&hl=en&gl=nl&curr=EUR&ts=${ts("2027-05-14", "2027-05-18", 2)}`,
 };
 const b = await chromium.launch();
 const report = {};
