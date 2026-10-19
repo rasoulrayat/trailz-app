@@ -69,10 +69,9 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .row { display: flex; align-items: center; gap: 10px; }
 
 /* Buttons */
-.btn { height: 52px; border-radius: 999px; border: 0; background: var(--navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 500; padding: 0 22px; width: 100%; }
+.btn { height: 52px; border-radius: 999px; border: 0; background: var(--navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 500; padding: 0 22px; width: 100%; white-space: nowrap; }
 .btn.secondary { background: var(--surface); color: var(--navy); border: 1px solid var(--line-strong); box-sizing: border-box; }
 .btn.secondary.icon { width: 52px; padding: 0; flex: none; }
-.btn { white-space: nowrap; }
 .btn.accent { background: var(--sky); color: var(--navy); font-weight: 600; }
 .btn.link { background: transparent; color: var(--blue); height: 44px; }
 .btn:disabled { opacity: 0.55; cursor: default; }
