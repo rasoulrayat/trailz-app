@@ -5,6 +5,7 @@
  *  - Aviasales / Hotellook via Travelpayouts: fares and rates seen recently (cached), pay commission.
  */
 import type { Offer } from "../../shared/types";
+import { googleHotelsLink } from "./google-hotels-link";
 import { cached } from "./prices";
 import { placeKey } from "./route";
 
@@ -105,7 +106,8 @@ export async function googleHotels(
   fetcher: typeof fetch = fetch,
 ): Promise<Offer[]> {
   const q = [city, country].filter(Boolean).join(", ");
-  const key = `gh:${placeKey(q)}:${checkIn}:${checkOut}:${adults}`;
+  // gh2: offers now link to Google Hotels itself (gh: entries linked to the hotel's own site).
+  const key = `gh2:${placeKey(q)}:${checkIn}:${checkOut}:${adults}`;
   return cached(db, key, 30 * 60_000, async () => {
     if (!(await serpBudget(db, monthlyLimit))) return [];
     try {
@@ -124,7 +126,8 @@ export async function googleHotels(
       const body = (await res.json()) as {
         properties?: {
           name: string;
-          link?: string;
+          /** Google's id for the hotel: its Google Hotels page is /travel/hotels/entity/<token>. */
+          property_token?: string;
           hotel_class?: string;
           extracted_hotel_class?: number;
           overall_rating?: number;
@@ -132,7 +135,6 @@ export async function googleHotels(
           rate_per_night?: { extracted_lowest?: number };
         }[];
       };
-      const searchUrl = `https://www.google.com/travel/hotels/${encodeURIComponent(q)}?q=${encodeURIComponent(q)}&dates=${checkIn},${checkOut}&adults=${adults}&curr=EUR`;
       // Google rates hotels out of 5. Keep well-rated places (≥ 4.0), cheapest first; fall back to any priced.
       const priced = (body.properties ?? []).map((p) => ({ p, total: p.total_rate?.extracted_lowest ?? 0 })).filter((x) => x.total > 0);
       const good = priced.filter((x) => (x.p.overall_rating ?? 0) >= 4.0);
@@ -148,7 +150,8 @@ export async function googleHotels(
           currency: "EUR",
           title: `${p.name}${p.extracted_hotel_class ? ` · ${"★".repeat(Math.min(5, p.extracted_hotel_class))}` : ""}${p.overall_rating ? ` · ${p.overall_rating}/5` : ""}`,
           detail: p.rate_per_night?.extracted_lowest ? `€${Math.round(p.rate_per_night.extracted_lowest)} a night` : undefined,
-          bookUrl: p.link || searchUrl,
+          // Google Hotels, not the hotel's own site: there the dates and guests are already set and every seller's price shows.
+          bookUrl: googleHotelsLink({ token: p.property_token, place: q, checkIn, checkOut, adults }),
           unit: "total" as const,
         }));
     } catch {
