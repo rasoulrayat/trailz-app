@@ -9,7 +9,6 @@ import { ShareButton } from "./ShareButton";
 import type { ReactNode } from "react";
 import { HeroPhotos, PhotoStrip, PlaceThumb, photoCredit } from "./PlacePhoto";
 import { platformLabel } from "./VideoChip";
-import { TabBar } from "./TabBar";
 
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -286,14 +285,14 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
 
       {footer && <div className="page" style={{ paddingTop: 0 }}>{footer}</div>}
       {readOnly ? (
-        <div className="actionbar above-tabs">
+        <div className="actionbar">
           <Link className="btn" style={{ flex: 1 }} to="/">
             <Icon name="sparkle" size={18} />
             Check your own reel on TrailZ
           </Link>
         </div>
       ) : (
-      <div className="actionbar above-tabs">
+      <div className="actionbar">
         <SaveButton place={savePlace} />
         <Link className="btn" style={{ flex: 1 }} to={planUrl([savePlace])}>
           <Icon name="sparkle" size={18} />
@@ -301,7 +300,6 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
         </Link>
       </div>
       )}
-      <TabBar />
     </>
   );
 }

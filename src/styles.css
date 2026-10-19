@@ -142,10 +142,10 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .big-number { font-family: var(--display); font-weight: 800; font-size: 34px; }
 
 /* Bottom action bar */
-.actionbar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 20px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; }
+/* Floating glass action bar: the same pill as the tab bar, so a screen's main button sits where the tabs would be. */
+.actionbar { position: sticky; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; width: min(calc(100% - 32px), 400px); margin: 4px auto calc(14px + env(safe-area-inset-bottom)); padding: 8px 8px 10px; border-radius: 34px; display: flex; gap: 10px; background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: blur(22px) saturate(1.7); backdrop-filter: blur(22px) saturate(1.7); border: 1px solid rgba(255, 255, 255, 0.75); box-shadow: 0 12px 32px rgba(11, 27, 63, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9); box-sizing: border-box; }
+.actionbar .small { padding: 0 10px; }
 .actionbar.col { flex-direction: column; gap: 8px; }
-/* An action bar on a screen that also shows the floating tab bar: it sits just above the pill. */
-.actionbar.above-tabs { bottom: calc(88px + env(safe-area-inset-bottom)); }
 
 /* Analyzing */
 .spinner-ring { width: 132px; height: 132px; border-radius: 50%; border: 10px solid var(--line); border-top-color: var(--sky); border-right-color: var(--sky); animation: spin 1.1s linear infinite; }

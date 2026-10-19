@@ -6,7 +6,6 @@ import { Icon, type IconName } from "../components/Icon";
 import { PlaceThumb } from "../components/PlacePhoto";
 import { placesFromUrl } from "../plan-url";
 import { useSaves } from "../saves";
-import { TabBar } from "../components/TabBar";
 
 const MOOD_ICON: Record<Mood, IconName> = { solo: "coffee", energetic: "bolt", friends: "users" };
 const daysFor = (n: number) => Math.min(10, Math.max(2, Math.round(n * 1.5)));
@@ -132,7 +131,7 @@ export function PlanPage() {
           Departure city and dates come later, when you book. Plans start from Amsterdam until you can set a home city.
         </p>
       </main>
-      <div className="actionbar col above-tabs">
+      <div className="actionbar col">
         <button className="btn" disabled={!mood || !places.length || busy} onClick={go}>
           {busy ? (
             <>
@@ -153,7 +152,6 @@ export function PlanPage() {
           </Link>
         )}
       </div>
-      <TabBar />
     </>
   );
 }
