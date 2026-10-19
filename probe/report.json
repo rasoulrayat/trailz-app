@@ -1,0 +1,191 @@
+{
+  "A_nl_hotel": {
+    "url": "https://www.google.com/travel/hotels?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal%20from%2012%20November%202026%20to%2015%20November%202026%20for%202%20adults&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal%20from%2012%20November%202026%20to%2015%20November%202026%20for%202%20adults&qs=OAA&hl=en&gl=nl&curr=EUR&ved=0CAAQ5JsGahcKEwiQ9cutgseXAxUAAAAAHQAAAAAQBA",
+    "title": "Search for accommodations in Lisbon - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: Hotel Avenida Palace, Lisbon, Portugal from 12 November 2026 to 15 November 2026 for 2 adults",
+      "Search for places, hotels and more: ",
+      "Check-in: Wed, Oct 21",
+      "Check-out: Thu, Oct 22",
+      ": on",
+      "Reachability slider: 1",
+      "Reachability slider: 1"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Lisbon · 148 results\nAbout these results",
+      "Avenida Palace",
+      "LR Guest House",
+      "Altis Avenida Hotel, member of Preferred Hotels & Resorts"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in 2 All filters Price Offers Guest rating Hotel class Amenities Brands Eco-certified Sort by When to visit What you'll pay Lisbon · 148 results About these results Avenida Palace $328 4.8 (1.1K) · Excellent location Amenities for Avenida Palace, a 5-star hotel.: Free breakfast, Free Wi-Fi, Free parking, Air conditioning, Fitness center, Bar, Room s"
+  },
+  "B_checkin_params": {
+    "url": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal&checkin=2026-11-12&checkout=2026-11-15&adults=2&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal&checkin=2026-11-12&checkout=2026-11-15&adults=2&hl=en&gl=nl&curr=EUR&ved=0CAAQ5JsGahcKEwjw2uqwgseXAxUAAAAAHQAAAAAQBw&ts=CAAaGhIYEhIKBwjrDxABGBESBwjrDxABGBIyAggAKgcKBToDVVNE&qs=MiZDaGdJNzgyYzJaMmY4T01kR2d3dlp5OHhNV1I1YW5odFlqY1FBUQ",
+    "title": "Avenida Palace - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: ",
+      "Search for places, hotels and more: ",
+      "Check-in: Sun, Jan 17",
+      "Check-out: Mon, Jan 18",
+      "Check-in: Sun, Jan 17",
+      "Check-out: Mon, Jan 18",
+      "Review search input: ",
+      ": on",
+      "Reachability slider: 0",
+      "Reachability slider: 0"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Lisbon · 15,000 results",
+      "Lisbon Marriott Hotel",
+      "STAY HOTEL LISBOA AEROPORTO",
+      "Lisboa Pessoa Hotel"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in Avenida Palace Back to list of all results Open Avenida Palace in a new tab. View list Overview Prices Reviews Photos About 4.8 (1.1K) • 5-star hotel R. 1º de Dezembro 123, 1200-359 Lisboa, Portugal•+351 21 321 8100 $251 Jan 17 – 18, 2027 Website Directions Share Check availability View more photos Check-in Check-out 2 Nightly price with fees Fre"
+  },
+  "C_current_city": {
+    "url": "https://www.google.com/travel/hotels/Lisbon%2C%20Portugal?q=Lisbon%2C%20Portugal&dates=2026-11-12,2026-11-15&adults=2&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=Lisbon%2C%20Portugal&qs=OAA&dates=2026-11-12%2C2026-11-15&adults=2&curr=EUR&ved=0CAAQ5JsGahcKEwiow8S0gseXAxUAAAAAHQAAAAAQBA",
+    "title": "Search for accommodations in Lisbon - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: Lisbon, Portugal",
+      "Search for places, hotels and more: ",
+      "Check-in: Sun, Jan 17",
+      "Check-out: Mon, Jan 18",
+      ": on",
+      "Reachability slider: 0",
+      "Reachability slider: 0"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Sponsored·Lisbon hotels",
+      "Lisbon · 15,000 results",
+      "Iberostar Selection Lisboa",
+      "WC by The Beautique Hotels"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in 2 All filters 4+ rating Under $75 Pool 4- or 5-star Spa Price Property type Offers Guest rating Hotel class Amenities Brands Eco-certified Sort by Where to stay When to visit What you'll pay Sponsored·Lisbon hotels Hotel AS Lisboa $177 Booking.com 4.1/5 (2.0K) · 3-star hotel Parking · Free Wi-Fi My Story Hotel Tejo $202 Expedia.com 4.4/5 (1.9K) ·"
+  },
+  "D_dates_param_hotel": {
+    "url": "https://www.google.com/travel/hotels?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal&dates=2026-11-12,2026-11-15&adults=2&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal&qs=OAA&dates=2026-11-12%2C2026-11-15&adults=2&hl=en&gl=nl&curr=EUR&ved=0CAAQ5JsGahcKEwi4_MK3gseXAxUAAAAAHQAAAAAQBg",
+    "title": "Avenida Palace - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: ",
+      "Search for places, hotels and more: ",
+      "Check-in: Sun, Jan 17",
+      "Check-out: Mon, Jan 18",
+      "Check-in: Sun, Jan 17",
+      "Check-out: Mon, Jan 18",
+      "Review search input: ",
+      ": on",
+      "Reachability slider: 0",
+      "Reachability slider: 0"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Lisbon · 1,836 results",
+      "STAY HOTEL LISBOA AEROPORTO",
+      "ME Lisbon",
+      "Lisboa Pessoa Hotel"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in Avenida Palace Back to list of all results Open Avenida Palace in a new tab. View list Overview Prices Reviews Photos About 4.8 (1.1K) • 5-star hotel R. 1º de Dezembro 123, 1200-359 Lisboa, Portugal•+351 21 321 8100 US$251 Jan 17 – 18, 2027 Website Directions Share Check availability View more photos Check-in Check-out 2 Nightly price with fees F"
+  },
+  "E_nl_city": {
+    "url": "https://www.google.com/travel/hotels?q=hotels%20in%20Lisbon%20from%2012%20November%202026%20to%2015%20November%202026%20for%202%20adults&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=hotels%20in%20Lisbon%20from%2012%20November%202026%20to%2015%20November%202026%20for%202%20adults&qs=OAA&hl=en&gl=nl&curr=EUR&ved=0CAAQ5JsGahcKEwjIhqS7gseXAxUAAAAAHQAAAAAQBw",
+    "title": "Search for accommodations in Lisbon - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: hotels in Lisbon from 12 November 2026 to 15 November 2026 for 2 adults",
+      "Search for places, hotels and more: ",
+      "Check-in: Thu, Nov 12",
+      "Check-out: Sun, Nov 15",
+      ": on",
+      "Reachability slider: 0",
+      "Reachability slider: 0"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Lisbon · 1,866 results\nAbout these results",
+      "JAM Lisbon",
+      "VAGO Alcântara Suites",
+      "Lx SoHo Boutique Hotel"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in 2 All filters 4+ rating Under $50 Pool 4- or 5-star Spa Price Offers Guest rating Hotel class Amenities Brands Eco-certified Sort by Where to stay When to visit What you'll pay Lisbon · 1,866 results About these results JAM Lisbon $84 4.5 (591) · Eco-certified Amenities for JAM Lisbon, a 3-star hotel.: Breakfast ($), Free Wi-Fi, Parking ($), Outd"
+  },
+  "F_nl_search": {
+    "url": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal%2012%20Nov%202026%20-%2015%20Nov%202026%202%20adults&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/search?q=Hotel%20Avenida%20Palace%2C%20Lisbon%2C%20Portugal%2012%20Nov%202026%20-%2015%20Nov%202026%202%20adults&hl=en&gl=nl&curr=EUR&ved=0CAAQ5JsGahcKEwjg1Ki-gseXAxUAAAAAHQAAAAAQBw",
+    "title": "Search for accommodations in Lisbon - Google hotels",
+    "inputs": [
+      "Search for places, hotels and more: Hotel Avenida Palace, Lisbon, Portugal 12 Nov 2026   15 Nov 2026 2 adults",
+      "Search for places, hotels and more: ",
+      "Check-in: Thu, Nov 12",
+      "Check-out: Sun, Nov 15",
+      ": on",
+      "Reachability slider: 1",
+      "Reachability slider: 1"
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Lisbon · 148 results\nAbout these results",
+      "Avenida Palace",
+      "Hola Lisbon Suites",
+      "Rossio FLH Suites"
+    ],
+    "head": "Skip to main content Accessibility feedback Sign in 2 All filters Price Offers Guest rating Hotel class Amenities Brands Eco-certified Sort by When to visit What you'll pay Lisbon · 148 results About these results Avenida Palace $297 4.8 (1.1K) · Excellent location Amenities for Avenida Palace, a 5-star hotel.: Free breakfast, Free Wi-Fi, Free parking, Air conditioning, Fitness center, Bar, Room s"
+  },
+  "G_entity_serpapi_token": {
+    "url": "https://www.google.com/travel/hotels/entity/ChoQ5YiTp-rKmO60ARoNL2cvMTFzc2djMTNqcRAC?hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/hotels/entity/ChoQ5YiTp-rKmO60ARoNL2cvMTFzc2djMTNqcRAC?hl=en&gl=nl&curr=EUR",
+    "title": "",
+    "inputs": [],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Oops, something went wrong. Please try again."
+    ],
+    "head": "Oops, something went wrong. Please try again. Having trouble loading details"
+  },
+  "H_entity_apify": {
+    "url": "https://www.google.com/travel/hotels/entity/ChkIhLCQwvjO2IYWGg0vZy8xMXE0bTZieDkyEAE?hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/hotels/entity/ChkIhLCQwvjO2IYWGg0vZy8xMXE0bTZieDkyEAE?hl=en&gl=nl&curr=EUR&utm_campaign=sharing&utm_medium=link&utm_source=htls&ved=0CAAQ5JsGahcKEwiAgr_DgseXAxUAAAAAHQAAAAAQAg&ts=CAEaIAoCGgASGhIUCgcI6g8QCxgMEgcI6g8QCxgPGAMyAggCKgkKBToDVVNEGgA",
+    "title": "Brown's | Avenue Hotel - Google hotels",
+    "inputs": [
+      "Check-in: Thu, Nov 12",
+      "Check-out: Sun, Nov 15",
+      "Check-in: Thu, Nov 12",
+      "Check-out: Sun, Nov 15",
+      "Review search input: "
+    ],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Brown's | Avenue Hotel",
+      "Check availability",
+      "Sponsored·Featured options",
+      "All options"
+    ],
+    "head": "Back to hotels Lisbon Lisbon Lisbon Brown's | Avenue Hotel Overview PricesReviewsLocationAboutPhotos View all photos Brown's | Avenue Hotel 5-star hotel R. Rodrigues Sampaio 48, 1150-281 Lisboa, Portugal•+351 21 098 8970 US$243 Nov 12 – 15 Website Directions Share Check availability 4.6 Excellent | 283 reviews Polished adults-only hotel offering a lounge & a restaurant, plus a rooftop pool with ci"
+  },
+  "I_entity_token_q": {
+    "url": "https://www.google.com/travel/hotels/entity/ChoQ5YiTp-rKmO60ARoNL2cvMTFzc2djMTNqcRAC?q=Le%20Sabot%20Ubud%2012%20Nov%202026%20to%2015%20Nov%202026%202%20adults&hl=en&gl=nl&curr=EUR",
+    "final": "https://www.google.com/travel/hotels/entity/ChoQ5YiTp-rKmO60ARoNL2cvMTFzc2djMTNqcRAC?q=Le%20Sabot%20Ubud%2012%20Nov%202026%20to%2015%20Nov%202026%202%20adults&hl=en&gl=nl&curr=EUR",
+    "title": "",
+    "inputs": [],
+    "guests": [],
+    "dates": [],
+    "h1": [
+      "Oops, something went wrong. Please try again."
+    ],
+    "head": "Oops, something went wrong. Please try again. Having trouble loading details"
+  }
+}
