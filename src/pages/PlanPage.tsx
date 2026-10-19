@@ -6,6 +6,7 @@ import { Icon, type IconName } from "../components/Icon";
 import { PlaceThumb } from "../components/PlacePhoto";
 import { placesFromUrl } from "../plan-url";
 import { useSaves } from "../saves";
+import { Working } from "../components/Working";
 
 const MOOD_ICON: Record<Mood, IconName> = { solo: "coffee", energetic: "bolt", friends: "users" };
 const daysFor = (n: number) => Math.min(10, Math.max(2, Math.round(n * 1.5)));
@@ -132,20 +133,15 @@ export function PlanPage() {
         </p>
       </main>
       <div className="actionbar col">
-        <button className="btn" disabled={!mood || !places.length || busy} onClick={go}>
-          {busy ? (
-            <>
-              <span className="spinner" style={{ borderTopColor: "var(--sky)", borderColor: "rgba(255,255,255,0.3)" }} />
-              Writing your plan… {seconds > 15 ? `${seconds}s` : ""}
-            </>
-          ) : (
-            <>
-              <Icon name="sparkle" size={18} />
-              Make my plan
-            </>
-          )}
-        </button>
-        {busy && <span className="small" style={{ textAlign: "center" }}>Usually 20 to 40 seconds. Routes, times and real places take a moment.</span>}
+        {busy ? (
+          <Working label="Writing your plan" />
+        ) : (
+          <button className="btn" disabled={!mood || !places.length} onClick={go}>
+            <Icon name="sparkle" size={18} />
+            Make my plan
+          </button>
+        )}
+        {busy && <span className="small" style={{ textAlign: "center" }}>{seconds > 40 ? "Taking longer than usual. Hang on, it's still working." : "Usually 20 to 40 seconds."}</span>}
         {!busy && (
           <Link to="/trips" className="small" style={{ textAlign: "center", color: "var(--blue)" }}>
             See my trips

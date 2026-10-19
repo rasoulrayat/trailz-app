@@ -207,13 +207,13 @@ export function PlaceThumb({
 }
 
 /** A row of swipeable photos (tap one to open the viewer). Renders nothing when there are no photos. */
-export function PhotoStrip({ q, title, height = 150, cardTo }: { q: string; title: string; height?: number; cardTo?: string }) {
+export function PhotoStrip({ q, title, height = 150, cardTo, flat = false }: { q: string; title: string; height?: number; cardTo?: string; flat?: boolean }) {
   const { photos } = usePlaceGallery(q);
   const [open, setOpen] = useState<number | null>(null);
   if (!photos.length) return null;
   return (
     <>
-      <div className="strip" style={{ height }} aria-label={`Photos of ${title}`}>
+      <div className={`strip${flat ? " flat" : ""}`} style={{ height }} aria-label={`Photos of ${title}`}>
         {photos.map((p, i) => (
           <button key={p.url} type="button" className="strip-photo" onClick={() => setOpen(i)} aria-label={`Open photo ${i + 1} of ${title}`}>
             <Img src={p.url} style={{ width: "100%", height: "100%" }} loading={i < 2 ? "eager" : "lazy"} />

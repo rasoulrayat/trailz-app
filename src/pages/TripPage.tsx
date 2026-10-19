@@ -154,7 +154,7 @@ export function TripPage() {
         <section className="stack" style={{ gap: 4 }}>
           <h2 style={{ fontSize: 17 }}>{current.title}</h2>
           {current.base && <span className="small">Night in {current.base}</span>}
-          <PhotoStrip q={[current.base || trip.places[0]?.name, trip.places[0]?.country].filter(Boolean).join(", ")} title={current.base || plan.title} height={120} />
+          <PhotoStrip q={[current.base || trip.places[0]?.name, trip.places[0]?.country].filter(Boolean).join(", ")} title={current.base || plan.title} height={120} flat />
         </section>
 
         <ol className="timeline">
@@ -206,9 +206,8 @@ export function TripPage() {
       <div className="actionbar col">
         <div className="row" style={{ gap: 10 }}>
           {trip.status !== "saved" && (
-            <button className="btn secondary" style={{ width: "auto" }} onClick={save} disabled={saving}>
-              <Icon name="heart" size={18} />
-              {saving ? "Saving…" : "Save plan"}
+            <button className="btn secondary icon" aria-label={saving ? "Saving plan" : "Save plan"} title="Save plan" onClick={save} disabled={saving}>
+              <Icon name="heart" size={20} />
             </button>
           )}
           <Link to={`/trips/${trip.id}/book`} className="btn" style={{ flex: 1 }}>
@@ -216,7 +215,8 @@ export function TripPage() {
             <Icon name="arrow" size={18} />
           </Link>
         </div>
-        <span className="small" style={{ textAlign: "center" }}>You'll book each part with our partners. Nothing is charged here.</span>
+        <span className="small" style={{ textAlign: "center" }}>Nothing is charged in TrailZ.</span>
+        <span className="sr-only">You'll book each part with our partners. Nothing is charged here.</span>
       </div>
     </>
   );

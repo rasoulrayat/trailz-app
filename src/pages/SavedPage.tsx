@@ -11,6 +11,7 @@ import { useMe } from "../auth";
 import { groupPlaces, type GroupBy, type PlaceGroup } from "../groups";
 import { planUrl } from "../plan-url";
 import { toggleSave, useSaves } from "../saves";
+import { Working } from "../components/Working";
 
 const GROUPINGS: { id: GroupBy; label: string }[] = [
   { id: "country", label: "Country" },
@@ -235,19 +236,14 @@ function GroupCard({ g, mood }: { g: PlaceGroup; mood: Mood }) {
         </div>
         {!one && <MapView points={toPoints(g.places)} height={110} />}
         {error && <div className="small" style={{ color: "var(--warn)" }}>{error}</div>}
-        <button className="btn" style={{ marginTop: 2 }} onClick={magic} disabled={busy}>
-          {busy ? (
-            <>
-              <span className="spinner" style={{ borderTopColor: "var(--sky)", borderColor: "rgba(255,255,255,0.3)" }} />
-              Writing your trip…
-            </>
-          ) : (
-            <>
-              <Icon name="sparkle" size={18} />
-              {one ? "Plan a trip here" : `Magic trip · ${g.places.length} places`}
-            </>
-          )}
-        </button>
+        {busy ? (
+          <Working label="Writing your trip" />
+        ) : (
+          <button className="btn" style={{ marginTop: 2 }} onClick={magic}>
+            <Icon name="sparkle" size={18} />
+            {one ? "Plan a trip here" : `Magic trip · ${g.places.length} places`}
+          </button>
+        )}
       </div>
     </section>
   );
