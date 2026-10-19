@@ -78,10 +78,22 @@ describe("P6 PricedTrip", () => {
     expect(Number(big)).toBeGreaterThan(300);
   });
 
-  it("'Next' button keeps the city's capitalisation", () => {
-    const prices: TripPrices = { flights: { origin: null, destination: null, offers: [], nights: 3 }, stays: [], sources: [], note: "" };
+  it("tabs: one per part, the city keeps its capitalisation, and it opens on the first part not booked", () => {
     const html = render(trip({ booked: { flights: true } }), handoff, null);
-    expect(html).toContain("Next: book your stay in Lisbon");
-    void prices;
+    // Flight booked → the Lisbon stay tab is the selected one; Porto has its own tab.
+    expect(html).toMatch(/role="tab" id="tab-stay:Lisbon" aria-selected="true"/);
+    expect(html).toMatch(/id="tab-flights" aria-selected="false"[\s\S]*?Booked/);
+    expect(html).toContain("<b>Porto</b>");
+    // No "Next" action bar any more.
+    expect(html).not.toContain("Next: book your");
+    // Panels other than the selected one are in the page but hidden.
+    expect(html).toMatch(/id="panel-flights"[^>]*hidden/);
+  });
+
+  it("tabs: activities get their own tab when the plan has bookable ones", () => {
+    const h: Handoff = { ...handoff, activities: [{ partner: "GetYourGuide", url: "https://example.com/a", note: "Day 2 · 09:00", place: "Boat trip" }] };
+    const html = render(trip(), h, null);
+    expect(html).toMatch(/id="tab-activities"/);
+    expect(html).toMatch(/id="panel-activities"[^>]*hidden/);
   });
 });

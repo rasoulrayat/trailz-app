@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { Handoff, Offer, Trip, TripPrices } from "../../../shared/types";
 import { Icon, type IconName } from "../../components/Icon";
@@ -8,6 +8,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const fmt = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
 
 type Step = { id: string; kind: "flights" | "stay" | "activities"; label: string; done: boolean };
+const STEP_ICON: Record<Step["kind"], IconName> = { flights: "plane", stay: "bed", activities: "sun" };
 
 /** The person taps "book", leaves, and comes back: we ask once whether it worked. */
 const PENDING_KEY = "tz_pending_booking";
@@ -40,6 +41,19 @@ export function PricedTrip({
     ...(activities.length ? [{ id: "activities", kind: "activities" as const, label: "Activities", done: !!trip.booked.activities }] : []),
   ];
   const next = steps.find((s) => !s.done);
+  // The person moves between parts with the tabs; it opens on the first part not booked yet.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const current = steps.find((s) => s.id === selectedId) ?? next ?? steps[0];
+  const select = (id: string, focus = false) => {
+    setSelectedId(id);
+    if (focus) document.getElementById(`tab-${id}`)?.focus();
+  };
+  const onTabKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const to = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? steps.length - 1 : null;
+    if (to === null) return;
+    e.preventDefault();
+    select(steps[(to + steps.length) % steps.length].id, true);
+  };
 
   // Coming back from a partner: ask once.
   useEffect(() => {
@@ -80,10 +94,15 @@ export function PricedTrip({
     if (!p || !yes) return;
     const step = steps.find((s) => s.id === p.step);
     if (!step) return;
-    await mark(step);
+    await markAndMoveOn(step);
   };
   const mark = (step: Step, done = true) =>
     onBooked(step.kind === "flights" ? { flights: done } : step.kind === "activities" ? { activities: done } : { stay: { [step.id.slice(5)]: done } });
+  const markAndMoveOn = async (step: Step) => {
+    await mark(step);
+    const after = steps.slice(steps.indexOf(step) + 1).find((s) => !s.done) ?? steps.find((s) => s.id !== step.id && !s.done);
+    if (after) setSelectedId(after.id);
+  };
 
   // The one number: best flight + best stays (per person) + the plan's activity estimate.
   const total = useMemo(() => {
@@ -121,7 +140,7 @@ export function PricedTrip({
             <Icon name="back" size={22} />
           </Link>
           <span className="small" style={{ flex: 1, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{trip.plan.title}</span>
-          <button className="btn link" style={{ height: 36, padding: "0 6px", fontSize: 13 }} onClick={onChangeDates}>
+          <button className="btn link" style={{ height: 36, padding: "0 6px", fontSize: 13, width: "auto", flex: "none" }} onClick={onChangeDates}>
             Change
           </button>
         </div>
@@ -153,23 +172,48 @@ export function PricedTrip({
           )}
         </section>
 
-        <div className="bsteps" role="list" aria-label="Booking steps">
-          {steps.map((s, i) => (
-            <span key={s.id} role="listitem" className={`bstep${s.done ? " done" : ""}${next?.id === s.id ? " next" : ""}`}>
-              {s.done ? <Icon name="check" size={12} /> : <b>{i + 1}</b>}
-              {s.label}
-            </span>
-          ))}
+        {!next && (
+          <Link to={`/trips/${trip.id}`} className="btn accent">
+            <Icon name="check" size={18} />
+            All booked. See your trip
+          </Link>
+        )}
+
+        <div className="btabs" role="tablist" aria-label="What to book">
+          {steps.map((s, i) => {
+            const on = s.id === current.id;
+            const price = s.done ? "Booked" : prices === "loading" ? "checking…" : (bestPrice(s, prices, trip) ?? "search");
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                id={`tab-${s.id}`}
+                aria-selected={on}
+                aria-controls={`panel-${s.id}`}
+                tabIndex={on ? 0 : -1}
+                className={`btab${on ? " on" : ""}${s.done ? " done" : ""}`}
+                onClick={() => select(s.id)}
+                onKeyDown={(e) => onTabKey(e, i)}
+              >
+                <Icon name={s.done ? "check" : STEP_ICON[s.kind]} size={18} />
+                <span className="btab-text">
+                  <b>{s.kind === "stay" && stays.length > 1 ? s.id.slice(5) : s.label}</b>
+                  <span>{price}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {flightsSection}
+        <Panel step={steps[0]} current={current}>{flightsSection}</Panel>
 
-        {prices === "loading"
-          ? stays.map((s) => <Skeleton key={s.city} h={170} />)
-          : stays.map((s) => {
+        {stays.map((s) => {
               const step = steps.find((x) => x.id === `stay:${s.city}`)!;
+              if (prices === "loading") return <Panel key={s.city} step={step} current={current}><Skeleton h={170} /></Panel>;
               const offers = s.offers.length ? s.offers : handoff ? (handoff.stay.filter((h) => h.city === s.city).map((h) => searchRow(h.partner, h.url))) : [];
               return (
+                <Panel key={s.city} step={step} current={current}>
                 <Section
                   key={s.city}
                   step={step}
@@ -183,11 +227,14 @@ export function PricedTrip({
                   onLeave={() => leaveFor(step)}
                   onUndo={() => mark(step, false)}
                 />
+                </Panel>
               );
             })}
 
         {activities.length > 0 && (
-          <ActivitiesSection step={steps.find((s) => s.id === "activities")!} items={activities} estimate={trip.plan.estimate.activities} onLeave={() => leaveFor(steps.find((s) => s.id === "activities")!)} onMark={() => mark(steps.find((s) => s.id === "activities")!)} onUndo={() => mark(steps.find((s) => s.id === "activities")!, false)} />
+          <Panel step={steps.find((s) => s.id === "activities")!} current={current}>
+            <ActivitiesSection step={steps.find((s) => s.id === "activities")!} items={activities} estimate={trip.plan.estimate.activities} onLeave={() => leaveFor(steps.find((s) => s.id === "activities")!)} onMark={() => markAndMoveOn(steps.find((s) => s.id === "activities")!)} onUndo={() => mark(steps.find((s) => s.id === "activities")!, false)} />
+          </Panel>
         )}
 
         <p className="small" style={{ margin: "4px 0 0", lineHeight: 1.5 }}>
@@ -195,21 +242,6 @@ export function PricedTrip({
           {prices !== "loading" && prices?.sources.length ? ` Prices from ${prices.sources.join(", ")}; live ones were checked just now.` : ""}
         </p>
       </main>
-
-      <div className="actionbar col">
-        {next ? (
-          <button className="btn" onClick={() => document.getElementById(`sec-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-            Next: book your {stepWords(next.label)}
-            {bestPrice(next, prices, trip) ? ` · ${bestPrice(next, prices, trip)}` : ""}
-            <Icon name="arrow" size={18} />
-          </button>
-        ) : (
-          <Link to={`/trips/${trip.id}`} className="btn accent">
-            <Icon name="check" size={18} />
-            All booked. See your trip
-          </Link>
-        )}
-      </div>
 
       {pending && (
         <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Did you book it?">
@@ -255,6 +287,15 @@ const searchRow = (partner: string, url: string): Offer => ({
   bookUrl: url,
   unit: "per person",
 });
+
+/** One tab's content. Every panel stays in the page (hidden when not selected), so the tabs only switch the view. */
+function Panel({ step, current, children }: { step: Step; current: Step; children: ReactNode }) {
+  return (
+    <div role="tabpanel" id={`panel-${step.id}`} aria-labelledby={`tab-${step.id}`} hidden={step.id !== current.id}>
+      {children}
+    </div>
+  );
+}
 
 function Skeleton({ h }: { h: number }) {
   return <div className="skeleton" style={{ height: h }} aria-label="Checking prices" />;

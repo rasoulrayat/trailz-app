@@ -334,13 +334,17 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 
 /* ---------- Priced trip ---------- */
 /* Booking step chips (distinct from the Analyzing page's vertical .steps checklist). */
-.bsteps { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-.bsteps::-webkit-scrollbar { display: none; }
-.bstep { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--seg); color: var(--muted); font-size: 12px; font-weight: 500; }
-.bstep b { width: 18px; height: 18px; border-radius: 50%; background: var(--surface); color: var(--navy); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
-.bstep.next { background: var(--navy); color: #fff; }
-.bstep.next b { background: var(--sky); color: var(--navy); }
-.bstep.done { background: var(--real-tint); color: var(--real); }
+/* Booking: one tab per part (flight, each stay, activities); the tabs switch the panel below. */
+.btabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; padding: 4px; background: var(--seg); border-radius: 18px; overflow-x: auto; scrollbar-width: none; }
+.btabs::-webkit-scrollbar { display: none; }
+.btab { flex: 1 0 auto; min-width: 96px; height: 54px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+.btab.on { background: var(--surface); color: var(--navy); box-shadow: 0 1px 4px rgba(11, 27, 63, 0.12); }
+.btab.done { color: var(--real); }
+.btab:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.btab-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.btab-text b { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.btab-text span { font-size: 11px; white-space: nowrap; opacity: 0.85; }
+[role="tabpanel"][hidden] { display: none; }
 .decision { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 12px; }
 .decision.done { border-color: var(--real); }
 .fresh { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); margin-top: 2px; }
