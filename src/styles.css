@@ -420,7 +420,7 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .tile.big .tile-text b { font-size: 17px; font-family: var(--display); font-weight: 800; }
 .tile-text > span { font-size: 10px; color: rgba(255, 255, 255, 0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile.big .tile-text > span { font-size: 12px; }
-.tile-facts { display: flex; gap: 8px; margin-top: 2px; }
+.tile-facts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 2px; min-width: 0; }
 .tile-facts span { font-size: 10px; font-weight: 600; color: #fff; background: rgba(255, 255, 255, 0.18); padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
 .tile.big .tile-facts span { font-size: 11px; }
 
