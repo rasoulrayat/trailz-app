@@ -1,5 +1,5 @@
-# Temporary: screenshots for the user guide, taken where Wikimedia photos load. Runs on pushes to guide-screens only.
-name: Guide screenshots
+# Temporary: screenshots for the user guide, taken where Wikimedia photos load. Runs on pushes to this temporary branch only.
+name: Google Hotels link probe
 on:
   push:
     branches: [guide-screens]
@@ -17,21 +17,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright-core install --with-deps chromium
-      - run: npm run db:migrate:local
-        env:
-          CI: "1"
-      - name: Start the app (mock mode)
-        run: |
-          nohup npx vite --port 5179 --strictPort > vite.log 2>&1 &
-          for i in $(seq 1 90); do curl -sf http://localhost:5179/ > /dev/null && break; sleep 2; done
-          curl -sf http://localhost:5179/api/me
-      - run: node scripts/guide-shots.mjs guide
-      - if: always()
-        run: tail -50 vite.log || true
+      - run: node scripts/probe-google-hotels.mjs
       - name: Commit the screenshots to this branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f guide
-          git commit -m "Guide screenshots [skip ci]"
+          git add -f probe
+          git commit -m "Google Hotels link probe [skip ci]"
           git push
