@@ -25,9 +25,17 @@ const cache = new Map<string, Promise<Gallery>>();
  * A smaller copy of a Wikimedia thumbnail (our galleries come as 1000 px). Tiles don't need more than ~400 px,
  * and a 400 px JPEG is roughly a fifth of the bytes. Other hosts are returned unchanged.
  */
+/**
+ * Wikimedia only serves these thumbnail widths (since early 2026); any other width gets an HTTP 429 error page instead
+ * of the image. See https://www.mediawiki.org/wiki/Common_thumbnail_sizes
+ */
+export const WIKIMEDIA_WIDTHS = [20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840];
+/** The smallest width Wikimedia serves that is at least `width` (so the picture is never blurry). */
+export const thumbWidth = (width: number) => WIKIMEDIA_WIDTHS.find((w) => w >= width) ?? WIKIMEDIA_WIDTHS[WIKIMEDIA_WIDTHS.length - 1];
+
 export function thumb(url: string, width: number): string {
   // Only the last "/<n>px-" is the size; a file itself named "1200px-…" keeps its name.
-  return /\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-([^/]*)$/, `/${width}px-$2`) : url;
+  return /\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-([^/]*)$/, `/${thumbWidth(width)}px-$2`) : url;
 }
 
 /** Fetch galleries ahead of time and start the image downloads, so a screen that needs them opens already filled. */
