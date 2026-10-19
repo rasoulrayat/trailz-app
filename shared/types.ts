@@ -260,6 +260,8 @@ export interface Offer {
   /** Flights: "KLM · direct · 2h 10m". Stays: "Hotel Bacco · ★★★★ · 8.6". */
   title: string;
   detail?: string;
+  /** One line under the offer about what the partner page opens with, when it isn't obvious. */
+  note?: string;
   /** Flights: true when the dates are not the exact ones asked. */
   approx?: boolean;
   /** Where "Book" goes. Duffel offers use a hosted checkout created on tap (bookUrl = /api/…). */

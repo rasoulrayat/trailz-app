@@ -88,3 +88,29 @@ describe("partner hand-off links", () => {
     expect(tpWrap("https://x.com", undefined, "1")).toBe("https://x.com");
   });
 });
+
+describe("partner links arrive filled in", () => {
+  it("puts the trip's travellers into Aviasales search links (the API gives links for one adult)", async () => {
+    const { withPassengers } = await import("../worker/lib/prices");
+    expect(withPassengers("https://www.aviasales.com/search/AMS1206JTR15061?marker=m", 2)).toBe("https://www.aviasales.com/search/AMS1206JTR15062?marker=m");
+    expect(withPassengers("https://www.aviasales.com/search/AMS1206JTR1?t=x", 3)).toBe("https://www.aviasales.com/search/AMS1206JTR3?t=x");
+    expect(withPassengers("https://www.aviasales.com/search/AMS1206JTR15061", 1)).toBe("https://www.aviasales.com/search/AMS1206JTR15061");
+    expect(withPassengers("https://www.aviasales.com/other", 2)).toBe("https://www.aviasales.com/other");
+  });
+
+  it("books a Duffel fare through Kiwi's filled-in deep link instead of Duffel's empty checkout", async () => {
+    const { viaKiwi } = await import("../worker/lib/prices");
+    const kiwi = { provider: "kiwi" as const, providerLabel: "Kiwi.com", kind: "search" as const, earns: true, freshness: "cached" as const, price: 0, currency: "EUR", title: "Search all flights", bookUrl: "https://www.kiwi.com/deep?from=AMS&to=JTR&departure=2027-06-12&return=2027-06-15&adults=2", unit: "per person" as const };
+    const duffel = { provider: "duffel" as const, providerLabel: "KLM", earns: true, freshness: "live" as const, price: 210, currency: "EUR", title: "KLM · direct", detail: "airline fare", bookUrl: "/api/trips/t1/duffel-link?offer=off_1", unit: "per person" as const };
+    const out = viaKiwi(duffel, [kiwi], 2);
+    expect(out.bookUrl).toBe(kiwi.bookUrl);
+    expect(out.providerLabel).toBe("Kiwi.com");
+    expect(out.price).toBe(210);
+    expect(out.detail).toContain("KLM");
+    expect(out.note).toContain("2 travelers");
+    // Without a Kiwi link there is nothing better: the Duffel checkout stays.
+    expect(viaKiwi(duffel, [], 2).bookUrl).toBe(duffel.bookUrl);
+    // Other providers are untouched.
+    expect(viaKiwi(kiwi, [kiwi], 2)).toBe(kiwi);
+  });
+});

@@ -390,8 +390,9 @@ function Row({ o, unit, onLeave }: { o: Offer; unit: string; onLeave: () => void
       <span style={{ minWidth: 0, flex: 1 }}>
         <span className="offer-title">{o.title}</span>
         <span className="offer-sub">
-          {o.kind === "search" ? "opens the partner's full search" : <><Fresh o={o} />· book on {o.providerLabel}</>}
+          {o.kind === "search" ? "opens the partner's full search, dates and travelers filled in" : <><Fresh o={o} />· book on {o.providerLabel}</>}
         </span>
+        {o.note && <span className="offer-sub">{o.note}</span>}
       </span>
       <span className="offer-price">
         {o.kind !== "search" && <b>{euro(o.price)}</b>}

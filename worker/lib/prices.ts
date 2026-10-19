@@ -151,7 +151,23 @@ export interface ProviderKeys {
   duffelAllowTest?: boolean;
 }
 
-const toFlightOffer = (q: FlightQuote, earns: boolean): Offer => ({
+/**
+ * Aviasales search links from the Data API are for one adult ("/search/AMS1206JTR15061": origin, DDMM, destination,
+ * DDMM, adults). Put the trip's travellers in, so the person doesn't pick them again on the partner's page.
+ */
+export function withPassengers(url: string, adults: number): string {
+  const n = Math.min(9, Math.max(1, Math.round(adults)));
+  if (n === 1) return url;
+  try {
+    const u = new URL(url);
+    u.pathname = u.pathname.replace(/^(\/search\/[A-Z]{3}\d{4}[A-Z]{3}(?:\d{4})?)1$/, `$1${n}`);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+const toFlightOffer = (q: FlightQuote, earns: boolean, adults = 1): Offer => ({
   provider: "aviasales",
   providerLabel: "Aviasales",
   earns,
@@ -161,7 +177,7 @@ const toFlightOffer = (q: FlightQuote, earns: boolean): Offer => ({
   title: `${q.airline} · ${q.transfers === 0 ? "direct" : `${q.transfers} stop${q.transfers > 1 ? "s" : ""}`}`,
   detail: `${q.departureAt.slice(0, 10)}${q.returnAt ? ` → ${q.returnAt.slice(0, 10)}` : ""}`,
   approx: q.approx,
-  bookUrl: q.url,
+  bookUrl: withPassengers(q.url, adults),
   unit: "per person",
 });
 
@@ -183,6 +199,24 @@ export function rank(offers: Offer[]): Offer[] {
   }
   const searches = offers.filter((o) => o.kind === "search");
   return [...priced.slice(0, 5), ...searches];
+}
+
+/**
+ * Duffel's hosted checkout opens an empty search (its Links API takes no route, dates or passengers), so a Duffel
+ * fare is kept as the price but booked on Kiwi's deep link, which arrives with everything filled in.
+ */
+export function viaKiwi(o: Offer, searches: Offer[], travelers: number): Offer {
+  if (o.provider !== "duffel") return o;
+  const kiwi = searches.find((s) => s.provider === "kiwi" && s.bookUrl);
+  if (!kiwi) return o;
+  return {
+    ...o,
+    providerLabel: "Kiwi.com",
+    earns: kiwi.earns,
+    detail: `airline fare · ${o.providerLabel}`,
+    bookUrl: kiwi.bookUrl,
+    note: `Opens Kiwi.com with your route, dates and ${travelers} ${travelers === 1 ? "traveler" : "travelers"} filled in.`,
+  };
 }
 
 /** Everything Compare & go shows above the partner buttons: all providers merged, cheapest first. */
@@ -216,9 +250,9 @@ export async function tripPrices(
     if (keys.serpApiKey) jobs.push(googleFlights(db, keys.serpApiKey, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers).then((o) => (o.length && sources.add("Google Flights"), o)));
     const duffelToken = keys.duffelToken && (keys.duffelAllowTest || !keys.duffelToken.startsWith("duffel_test")) ? keys.duffelToken : undefined;
     if (duffelToken) jobs.push(duffelFlights(db, duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
-    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map((x) => toFlightOffer(x, !!keys.tpMarker)))));
+    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map((x) => toFlightOffer(x, !!keys.tpMarker, trip.travelers)))));
     const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
-    const all = results.flat();
+    const all = results.flat().map((o) => viaKiwi(o, searches.flights, trip.travelers));
     // Nearby-date fares only when nothing exact exists.
     const exact = all.filter((o) => !o.approx);
     flights = { origin, destination, offers: rank([...(exact.length ? exact : all), ...searches.flights]), nights };
