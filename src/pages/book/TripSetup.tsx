@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { Trip } from "../../../shared/types";
 import { Icon } from "../../components/Icon";
+import { PRICE_STAGES, Working } from "../../components/Working";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -197,10 +198,14 @@ export function TripSetup({
         </section>
       </main>
       <div className="actionbar col">
-        <button className="btn" disabled={!ready || busy} onClick={() => onDone({ startDate: flexible ? null : startDate, origin: origin.trim(), travelers })}>
-          {busy ? "Checking prices…" : "See prices"}
-          <Icon name="arrow" size={18} />
-        </button>
+        {busy ? (
+          <Working label="Checking live prices" expected={12} stages={PRICE_STAGES} />
+        ) : (
+          <button className="btn" disabled={!ready} onClick={() => onDone({ startDate: flexible ? null : startDate, origin: origin.trim(), travelers })}>
+            See prices
+            <Icon name="arrow" size={18} />
+          </button>
+        )}
         <span className="small" style={{ textAlign: "center" }}>Nothing is charged in TrailZ. You pay the airline or hotel directly.</span>
       </div>
     </>

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { MOODS, type ItemKind, type Trip } from "../../shared/types";
-import { ApiFailure, pricesShared, tripsApi } from "../api";
+import { ApiFailure, pricesShared, tripsApi, waitForPrices } from "../api";
 import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PhotoStrip } from "../components/PlacePhoto";
 import { ShareButton } from "../components/ShareButton";
+import { useMe } from "../auth";
+import { PRICE_STAGES, Working } from "../components/Working";
 
 const KIND: Record<ItemKind, { icon: IconName; bg: string; fg: string }> = {
   travel: { icon: "plane", bg: "var(--blue-tint)", fg: "var(--blue)" },
@@ -38,6 +40,8 @@ export function tripMeta(trip: Trip): string {
 export function TripPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const me = useMe();
+  const [checking, setChecking] = useState(false);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [day, setDay] = useState(1);
@@ -88,6 +92,20 @@ export function TripPage() {
     if (!trip) return;
     await tripsApi.deleteTrip(trip.id).catch(() => null);
     navigate("/trips", { replace: true });
+  }
+
+  /**
+   * Priced already (dates set, or saved as open-dated) and signed in: stay here with a progress bar until the live
+   * prices are in, then open the booking screen with them. Otherwise go straight there (dates step or login).
+   */
+  async function openBooking() {
+    if (!trip || checking) return;
+    const priced = !!trip.startDate || trip.status === "saved";
+    if (me.user && priced) {
+      setChecking(true);
+      await waitForPrices(trip.id);
+    }
+    navigate(`/trips/${trip.id}/book`);
   }
 
   return (
@@ -210,10 +228,16 @@ export function TripPage() {
               <Icon name="heart" size={20} />
             </button>
           )}
-          <Link to={`/trips/${trip.id}/book`} className="btn" style={{ flex: 1 }}>
-            {trip.startDate ? "See prices & book" : "Pick dates & see prices"}
-            <Icon name="arrow" size={18} />
-          </Link>
+          {checking ? (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Working label="Checking live prices" expected={12} stages={PRICE_STAGES} />
+            </div>
+          ) : (
+            <button type="button" className="btn" style={{ flex: 1 }} onClick={openBooking}>
+              {trip.startDate ? "See prices & book" : "Pick dates & see prices"}
+              <Icon name="arrow" size={18} />
+            </button>
+          )}
         </div>
         <span className="small" style={{ textAlign: "center" }}>Nothing is charged in TrailZ.</span>
         <span className="sr-only">You'll book each part with our partners. Nothing is charged here.</span>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import type { Handoff, Trip, TripPrices } from "../../shared/types";
-import { forgetPrices, pricesShared, tripsApi } from "../api";
+import { forgetPrices, pricesShared, tripsApi, waitForPrices } from "../api";
 import { useMe } from "../auth";
 import { GoogleButton } from "../components/Account";
 import { Icon } from "../components/Icon";
@@ -63,6 +63,8 @@ export function BookPage() {
     if (r) {
       forgetPrices(trip.id);
       setTrip(r.trip);
+      // Keep the progress bar on the dates step while prices load, so the next screen opens priced.
+      await waitForPrices(r.trip.id);
       setEditing(false);
       load(r.trip);
     }

@@ -122,6 +122,11 @@ export function pricesShared(id: string, force = false) {
 }
 export const forgetPrices = (id: string) => priceCache.delete(id);
 
+/** Wait for the shared price request, but never longer than `ms`: the booking screen then shows its own loading rows. */
+export function waitForPrices(id: string, ms = 25_000): Promise<void> {
+  return Promise.race([pricesShared(id).then(() => undefined, () => undefined), new Promise<void>((r) => setTimeout(r, ms))]);
+}
+
 export const exploreApi = {
   list: (params: Record<string, string>) => call<ExploreResponse>(`/api/explore?${new URLSearchParams({ ...params, v: exploreVersion() }).toString()}`),
 };
