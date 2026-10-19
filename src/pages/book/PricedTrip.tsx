@@ -153,9 +153,9 @@ export function PricedTrip({
           )}
         </section>
 
-        <div className="steps" role="list" aria-label="Booking steps">
+        <div className="bsteps" role="list" aria-label="Booking steps">
           {steps.map((s, i) => (
-            <span key={s.id} role="listitem" className={`step${s.done ? " done" : ""}${next?.id === s.id ? " next" : ""}`}>
+            <span key={s.id} role="listitem" className={`bstep${s.done ? " done" : ""}${next?.id === s.id ? " next" : ""}`}>
               {s.done ? <Icon name="check" size={12} /> : <b>{i + 1}</b>}
               {s.label}
             </span>

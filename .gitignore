@@ -4,3 +4,6 @@ dist
 .dev.vars
 *.tsbuildinfo
 .DS_Store
+
+# screenshots from `npm run visual`
+visual/
