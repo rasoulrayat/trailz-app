@@ -51,7 +51,7 @@ export async function dbReport(db: D1Database) {
     .all<{ name: string }>()
     .then((r) => r.results.map((x) => x.name))
     .catch(() => [] as string[]);
-  const needed = ["videos", "checks", "place_cards", "feedback", "geocode_cache", "error_log", "images", "place_galleries", "saves", "trips", "kv_cache", "shares", "votes", "users", "sessions", "profiles"];
+  const needed = ["videos", "checks", "place_cards", "feedback", "geocode_cache", "error_log", "images", "place_galleries", "saves", "trips", "kv_cache", "shares", "votes", "users", "sessions", "profiles", "place_profiles"];
   const missingTables = needed.filter((t) => !tables.includes(t));
   const latestMigration = (await one<{ name: string }>("SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 1"))?.name ?? null;
   const dayAgo = Date.now() - 86400_000;
@@ -78,6 +78,8 @@ export async function dbReport(db: D1Database) {
       activeSessions: await count(`SELECT COUNT(*) AS n FROM sessions WHERE expires_at > ${Date.now()}`),
       profiles: await count("SELECT COUNT(*) AS n FROM profiles"),
       shares: await count("SELECT COUNT(*) AS n FROM shares"),
+      placeProfiles: await count("SELECT COUNT(*) AS n FROM place_profiles"),
+      placeCardsMissing: await count("SELECT COUNT(*) AS n FROM videos v WHERE v.status = 'ready' AND v.outcome IN ('multi','pick','vibe') AND v.updated_at > " + (Date.now() - 72 * 3600_000) + " AND NOT EXISTS (SELECT 1 FROM place_cards c WHERE c.video_id = v.id)"),
     },
     stuckVideos: stuck,
     errors24h,
