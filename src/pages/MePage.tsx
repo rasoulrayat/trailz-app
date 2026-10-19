@@ -4,7 +4,8 @@ import { logout, resetOnboarded, useMe } from "../auth";
 import { GoogleButton } from "../components/Account";
 import { Icon } from "../components/Icon";
 import { TabBar } from "../components/TabBar";
-import { budgetLabel, CREWS, VIBES } from "../onboarding-data";
+import { homeCity } from "../cities";
+import { VIBES } from "../onboarding-data";
 
 /** Account: who you are, your picks, and the way out. */
 export function MePage() {
@@ -14,9 +15,7 @@ export function MePage() {
   const p = me.profile;
   const picks = [
     ...(p?.vibes ?? []).map((id) => VIBES.find((v) => v.id === id)?.label ?? id),
-    p?.crew ? CREWS.find((c) => c.id === p.crew)?.label : null,
-    budgetLabel(p?.budget),
-    p?.home ? `from ${p.home}` : null,
+    p?.home ? `from ${homeCity(p.home)}` : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -67,7 +66,7 @@ export function MePage() {
           ) : (
             <p className="lead">No picks yet. Thirty seconds, and Explore starts matching your vibe.</p>
           )}
-          <p className="small" style={{ margin: 0 }}>Used for: Explore's "My vibe", your budget filter, and where your trips start from.</p>
+          <p className="small" style={{ margin: 0 }}>Used for: Explore's "My vibe" and where your trips start from.</p>
         </section>
 
         <section className="stack" style={{ gap: 8 }}>

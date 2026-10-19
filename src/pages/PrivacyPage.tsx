@@ -25,7 +25,7 @@ export function PrivacyPage() {
       <ul>
         <li><b>The videos you check.</b> The link, its title, creator name and cover image, plus the analysis. Checked videos are public inside TrailZ: anyone can see them in Explore, without your name.</li>
         <li><b>Your saves and trips.</b> Tied to an anonymous id in a cookie on your phone, or to your account once you log in.</li>
-        <li><b>Your picks</b> from the intro (vibes, who you travel with, a budget range, home city). All optional.</li>
+        <li><b>Your picks</b> from the intro (vibes and home city; earlier versions also asked who you travel with and a budget range). All optional.</li>
         <li><b>Your vibe</b>: the vibe words of the places you save, counted up to sort Explore and start your plans. You can remove any word or switch this learning off on the Vibe page; we never infer anything sensitive from it.</li>
         <li><b>Your Google account basics</b> if you log in: name, email address and profile picture. We never see your password and we do not read your Gmail, contacts or anything else.</li>
         <li><b>Shares and votes</b> when you ask friends about a place or trip.</li>

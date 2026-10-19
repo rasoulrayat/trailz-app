@@ -488,23 +488,31 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .ob-cta:active { transform: scale(0.98); }
 .ob-badge { width: 56px; height: 56px; border-radius: 50%; background: var(--real); color: #fff; display: flex; align-items: center; justify-content: center; animation: ob-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
 @keyframes ob-pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
-.ob-input { width: 100%; height: 56px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff; font: 500 20px var(--font); padding: 0 18px; outline: none; }
-.ob-input::placeholder { color: rgba(255, 255, 255, 0.4); }
-.ob-input:focus { border-color: #7ec8ff; }
 .chip.ob-chip { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); color: #fff; gap: 4px; align-self: flex-start; }
 .chip.ob-chip.static { pointer-events: none; }
 
-/* hook card: the reel's claim vs reality */
-.hook-card { position: relative; width: 100%; max-width: 300px; margin: 0 auto 10px; animation: ob-float 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* hook card: the reel (a real photo) and what's really there */
+.hook-card { --reel-h: clamp(220px, calc(100vh - 450px), 440px); --reel-h: clamp(220px, calc(100dvh - 450px), 440px); position: relative; width: min(300px, 100%); margin: 0 auto 50px; animation: ob-float 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes ob-float { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-.hook-reel { border-radius: 22px; padding: 18px 18px 64px; min-height: 210px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; background: linear-gradient(160deg, #1b6fb8, #f3c6a0 85%); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
-.hook-reel b { font-family: var(--display); font-size: 24px; font-weight: 800; }
-.hook-reel > span:last-child { font-size: 13px; opacity: 0.9; animation: ob-strike 0.4s 1.4s both; }
-@keyframes ob-strike { to { text-decoration: line-through; opacity: 0.55; } }
-.hook-pill { align-self: flex-start; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.25); margin-bottom: auto; }
-.hook-real { position: absolute; right: -8px; bottom: -18px; max-width: 230px; background: #fff; color: var(--navy); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.35; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); transform: rotate(-3deg); animation: ob-stamp 0.45s 1.1s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.hook-reel { position: relative; height: var(--reel-h); border-radius: 24px; overflow: hidden; background: linear-gradient(160deg, #1b6fb8, #f3c6a0 85%); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
+.hook-shade { position: absolute; inset: 0; background: linear-gradient(rgba(5, 11, 26, 0.4), rgba(5, 11, 26, 0) 26%, rgba(5, 11, 26, 0) 42%, rgba(5, 11, 26, 0.85)); }
+.hook-pill { position: absolute; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hook-side { position: absolute; right: 12px; bottom: 112px; display: flex; flex-direction: column; gap: 14px; font-size: 11px; font-weight: 600; }
+.hook-side > span { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hook-side > span:first-child svg { fill: currentColor; }
+.hook-caption { position: absolute; left: 16px; right: 60px; bottom: 50px; display: flex; flex-direction: column; gap: 4px; }
+.hook-caption b { font-family: var(--display); font-size: 24px; font-weight: 800; line-height: 1.05; }
+.hook-caption span { font-size: 13px; opacity: 0.9; animation: ob-strike 0.4s 1.4s both; }
+@keyframes ob-strike { to { text-decoration: line-through; opacity: 0.6; } }
+.hook-real { position: absolute; right: -10px; top: calc(var(--reel-h) - 38px); width: 214px; background: #fff; color: var(--navy); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.35; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); transform: rotate(-3deg); animation: ob-stamp 0.45s 1.1s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
 @keyframes ob-stamp { from { transform: rotate(-3deg) scale(1.6); opacity: 0; } to { transform: rotate(-3deg) scale(1); opacity: 1; } }
-.hook-stamp { align-self: flex-start; font-family: var(--display); font-weight: 800; font-size: 18px; color: #8a5a00; }
+.hook-stamp { font-family: var(--display); font-weight: 800; font-size: 18px; color: #8a5a00; }
+.hook-meter { display: flex; gap: 3px; }
+.hook-meter i { flex: 1; height: 6px; border-radius: 2px; background: #e2e8f3; }
+.hook-meter i.on { background: #8a5a00; }
+.hook-credit { position: absolute; top: 18px; right: 14px; margin: 0; white-space: nowrap; font-size: 9px; line-height: 1.3; }
+.hook-credit a { color: rgba(255, 255, 255, 0.8); text-decoration: none; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+@media (prefers-reduced-motion: reduce) { .hook-card, .hook-real, .hook-caption span { animation: none; } .hook-caption span { text-decoration: line-through; opacity: 0.6; } }
 
 /* vibe tiles */
 .vibe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-bottom: 8px; }
@@ -516,15 +524,40 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .vibe-check { position: absolute; right: 6px; top: 6px; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: var(--navy); display: flex; align-items: center; justify-content: center; transform: scale(0); transition: transform 0.18s cubic-bezier(0.2, 1.4, 0.4, 1); }
 .vibe-tile.on .vibe-check { transform: scale(1); }
 
-/* one-tap options */
-.ob-option { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 18px; border: 2px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.07); color: #fff; font: inherit; transition: transform 0.12s ease, background 0.15s ease; }
-.ob-option:active { transform: scale(0.98); }
-.ob-option.on { background: #fff; color: var(--navy); border-color: #fff; }
-.ob-option > span:last-of-type { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.ob-option b { font-size: 17px; font-weight: 600; }
-.ob-option span span { font-size: 13px; opacity: 0.7; }
-.ob-option-icon { width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; flex: none; }
-.ob-option.on .ob-option-icon { background: var(--blue-tint); color: var(--blue); }
+/* home-city picker */
+.city-edge { height: 1px; margin-bottom: -15px; }
+.city-head { position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 10px; margin: 0 -20px; padding: 6px 20px 8px; transition: background 0.15s ease; }
+.city-head.stuck { background: rgba(14, 33, 78, 0.97); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 8px 18px rgba(5, 11, 26, 0.35); }
+.city-crumb { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.city-crumb b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.city-back { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px 0 8px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: #fff; font: 500 13px var(--font); white-space: nowrap; flex: none; }
+.city-search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 10px 0 14px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); }
+.city-search:focus-within { border-color: #7ec8ff; }
+.city-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; color: #fff; font: 400 16px var(--font); outline: none; }
+.city-search input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.city-clear { width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.14); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+.city-label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); padding: 4px 2px 0; margin-bottom: -6px; }
+.city-group { display: flex; flex-direction: column; border-radius: 18px; background: rgba(255, 255, 255, 0.06); overflow: hidden; flex: none; }
+.city-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 6px 14px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: none; color: #fff; font: inherit; text-align: left; }
+.city-row:last-child { border-bottom: 0; }
+.city-row:active { background: rgba(255, 255, 255, 0.1); }
+.city-row.on { background: #fff; color: var(--navy); border-radius: 14px; border-bottom-color: transparent; }
+.city-row.skeleton-dark { pointer-events: none; background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+.city-lead { width: 26px; display: flex; justify-content: center; flex: none; color: rgba(255, 255, 255, 0.7); }
+.city-lead.sky { color: #7ec8ff; }
+.city-flag { font-size: 20px; line-height: 1; }
+.city-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.city-text b { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-row.on .city-text b { font-weight: 600; }
+.city-text > span { font-size: 12px; color: rgba(255, 255, 255, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-row.on .city-text > span { color: var(--muted); }
+.city-text mark { background: none; color: #7ec8ff; font-weight: 700; }
+.city-row.on .city-text mark { color: var(--blue); }
+.city-other { opacity: 0.6; font-weight: 400; }
+.city-muted { font-size: 12px; color: rgba(255, 255, 255, 0.55); white-space: nowrap; flex: none; }
+.city-hint { font-size: 12px; font-weight: 500; color: #7ec8ff; flex: none; }
+.city-credit { margin: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.45); }
+.ob-p.small-note { font-size: 13px; }
 
 /* ---------- Home ---------- */
 .home { position: relative; isolation: isolate; overflow-x: clip; }

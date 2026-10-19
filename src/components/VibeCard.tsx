@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import type { Profile, SavedPlace } from "../../shared/types";
 import { buildVibe } from "../../shared/vibe";
 import { saveProfile } from "../auth";
-import { budgetLabel, CREWS, VIBES } from "../onboarding-data";
+import { homeCity } from "../cities";
+import { VIBES } from "../onboarding-data";
 import { Icon } from "./Icon";
 
 /**
@@ -13,8 +14,7 @@ import { Icon } from "./Icon";
 export function VibeCard({ items, profile, loaded }: { items: SavedPlace[]; profile: Profile | null; loaded: boolean }) {
   const vibe = useMemo(() => buildVibe(items, profile), [items, profile]);
   const picks = (profile?.vibes ?? []).map((id) => VIBES.find((v) => v.id === id)?.label ?? id);
-  const crew = CREWS.find((c) => c.id === profile?.crew)?.label;
-  const budget = budgetLabel(profile?.budget);
+  const home = homeCity(profile?.home);
   const nothingYet = loaded && vibe.tags.length === 0 && picks.length === 0;
 
   const mute = (key: string) => saveProfile({ vibeOff: [...new Set([...vibe.muted, key])] });
@@ -59,7 +59,7 @@ export function VibeCard({ items, profile, loaded }: { items: SavedPlace[]; prof
           {vibe.learning && vibe.tags.length === 0 && items.length > 0 && (
             <p className="small" style={{ color: "var(--muted-on-dark)", margin: 0 }}>Your saves have no vibe words yet; the picks below do the sorting for now.</p>
           )}
-          {(picks.length > 0 || crew || budget || profile?.home) && (
+          {(picks.length > 0 || home) && (
             <div className="vibe-facts">
               {picks.length > 0 && (
                 <div>
@@ -67,10 +67,10 @@ export function VibeCard({ items, profile, loaded }: { items: SavedPlace[]; prof
                   <b>{picks.join(" · ")}</b>
                 </div>
               )}
-              {(crew || budget || profile?.home) && (
+              {home && (
                 <div>
-                  <span className="small" style={{ color: "var(--muted-on-dark)" }}>Usual trip</span>
-                  <b>{[crew, budget, profile?.home ? `from ${profile.home}` : null].filter(Boolean).join(" · ")}</b>
+                  <span className="small" style={{ color: "var(--muted-on-dark)" }}>Flying from</span>
+                  <b>{home}</b>
                 </div>
               )}
             </div>

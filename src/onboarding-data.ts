@@ -1,5 +1,3 @@
-import type { Crew } from "../shared/types";
-
 /** The picks in the intro. Ids are what the server matches against card vibes. */
 export const VIBES: { id: string; label: string; photoQuery: string; tint: string }[] = [
   { id: "beach", label: "Beach days", photoQuery: "Navagio Beach, Greece", tint: "linear-gradient(160deg, #1b6fb8, #5fd0e8)" },
@@ -13,19 +11,14 @@ export const VIBES: { id: string; label: string; photoQuery: string; tint: strin
   { id: "culture", label: "Temples & history", photoQuery: "Fushimi Inari, Kyoto", tint: "linear-gradient(160deg, #6b1f2a, #ff9a8a)" },
 ];
 
-export const CREWS: { id: Crew; label: string; sub: string; icon: "user" | "heart" | "users" | "home" }[] = [
-  { id: "solo", label: "Just me", sub: "my trip, my rules", icon: "user" },
-  { id: "partner", label: "Me + 1", sub: "partner, bestie, whoever", icon: "heart" },
-  { id: "friends", label: "The group chat", sub: "3 or more, chaos included", icon: "users" },
-  { id: "family", label: "Family", sub: "everyone has an opinion", icon: "home" },
-];
-
-export const BUDGETS: { value: number; label: string; sub: string }[] = [
-  { value: 300, label: "Under €300", sub: "broke but bold" },
-  { value: 600, label: "€300–600", sub: "comfy, not fancy" },
-  { value: 1000, label: "€600–1000", sub: "treat yourself" },
-  { value: 0, label: "Whatever it takes", sub: "the trip is the budget" },
-];
+/** The hook screen's reel: a real photo, pinned so the first screen never waits on a search. */
+export const HOOK_PHOTO = {
+  file: "1000_Three_domes_of_Oia_in_Santorini_Photo_by_Giles_Laurent.jpg",
+  url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/1000_Three_domes_of_Oia_in_Santorini_Photo_by_Giles_Laurent.jpg/960px-1000_Three_domes_of_Oia_in_Santorini_Photo_by_Giles_Laurent.jpg",
+  credit: "Giles Laurent",
+  license: "CC BY-SA 4.0",
+  link: "https://commons.wikimedia.org/wiki/File:1000_Three_domes_of_Oia_in_Santorini_Photo_by_Giles_Laurent.jpg",
+};
 
 /** A likely home city from the phone's time zone: one tap instead of typing. */
 const TZ_CITY: Record<string, string> = {
@@ -45,5 +38,3 @@ export function guessHomeCity(): string | null {
     return null;
   }
 }
-
-export const budgetLabel = (b: number | undefined) => (b === undefined ? null : (BUDGETS.find((x) => x.value === b)?.label ?? `~€${b}`));
