@@ -1,4 +1,5 @@
 import type { ApiError, CheckStatus, CheckSummary, Handoff, Me, Mood, PlaceCardResponse, Profile, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
+import { exploreVersion } from "./explore-version";
 
 export class ApiFailure extends Error {
   constructor(
@@ -122,7 +123,7 @@ export function pricesShared(id: string, force = false) {
 export const forgetPrices = (id: string) => priceCache.delete(id);
 
 export const exploreApi = {
-  list: (params: Record<string, string>) => call<ExploreResponse>(`/api/explore?${new URLSearchParams(params).toString()}`),
+  list: (params: Record<string, string>) => call<ExploreResponse>(`/api/explore?${new URLSearchParams({ ...params, v: exploreVersion() }).toString()}`),
 };
 
 export const shareApi = {

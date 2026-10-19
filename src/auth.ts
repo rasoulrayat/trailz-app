@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Me, Profile } from "../shared/types";
 import { meApi } from "./api";
+import { bumpExploreVersion } from "./explore-version";
 
 /** Who is using the app (account or anonymous) and their onboarding picks, shared by every screen. */
 interface State extends Me {
@@ -21,6 +22,8 @@ export function loadMe(force = false) {
     loading = meApi
       .get()
       .then((m) => {
+        // Coming back from a login (or logout) changes whose saves and picks the feed is about.
+        if ((state.user?.id ?? null) !== (m.user?.id ?? null) && state.loaded) bumpExploreVersion();
         set({ ...m, loaded: true });
         if (m.profile?.onboarded) markOnboarded();
       })
@@ -50,6 +53,7 @@ let saveSeq = 0;
 export function saveProfile(patch: Partial<Profile>): Promise<Profile> {
   // Optimistic: the picks show at once.
   set({ profile: { vibes: [], ...(state.profile ?? {}), ...patch } });
+  bumpExploreVersion();
   const seq = ++saveSeq;
   const run = saveChain.then(() => meApi.saveProfile(patch)).then((r) => {
     if (seq === saveSeq) set({ profile: r.profile });
@@ -62,6 +66,7 @@ export function saveProfile(patch: Partial<Profile>): Promise<Profile> {
 export async function logout() {
   await meApi.logout();
   set({ user: null, profile: null });
+  bumpExploreVersion();
   await loadMe(true);
 }
 

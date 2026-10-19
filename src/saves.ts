@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { SavedPlace, TripSuggestion } from "../shared/types";
 import { tripsApi, type NewSave } from "./api";
+import { bumpExploreVersion } from "./explore-version";
 
 /** Saved places for this device, shared by every screen (one fetch, instant hearts). */
 interface State {
@@ -43,6 +44,7 @@ const flightKey = (name: string, country?: string | null) => `${norm(name)}|${no
  * while the first is still saving ends where the person left it (and never deletes a temporary id).
  */
 export function toggleSave(place: NewSave): Promise<boolean> {
+  bumpExploreVersion();
   const key = flightKey(place.name, place.country);
   const existing = findSaved(place.name, place.country);
   const prev = (inFlight.get(key) ?? Promise.resolve(false)).catch(() => false);
