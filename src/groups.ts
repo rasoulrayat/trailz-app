@@ -52,12 +52,16 @@ const topVibe = (places: SavedPlace[]) => {
 /** Clusters by distance: every member within `radiusKm` of the cluster's first place. */
 function cluster(places: SavedPlace[], radiusKm: number): SavedPlace[][] {
   const out: SavedPlace[][] = [];
-  for (const p of places) {
-    const hit = out.find((c) => km(c[0], p) <= radiusKm || (km(c[0], p) === Infinity && !!p.country && norm(p.country) === norm(c[0].country ?? "")));
+  const hasCoords = (p: SavedPlace) => p.lat != null && p.lng != null;
+  // Places with coordinates first, so a coordless save can only join a cluster, never anchor one.
+  const ordered = [...places.filter(hasCoords), ...places.filter((p) => !hasCoords(p))];
+  for (const p of ordered) {
+    const hit = out.find((c) => km(c[0], p) <= radiusKm || (!hasCoords(p) && !!p.country && norm(p.country) === norm(c[0].country ?? "")));
     if (hit) hit.push(p);
     else out.push([p]);
   }
-  return out;
+  // Back to save order inside each cluster, so titles and photos follow what the person saved first.
+  return out.map((c) => c.sort((a, b) => places.indexOf(a) - places.indexOf(b)));
 }
 
 export function groupPlaces(places: SavedPlace[], by: GroupBy): PlaceGroup[] {

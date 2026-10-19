@@ -37,12 +37,13 @@ export function toPlaceRef(p: ExtractPlace): PlaceRef {
   };
 }
 
+/** Cache/dedupe key for a place name: case- and accent-insensitive, keeps letters of every script (東京 ≠ 京都). */
 export const placeKey = (name: string) =>
   name
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
 function dedupe(places: ExtractPlace[]): ExtractPlace[] {

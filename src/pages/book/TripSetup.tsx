@@ -8,6 +8,8 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEPARTURES = ["Amsterdam", "Rotterdam", "Eindhoven", "Brussels", "Düsseldorf", "Berlin", "London", "Paris"];
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
+/** Today where the person is (not UTC): after midnight in Tehran, "today" must already be the new day. */
+const localIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400_000);
 
 /** The next 9 months as chips; the Reality Cards' best months are marked. */
@@ -48,15 +50,18 @@ export function TripSetup({
   const days = trip.plan.days.length;
   const months = useMemo(() => monthOptions(trip.bestMonths), [trip.bestMonths]);
   const firstBest = months.find((x) => x.best) ?? months[1] ?? months[0];
-  const [month, setMonth] = useState<{ y: number; m: number }>({ y: firstBest.y, m: firstBest.m });
-  const [startDate, setStartDate] = useState(trip.startDate ?? "");
-  const [custom, setCustom] = useState(false);
+  // A trip that already has a date opens on that date (its month, and the row or the custom field that holds it).
+  const saved = trip.startDate && /^\d{4}-\d{2}-\d{2}$/.test(trip.startDate) ? trip.startDate : null;
+  const [month, setMonth] = useState<{ y: number; m: number }>(saved ? { y: Number(saved.slice(0, 4)), m: Number(saved.slice(5, 7)) } : { y: firstBest.y, m: firstBest.m });
+  const [startDate, setStartDate] = useState(saved ?? "");
+  const [custom, setCustom] = useState(() => !!saved && !startOptions(Number(saved.slice(0, 4)), Number(saved.slice(5, 7)), trip.plan.days.length).some((s) => s.date === saved));
   const [flexible, setFlexible] = useState(false);
   const [origin, setOrigin] = useState(trip.origin);
   const [travelers, setTravelers] = useState(trip.travelers);
   const starts = useMemo(() => startOptions(month.y, month.m, days), [month, days]);
-  const today = iso(new Date());
-  const ready = (flexible || /^\d{4}-\d{2}-\d{2}$/.test(startDate)) && origin.trim().length > 1;
+  const today = localIso(new Date());
+  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(startDate) && startDate >= today;
+  const ready = (flexible || dateOk) && origin.trim().length > 1;
 
   return (
     <>

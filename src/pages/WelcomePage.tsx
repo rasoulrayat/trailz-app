@@ -109,7 +109,7 @@ export function WelcomePage() {
 
       <div key={step} className={`ob-step ${dir > 0 ? "from-right" : "from-left"}`}>
         {step === 0 && <Hook onNext={next} />}
-        {step === 1 && <VibeStep picked={picks.vibes} onChange={(vibes) => update({ vibes })} onNext={next} />}
+        {step === 1 && (editing && !me.loaded ? <div className="ob-body"><h1 className="ob-h sm">What's your vibe?</h1><p className="ob-p">Loading your picks…</p></div> : <VibeStep picked={picks.vibes} onChange={(vibes) => update({ vibes })} onNext={next} />)}
         {step === 2 && (
           <CrewStep
             value={picks.crew}

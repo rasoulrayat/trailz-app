@@ -168,7 +168,8 @@ function cleanPlan(raw: RawPlan, days: number, origin = ""): TripPlan {
           book: ["flights", "stay", "activity", "transport"].includes(it.book ?? "") ? (it.book as PlanItem["book"]) : undefined,
         })),
     }))
-    .filter((d) => d.items.length > 0);
+    .filter((d) => d.items.length > 0)
+    .map((d, i) => ({ ...d, day: i + 1, title: d.title === `Day ${d.day}` ? `Day ${i + 1}` : d.title }));
   if (!cleanDays.length) throw new Error("The plan came back empty");
   return {
     title: raw.title?.trim() || "Your trip",
@@ -230,7 +231,8 @@ export function buildHandoff(
   /** IATA codes, when the airport lookup found them. */
   codes?: { origin?: string; destination?: string; leave?: string },
 ): Handoff {
-  const start = trip.startDate ?? null;
+  // A stored date that isn't a real calendar day (older rows) is treated as "no date" rather than crashing the links.
+  const start = trip.startDate && !Number.isNaN(new Date(`${trip.startDate}T00:00:00Z`).getTime()) ? trip.startDate : null;
   const nights = Math.max(1, trip.plan.days.length - 1);
   const end = start ? addDays(start, nights) : null;
   const firstBase = trip.plan.days[0]?.base || trip.places[0]?.name || "";

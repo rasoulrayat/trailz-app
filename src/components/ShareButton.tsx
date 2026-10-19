@@ -11,7 +11,7 @@ export function ShareButton({ kind, id, placeName, title, onMedia }: { kind: "ch
   const [votes, setVotes] = useState<ShareVotes | null>(null);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
-    shareApi.mine(kind, id).then((r) => setVotes(r.votes)).catch(() => {});
+    shareApi.mine(kind, id, placeName).then((r) => setVotes(r.votes)).catch(() => {});
   }, [kind, id]);
 
   async function go() {
@@ -28,7 +28,7 @@ export function ShareButton({ kind, id, placeName, title, onMedia }: { kind: "ch
         prompt("Copy this link", url);
       }
     }
-    shareApi.mine(kind, id).then((r) => setVotes(r.votes)).catch(() => {});
+    shareApi.mine(kind, id, placeName).then((r) => setVotes(r.votes)).catch(() => {});
   }
 
   const tally = votes && votes.in + votes.out > 0 ? `${votes.in} in · ${votes.out} out` : null;

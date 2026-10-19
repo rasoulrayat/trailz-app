@@ -47,10 +47,12 @@ interface Props {
   vibe?: string[];
   /** A shared link: no Save / Plan, and `footer` (the vote box) is shown instead. */
   readOnly?: boolean;
+  /** This card is one place inside a reel (not the reel's own single result): share links must carry the place name. */
+  placeCard?: boolean;
   footer?: ReactNode;
 }
 
-export function RealityCardView({ card, video, backTo, context, checkId, vibe, readOnly, footer }: Props) {
+export function RealityCardView({ card, video, backTo, context, checkId, vibe, readOnly, placeCard, footer }: Props) {
   const { place } = card;
   const savePlace: NewSave = {
     name: place.name,
@@ -76,7 +78,7 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
               <Link to={backTo} className="icon-btn on-media" aria-label="Back">
                 <Icon name="back" />
               </Link>
-              {!readOnly && checkId && <ShareButton kind="check" id={checkId} placeName={context ? place.name : undefined} title={place.name} onMedia />}
+              {!readOnly && checkId && <ShareButton kind="check" id={checkId} placeName={placeCard || context ? place.name : undefined} title={place.name} onMedia />}
             </div>
             {(video || photo) && (
               <div className="credit">

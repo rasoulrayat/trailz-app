@@ -29,19 +29,20 @@ export const getVideo = (db: D1Database, id: string) =>
 export const getVideoByKey = (db: D1Database, key: string) =>
   db.prepare("SELECT * FROM videos WHERE canonical_key = ?").bind(key).first<VideoRow>();
 
-export async function countBillableToday(db: D1Database, deviceId: string): Promise<number> {
+/** Paid checks in the last 24 h by this owner (account or device) OR made from this physical device, whoever owned them. */
+export async function countBillableToday(db: D1Database, ownerId: string, originDevice: string = ownerId): Promise<number> {
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const row = await db
-    .prepare("SELECT COUNT(*) AS n FROM checks WHERE device_id = ? AND billable = 1 AND created_at > ?")
-    .bind(deviceId, since)
+    .prepare("SELECT COUNT(*) AS n FROM checks WHERE (device_id = ? OR origin_device = ?) AND billable = 1 AND created_at > ?")
+    .bind(ownerId, originDevice, since)
     .first<{ n: number }>();
   return row?.n ?? 0;
 }
 
-export async function recordCheck(db: D1Database, deviceId: string, videoId: string, billable: boolean) {
+export async function recordCheck(db: D1Database, ownerId: string, videoId: string, billable: boolean, originDevice: string = ownerId) {
   await db
-    .prepare("INSERT INTO checks (id, device_id, video_id, billable, created_at) VALUES (?, ?, ?, ?, ?)")
-    .bind(newId(), deviceId, videoId, billable ? 1 : 0, Date.now())
+    .prepare("INSERT INTO checks (id, device_id, origin_device, video_id, billable, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(newId(), ownerId, originDevice, videoId, billable ? 1 : 0, Date.now())
     .run();
 }
 

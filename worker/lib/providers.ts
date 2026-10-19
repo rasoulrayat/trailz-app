@@ -16,13 +16,14 @@ const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 ? `${m %
 export async function serpBudget(db: D1Database, monthlyLimit: number): Promise<boolean> {
   const month = new Date().toISOString().slice(0, 7);
   const key = `serp:quota:${month}`;
-  const row = await db.prepare("SELECT json FROM kv_cache WHERE key = ?").bind(key).first<{ json: string }>();
-  const used = row ? (JSON.parse(row.json) as number) : 0;
-  if (used >= monthlyLimit) return false;
-  await db.prepare("INSERT OR REPLACE INTO kv_cache (key, json, expires_at) VALUES (?, ?, ?)")
-    .bind(key, JSON.stringify(used + 1), Date.now() + 40 * 24 * 3600_000)
+  // Start the month's counter at 0 if missing, then take one unit only while under the limit: a single
+  // conditional UPDATE, so concurrent requests can't all squeeze through at limit-1.
+  await db.prepare("INSERT OR IGNORE INTO kv_cache (key, json, expires_at) VALUES (?, '0', ?)").bind(key, Date.now() + 40 * 24 * 3600_000).run();
+  const res = await db
+    .prepare("UPDATE kv_cache SET json = CAST(CAST(json AS INTEGER) + 1 AS TEXT) WHERE key = ? AND CAST(json AS INTEGER) < ?")
+    .bind(key, monthlyLimit)
     .run();
-  return true;
+  return (res.meta.changes ?? 0) === 1;
 }
 
 // ---------- Google Flights (SerpApi) ----------
@@ -169,8 +170,9 @@ export async function duffelFlights(
   tripId: string,
   fetcher: typeof fetch = fetch,
 ): Promise<Offer[]> {
-  const key = `df:${origin}:${destination}:${departure}:${ret ?? "ow"}:${adults}`;
-  return cached(db, key, 20 * 60_000, async () => {
+  const key = `df2:${origin}:${destination}:${departure}:${ret ?? "ow"}:${adults}`;
+  // The cache is shared by every trip on this route; the Book link is trip-specific, so it's added after the cache.
+  const offers = await cached(db, key, 20 * 60_000, async () => {
     try {
       const slices = [{ origin, destination, departure_date: departure }, ...(ret ? [{ origin: destination, destination: origin, departure_date: ret }] : [])];
       const res = await fetcher("https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=8000", {
@@ -202,7 +204,7 @@ export async function duffelFlights(
           title: `${o.owner?.name ?? "Airline"} · ${stops === 0 ? "direct" : `${stops} stop${stops > 1 ? "s" : ""}`}${minutes ? ` · ${mins(minutes)}` : ""}`,
           detail: "airline fare",
           // The hosted checkout is created when the person taps Book (see /trips/:id/duffel-link).
-          bookUrl: `/api/trips/${tripId}/duffel-link?offer=${encodeURIComponent(o.id)}`,
+          bookUrl: `?offer=${encodeURIComponent(o.id)}`,
           unit: "per person" as const,
         };
       });
@@ -210,6 +212,7 @@ export async function duffelFlights(
       return [];
     }
   });
+  return offers.map((o) => ({ ...o, bookUrl: `/api/trips/${tripId}/duffel-link${o.bookUrl}` }));
 }
 
 /** Duffel Links: a hosted booking page; the markup is our earning. Returns the URL, or the error text. */

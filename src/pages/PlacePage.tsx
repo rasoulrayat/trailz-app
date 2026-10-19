@@ -72,7 +72,7 @@ export function PlacePage() {
           : undefined;
 
   const vibe = check?.result?.outcome === "vibe" ? check.result.vibe : undefined;
-  if (card) return <RealityCardView card={card} video={check?.video} backTo={`/check/${id}`} context={context} checkId={id} vibe={vibe} />;
+  if (card) return <RealityCardView card={card} video={check?.video} backTo={`/check/${id}`} context={context} checkId={id} vibe={vibe} placeCard />;
 
   // While the card is written: the place's photos and map are ready already.
   const place = lookup(check, name);

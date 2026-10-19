@@ -13,5 +13,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["worker", "shared", "tests"]
+  "include": ["worker", "shared", "tests"],
+  // Regression repros mix worker and browser code (React, fetch stubs); vitest runs them without the worker types.
+  "exclude": ["tests/regressions"]
 }

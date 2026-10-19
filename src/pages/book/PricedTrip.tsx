@@ -30,7 +30,9 @@ export function PricedTrip({
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   // Steps: one flight, one stay per base town, activities (only if the plan has bookable ones).
-  const stays = prices !== "loading" && prices ? prices.stays : (handoff?.stay ?? []).map((s) => ({ city: s.city, nights: s.nights, offers: [] as Offer[], checkIn: "", checkOut: "", searchUrl: s.url }));
+  // Without dates the worker has no priced stays; the hand-off's open-dated search links stand in so the step still exists.
+  const pricedStays = prices !== "loading" && prices ? prices.stays : [];
+  const stays = pricedStays.length ? pricedStays : (handoff?.stay ?? []).map((s) => ({ city: s.city, nights: s.nights, offers: [] as Offer[], checkIn: "", checkOut: "", searchUrl: s.url }));
   const activities = handoff?.activities ?? [];
   const steps: Step[] = [
     { id: "flights", kind: "flights", label: "Flight", done: !!trip.booked.flights },
@@ -87,13 +89,18 @@ export function PricedTrip({
   const total = useMemo(() => {
     if (prices === "loading" || !prices) return null;
     const flight = prices.flights?.offers.find((o) => o.kind !== "search")?.price ?? null;
+    // Per base town: the best priced offer, or that town's share of the plan's stay estimate (by nights), so a town
+    // without a price never silently drops out of the number.
+    const totalNights = prices.stays.reduce((n, s) => n + s.nights, 0) || 1;
+    let pricedAny = false;
     const stayTotal = prices.stays.reduce((sum, s) => {
       const best = s.offers.find((o) => o.kind !== "search");
-      return best ? sum + best.price / Math.max(1, trip.travelers) : sum;
+      if (best) pricedAny = true;
+      return sum + (best ? best.price / Math.max(1, trip.travelers) : (trip.plan.estimate.stay * s.nights) / totalNights);
     }, 0);
-    if (flight === null && !stayTotal) return null;
+    if (flight === null && !pricedAny) return null;
     const live = [...(prices.flights?.offers ?? []), ...prices.stays.flatMap((s) => s.offers)].some((o) => o.freshness === "live" && o.kind !== "search");
-    return { value: (flight ?? trip.plan.estimate.travel) + (stayTotal || trip.plan.estimate.stay) + trip.plan.estimate.activities, live, flight, stayTotal };
+    return { value: (flight ?? trip.plan.estimate.travel) + (pricedAny ? stayTotal : trip.plan.estimate.stay) + trip.plan.estimate.activities, live, flight, stayTotal };
   }, [prices, trip]);
 
   const flightsSection = (() => {
@@ -192,7 +199,7 @@ export function PricedTrip({
       <div className="actionbar col">
         {next ? (
           <button className="btn" onClick={() => document.getElementById(`sec-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-            Next: book your {next.label.toLowerCase().replace("stay · ", "stay in ")}
+            Next: book your {stepWords(next.label)}
             {bestPrice(next, prices, trip) ? ` · ${bestPrice(next, prices, trip)}` : ""}
             <Icon name="arrow" size={18} />
           </button>
@@ -207,7 +214,7 @@ export function PricedTrip({
       {pending && (
         <div className="sheet-backdrop" role="dialog" aria-modal="true" aria-label="Did you book it?">
           <div className="sheet">
-            <h2 style={{ fontSize: 20, fontFamily: "var(--display)" }}>Did you book the {pending.label.toLowerCase().replace("stay · ", "stay in ")}?</h2>
+            <h2 style={{ fontSize: 20, fontFamily: "var(--display)" }}>Did you book the {stepWords(pending.label)}?</h2>
             <p className="lead">We'll tick it off and move you to the next part.</p>
             <div className="row" style={{ gap: 10 }}>
               <button className="btn secondary" style={{ flex: 1 }} onClick={() => answer(false)}>
@@ -441,3 +448,6 @@ function ActivitiesSection({ step, items, estimate, onLeave, onMark, onUndo }: {
 }
 
 export type { ReactNode };
+
+/** "Flight" → "flight", "Stay · Lisbon" → "stay in Lisbon" (the city keeps its capitals). */
+const stepWords = (label: string) => (label.startsWith("Stay · ") ? `stay in ${label.slice(7)}` : label.toLowerCase());

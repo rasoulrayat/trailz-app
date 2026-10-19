@@ -77,7 +77,8 @@ export async function upsertGoogleUser(db: D1Database, g: GoogleIdentity): Promi
 
 /**
  * Everything this device did before logging in now belongs to the account.
- * Rows that would collide with the account's own (same saved place, same vote) stay behind, harmlessly.
+ * Rows that would collide with the account's own (same saved place, same vote) are dropped, so nothing
+ * stays behind under the device id: the account keeps one row per place/vote, and a later logout shows a clean guest.
  */
 export async function mergeDeviceIntoUser(db: D1Database, deviceId: string, userId: string) {
   const owner = ownerForUser(userId);
@@ -85,9 +86,13 @@ export async function mergeDeviceIntoUser(db: D1Database, deviceId: string, user
   const statements = [
     db.prepare("UPDATE checks SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
     db.prepare("UPDATE OR IGNORE saves SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
+    db.prepare("DELETE FROM saves WHERE device_id = ?").bind(deviceId),
     db.prepare("UPDATE trips SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
     db.prepare("UPDATE OR IGNORE shares SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
+    // A vote cast on this device wins over an older one on the account (the latest opinion counts once).
+    db.prepare("DELETE FROM votes WHERE device_id = ? AND share_token IN (SELECT v.share_token FROM votes v WHERE v.device_id = ? AND v.created_at <= (SELECT d.created_at FROM votes d WHERE d.device_id = ? AND d.share_token = v.share_token))").bind(owner, owner, deviceId),
     db.prepare("UPDATE OR IGNORE votes SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
+    db.prepare("DELETE FROM votes WHERE device_id = ?").bind(deviceId),
     db.prepare("UPDATE feedback SET device_id = ? WHERE device_id = ?").bind(owner, deviceId),
     // Onboarding answers: the account keeps its own if it has any; otherwise the device's move over.
     db.prepare("UPDATE OR IGNORE profiles SET owner_id = ? WHERE owner_id = ?").bind(owner, deviceId),
@@ -109,13 +114,28 @@ export async function readProfile(db: D1Database, ownerId: string): Promise<Prof
 }
 
 export async function writeProfile(db: D1Database, ownerId: string, patch: unknown): Promise<Profile> {
-  const current = (await readProfile(db, ownerId)) ?? EMPTY_PROFILE;
-  const next = cleanProfile({ ...current, ...(patch && typeof patch === "object" ? (patch as object) : {}) });
+  // Only the fields the client sent, validated; merged by SQLite itself so two quick saves can't overwrite each other.
+  const clean = cleanPatch(patch);
   await db
-    .prepare("INSERT INTO profiles (owner_id, json, updated_at) VALUES (?, ?, ?) ON CONFLICT (owner_id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at")
-    .bind(ownerId, JSON.stringify(next), Date.now())
+    .prepare(
+      "INSERT INTO profiles (owner_id, json, updated_at) VALUES (?, ?, ?) ON CONFLICT (owner_id) DO UPDATE SET json = json_patch(profiles.json, ?), updated_at = excluded.updated_at",
+    )
+    .bind(ownerId, JSON.stringify({ ...EMPTY_PROFILE, ...clean }), Date.now(), JSON.stringify(clean))
     .run();
-  return next;
+  return (await readProfile(db, ownerId)) ?? EMPTY_PROFILE;
+}
+
+/** The valid fields present in a patch (and nothing else), so a save of one answer can't blank the others. */
+export function cleanPatch(raw: unknown): Partial<Profile> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const full = cleanProfile(raw);
+  const out: Partial<Profile> = {};
+  if (Array.isArray(r.vibes)) out.vibes = full.vibes;
+  if ("crew" in r && full.crew) out.crew = full.crew;
+  if ("budget" in r && full.budget !== undefined) out.budget = full.budget;
+  if ("home" in r && full.home !== undefined) out.home = full.home;
+  if (full.onboarded) out.onboarded = true;
+  return out;
 }
 
 const CREWS = new Set(["solo", "partner", "friends", "family"]);

@@ -118,7 +118,8 @@ export const shareApi = {
   get: (token: string) => call<SharePayload>(`/api/share/${encodeURIComponent(token)}`),
   vote: (token: string, vote: "in" | "out", name?: string) =>
     call<{ votes: SharePayload["votes"] }>(`/api/share/${encodeURIComponent(token)}/vote`, { method: "POST", body: JSON.stringify({ vote, name }) }),
-  mine: (kind: "check" | "trip", id: string) => call<{ token: string | null; votes: SharePayload["votes"] | null }>(`/api/share/mine?kind=${kind}&id=${encodeURIComponent(id)}`),
+  mine: (kind: "check" | "trip", id: string, placeName?: string) =>
+    call<{ token: string | null; votes: SharePayload["votes"] | null }>(`/api/share/mine?kind=${kind}&id=${encodeURIComponent(id)}${placeName ? `&placeName=${encodeURIComponent(placeName)}` : ""}`),
 };
 
 export const meApi = {

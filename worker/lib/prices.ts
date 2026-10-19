@@ -3,10 +3,21 @@ import { duffelFlights, googleFlights, googleHotels } from "./providers";
 import { placeKey } from "./route";
 
 /** Cached JSON with expiry, so partner APIs are called once per query. */
+/** Thrown by a loader to answer without caching (an upstream failure is not a result worth remembering). */
+export class Uncached<T> {
+  constructor(readonly value: T) {}
+}
+
 export async function cached<T>(db: D1Database, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const row = await db.prepare("SELECT json FROM kv_cache WHERE key = ? AND expires_at > ?").bind(key, Date.now()).first<{ json: string }>();
   if (row) return JSON.parse(row.json) as T;
-  const value = await load();
+  let value: T;
+  try {
+    value = await load();
+  } catch (err) {
+    if (err instanceof Uncached) return err.value as T;
+    throw err;
+  }
   await db.prepare("INSERT OR REPLACE INTO kv_cache (key, json, expires_at) VALUES (?, ?, ?)").bind(key, JSON.stringify(value), Date.now() + ttlMs).run();
   return value;
 }
@@ -29,14 +40,14 @@ export async function iataFor(db: D1Database, place: string, fetcher: typeof fet
     try {
       const u = `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=city&types[]=airport&term=${encodeURIComponent(city)}`;
       const res = await fetcher(u, { signal: withTimeout(5000) });
-      if (!res.ok) return null;
+      if (!res.ok) throw new Uncached(null); // a hiccup upstream must not become "no airport" for 30 days
       const rows = (await res.json()) as { code: string; name: string; country_name?: string; type?: string }[];
       const inCountry = country ? rows.filter((r) => placeKey(r.country_name ?? "") === placeKey(country)) : rows;
       const pool = inCountry.length ? inCountry : rows;
       const hit = pool.find((r) => r.type === "city") ?? pool[0];
       return hit ? { code: hit.code, name: hit.name, country: hit.country_name } : null;
-    } catch {
-      return null;
+    } catch (err) {
+      throw err instanceof Uncached ? err : new Uncached(null);
     }
   });
 }
@@ -68,12 +79,16 @@ export async function flightQuotes(
 ): Promise<FlightQuote[]> {
   const key = `fl2:${origin}:${destination}:${departureAt}:${returnAt ?? "ow"}`;
   return cached(db, key, 6 * 3600_000, async () => {
-    const exact = await fetchFares(token, marker, origin, destination, departureAt, returnAt, fetcher);
-    if (exact.length) return exact;
-    // Nothing for the exact dates: the cheapest fares in the same month, marked as nearby dates.
-    const month = departureAt.slice(0, 7);
-    const near = await fetchFares(token, marker, origin, destination, month, returnAt ? returnAt.slice(0, 7) : null, fetcher);
-    return near.map((q) => ({ ...q, approx: true }));
+    try {
+      const exact = await fetchFares(token, marker, origin, destination, departureAt, returnAt, fetcher);
+      if (exact.length) return exact;
+      // Nothing for the exact dates: the cheapest fares in the same month, marked as nearby dates.
+      const month = departureAt.slice(0, 7);
+      const near = await fetchFares(token, marker, origin, destination, month, returnAt ? returnAt.slice(0, 7) : null, fetcher);
+      return near.map((q) => ({ ...q, approx: true }));
+    } catch {
+      throw new Uncached([] as FlightQuote[]); // provider down: answer empty now, ask again next time
+    }
   });
 }
 
@@ -98,7 +113,7 @@ async function fetchFares(
     u.searchParams.set("limit", "5");
     u.searchParams.set("sorting", "price");
     const res = await fetcher(u.toString(), { headers: { "x-access-token": token, "accept-encoding": "gzip" }, signal: withTimeout(8000) });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`aviasales ${res.status}`);
     const body = (await res.json()) as {
       data?: { price: number; airline: string; transfers: number; return_transfers?: number; departure_at: string; return_at?: string; link: string; currency?: string }[];
     };
@@ -115,8 +130,8 @@ async function fetchFares(
         url: link.toString(),
       };
     });
-  } catch {
-    return [];
+  } catch (err) {
+    throw err instanceof Error ? err : new Error("aviasales failed");
   }
 }
 

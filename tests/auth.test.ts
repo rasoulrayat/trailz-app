@@ -26,3 +26,13 @@ describe("auth helpers", () => {
     expect(ownerForUser("abc")).toBe("u:abc");
   });
 });
+
+import { cleanPatch } from "../worker/lib/auth";
+describe("cleanPatch", () => {
+  it("keeps only the fields that were sent", () => {
+    expect(cleanPatch({ crew: "solo" })).toEqual({ crew: "solo" });
+    expect(cleanPatch({ vibes: ["beach"], junk: 1 })).toEqual({ vibes: ["beach"] });
+    expect(cleanPatch({ onboarded: true })).toEqual({ onboarded: true });
+    expect(cleanPatch(null)).toEqual({});
+  });
+});

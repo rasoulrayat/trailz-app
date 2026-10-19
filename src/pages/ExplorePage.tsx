@@ -19,6 +19,8 @@ const SORTS: { id: string; label: string }[] = [
 /** Reels everyone has checked, from stored results only. Filters never call an outside service. */
 export function ExplorePage() {
   const [items, setItems] = useState<ExploreItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [myVibe, setMyVibe] = useState<string[]>([]);
   const [hasSaves, setHasSaves] = useState(false);
   const [vibe, setVibe] = useState(false);
@@ -42,6 +44,7 @@ export function ExplorePage() {
 
   useEffect(() => {
     let live = true;
+    setFailed(false);
     const t = setTimeout(() => {
       exploreApi
         .list(params)
@@ -52,13 +55,17 @@ export function ExplorePage() {
           setMyVibe(r.myVibe);
           setHasSaves(r.hasSaves);
         })
-        .catch(() => live && setItems([]));
+        .catch(() => {
+          if (!live) return;
+          setItems([]);
+          setFailed(true);
+        });
     }, q ? 250 : 0);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [params, q]);
+  }, [params, q, retry]);
 
   const now = new Date().getMonth() + 1;
   return (
@@ -129,6 +136,17 @@ export function ExplorePage() {
             {Array.from({ length: 9 }, (_, i) => (
               <div key={i} className={`skeleton tile${i === 1 ? " big" : ""}`} />
             ))}
+          </div>
+        ) : failed ? (
+          <div className="card stack" style={{ padding: 18, alignItems: "center", textAlign: "center", gap: 8 }}>
+            <span className="mood-icon">
+              <Icon name="alert" size={22} />
+            </span>
+            <h2>Couldn't load Explore</h2>
+            <p className="lead">Check your connection and try again.</p>
+            <button className="btn" style={{ width: "auto" }} onClick={() => setRetry((n) => n + 1)}>
+              Try again
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div className="card stack" style={{ padding: 18, alignItems: "center", textAlign: "center", gap: 8 }}>

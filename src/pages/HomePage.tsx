@@ -28,19 +28,25 @@ export function HomePage() {
   }, [navigate]);
 
   useEffect(() => {
+    let live = true;
     api
       .listChecks()
-      .then((r) => setRecent(r.items))
-      .catch(() => setRecent([]));
-    // What everyone is checking this week, from stored results only.
+      .then((r) => live && setRecent(r.items))
+      .catch(() => live && setRecent([]));
+    // What everyone is checking this week, from stored results only. Only while Home is on screen:
+    // a late response must not overwrite the list Explore has since built.
     exploreApi
       .list({ sort: "trending" })
       .then((r) => {
+        if (!live) return;
         const items = r.items.slice(0, 10);
         setTrending(items);
         setExploreFeed(items);
       })
-      .catch(() => setTrending([]));
+      .catch(() => live && setTrending([]));
+    return () => {
+      live = false;
+    };
   }, []);
 
   async function submit(e?: FormEvent, value = input) {

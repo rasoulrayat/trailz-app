@@ -44,12 +44,19 @@ export function useMe() {
   return s;
 }
 
-export async function saveProfile(patch: Partial<Profile>) {
+// Saves run one after another and only the latest answer is applied: a fast tap burst can't land out of order.
+let saveChain: Promise<unknown> = Promise.resolve();
+let saveSeq = 0;
+export function saveProfile(patch: Partial<Profile>): Promise<Profile> {
   // Optimistic: the picks show at once.
   set({ profile: { vibes: [], ...(state.profile ?? {}), ...patch } });
-  const r = await meApi.saveProfile(patch);
-  set({ profile: r.profile });
-  return r.profile;
+  const seq = ++saveSeq;
+  const run = saveChain.then(() => meApi.saveProfile(patch)).then((r) => {
+    if (seq === saveSeq) set({ profile: r.profile });
+    return r.profile;
+  });
+  saveChain = run.catch(() => null);
+  return run;
 }
 
 export async function logout() {

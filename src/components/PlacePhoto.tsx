@@ -26,7 +26,8 @@ const cache = new Map<string, Promise<Gallery>>();
  * and a 400 px JPEG is roughly a fifth of the bytes. Other hosts are returned unchanged.
  */
 export function thumb(url: string, width: number): string {
-  return /\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-/, `/${width}px-`) : url;
+  // Only the last "/<n>px-" is the size; a file itself named "1200px-…" keeps its name.
+  return /\.wikimedia\.org\/.*\/thumb\//.test(url) ? url.replace(/\/(\d+)px-([^/]*)$/, `/${width}px-$2`) : url;
 }
 
 /** Fetch galleries ahead of time and start the image downloads, so a screen that needs them opens already filled. */
@@ -84,6 +85,9 @@ export function PhotoViewer({
 }) {
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(start);
+  // Parents re-render (polls, state): the viewer must not jump back to the opening photo when they do.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const el = track.current;
@@ -91,7 +95,7 @@ export function PhotoViewer({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key === "ArrowRight") el?.scrollBy({ left: el.clientWidth, behavior: "smooth" });
       if (e.key === "ArrowLeft") el?.scrollBy({ left: -el.clientWidth, behavior: "smooth" });
     };
@@ -100,7 +104,8 @@ export function PhotoViewer({
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [start, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const photo = photos[index] ?? photos[0];
   return createPortal(

@@ -230,7 +230,8 @@ trips.patch("/trips/:id", async (c) => {
     if (b.booked.activities !== undefined) booked.activities = !!b.booked.activities;
     if (b.booked.stay) booked.stay = { ...(booked.stay ?? {}), ...b.booked.stay };
   }
-  const startDate = b.startDate === undefined ? row.start_date : b.startDate && /^\d{4}-\d{2}-\d{2}$/.test(b.startDate) ? b.startDate : null;
+  if (b.startDate && !isFutureDate(b.startDate)) return c.json<ApiError>({ error: "bad_request", message: "Pick a real date that isn't in the past." }, 400);
+  const startDate = b.startDate === undefined ? row.start_date : b.startDate || null;
   const origin = (b.origin ?? row.origin).trim().slice(0, 60) || row.origin;
   const travelers = Math.min(9, Math.max(1, Math.round(Number(b.travelers) || row.travelers)));
   // New dates mean new bookings: reset what was booked (unless only the booked flags changed).
@@ -356,3 +357,10 @@ trips.get("/trips/:id/duffel-link", async (c) => {
   }
   return c.redirect(url, 302);
 });
+/** "YYYY-MM-DD" that is a real calendar day and not before today (UTC-1 day of slack for time zones west of Greenwich). */
+export function isFutureDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return false;
+  return d.getTime() >= Date.now() - 36 * 3600_000;
+}

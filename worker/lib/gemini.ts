@@ -106,7 +106,13 @@ async function generateJsonFrom<T>(
       const why = body.promptFeedback?.blockReason ?? body.candidates?.[0]?.finishReason ?? "empty answer";
       throw new Error(`Gemini ${model} returned no text (${why})`);
     }
-    return { data: JSON.parse(text) as T, model };
+    try {
+      return { data: JSON.parse(text) as T, model };
+    } catch {
+      // Cut-off or malformed answer (e.g. MAX_TOKENS): the next model or the backup may still answer.
+      skipped.push(`${model}: unparseable JSON (${body.candidates?.[0]?.finishReason ?? "?"})`);
+      continue;
+    }
   }
   if (cfg.fallback) {
     try {

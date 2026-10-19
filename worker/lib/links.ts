@@ -55,6 +55,8 @@ export function parseLink(input: string): ParseResult {
 
   // ---- Instagram ----
   if (host === "instagram.com" || host === "instagr.am") {
+    // Share-sheet links (/share/reel/<token>, /share/p/<token>) redirect to the real post: resolve them first.
+    if (parts[0] === "share") return { kind: "short", url: u.toString() };
     const i = parts.findIndex((p) => ["reel", "reels", "p", "tv"].includes(p));
     if (i >= 0 && parts[i + 1]) {
       const code = parts[i + 1];
@@ -63,7 +65,6 @@ export function parseLink(input: string): ParseResult {
         link: { platform: "instagram", canonicalKey: `instagram:${code}`, url: `https://www.instagram.com/reel/${code}/` },
       };
     }
-    if (parts[0] === "share") return { kind: "short", url: u.toString() };
     if (parts.length === 1 && !["explore", "stories", "direct", "accounts"].includes(parts[0])) {
       return { kind: "error", code: "profile_link" };
     }

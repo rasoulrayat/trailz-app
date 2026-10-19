@@ -18,7 +18,11 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function ReelViewerPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const [items, setItems] = useState<ExploreItem[]>(() => getExploreFeed());
+  // A feed that doesn't contain this reel is useless here: start empty and rebuild, rather than showing its first reel.
+  const [items, setItems] = useState<ExploreItem[]>(() => {
+    const feed = getExploreFeed();
+    return feed.some((it) => it.id === id) ? feed : [];
+  });
   const [missing, setMissing] = useState(false);
   const [active, setActive] = useState(() => Math.max(0, getExploreFeed().findIndex((it) => it.id === id)));
   const [sound, setSound] = useState(false);
@@ -85,6 +89,7 @@ export function ReelViewerPage() {
 
   // Keep the URL on the reel being watched, so sharing or refreshing lands here.
   useEffect(() => {
+    if (!items.some((x) => x.id === id)) return; // list not resolved for this id yet
     const it = items[active];
     if (it && it.id !== id) navigate(`/explore/reel/${it.id}`, { replace: true });
   }, [active, items, id, navigate]);

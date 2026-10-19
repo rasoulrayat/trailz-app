@@ -43,17 +43,28 @@ export async function fillVideoMeta(env: Env, videoId: string, knownThumb?: stri
       thumb = meta.thumbnailUrl;
       title = meta.title;
       author = meta.author;
+      // The paid metadata call answered: keep title and creator now, whatever happens to the cover.
+      if (title || author) {
+        await env.DB.prepare("UPDATE videos SET title = COALESCE(title, ?), author = COALESCE(author, ?) WHERE id = ?")
+          .bind(title ?? null, author ?? null, videoId)
+          .run();
+      }
     }
-    const stored = thumb ? await storeImage(env.DB, `v-${videoId}`, thumb) : "";
-    await env.DB.prepare("UPDATE videos SET thumbnail_url = ?, title = COALESCE(title, ?), author = COALESCE(author, ?) WHERE id = ?")
-      .bind(stored, title ?? null, author ?? null, videoId)
-      .run();
   } catch (err) {
     // Busy or a passing error: let the next visit try again. Other errors: give up on this cover.
     const busy = err instanceof SupadataError && (err.httpStatus === 429 || err.httpStatus >= 500);
     if (busy) await env.DB.prepare("UPDATE videos SET thumbnail_url = NULL WHERE id = ?").bind(videoId).run();
     throw err;
   }
+  let stored = "";
+  try {
+    stored = thumb ? await storeImage(env.DB, `v-${videoId}`, thumb) : "";
+  } catch (err) {
+    // The image itself couldn't be copied (not an image, too big, CDN hiccup): try again on a later visit.
+    await env.DB.prepare("UPDATE videos SET thumbnail_url = NULL WHERE id = ?").bind(videoId).run();
+    throw err;
+  }
+  await env.DB.prepare("UPDATE videos SET thumbnail_url = ? WHERE id = ?").bind(stored, videoId).run();
 }
 
 /** Supadata allows about 1 request per second, and a new check has just started an Extract job. */
@@ -113,7 +124,17 @@ export async function placeGallery(
   if (cached && Date.now() - cached.created_at < GALLERY_TTL) return JSON.parse(cached.json) as PlaceGallery;
 
   const name = query.split(",")[0].trim();
-  const first = placeKey(name).split(" ")[0];
+  // The name's first meaningful word ("digue" for La Digue, "moritz" for St. Moritz), matched as a whole word.
+  const SMALL = new Set(["la", "le", "les", "el", "los", "las", "the", "st", "san", "santa", "saint", "de", "del", "da", "di", "isle", "of", "ko", "koh", "mount", "mt", "lake"]);
+  const words = placeKey(name).split(" ").filter(Boolean);
+  const first = words.find((w) => w.length > 2 && !SMALL.has(w)) ?? words[0] ?? "";
+  // A file mentions the place when a word starts with that token ("Flåmsbana" for Flåm) or the whole compact name
+  // appears ("ladigue"); a bare "la"/"st" inside another word does not count.
+  const compact = words.join("");
+  const mentions = (title: string) => {
+    const t = placeKey(title);
+    return (!!first && new RegExp(`(^|\\s)${first}`).test(t)) || (compact.length > 3 && t.replace(/\s/g, "").includes(compact));
+  };
   const headers = { "user-agent": `TrailZ/0.1 (https://github.com/rasoulrayat/trailz-app; ${contact})` };
   const gallery: PlaceGallery = { photos: [], pageUrl: null };
   const add = (p: PlacePhoto) => {
@@ -135,7 +156,7 @@ export async function placeGallery(
       query?: { pages?: { index?: number; title: string; fullurl?: string; thumbnail?: { source: string } }[] };
     };
     const pages = [...(body.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    const page = pages.find((p) => placeKey(p.title).includes(first));
+    const page = pages.find((p) => mentions(p.title));
     if (page) {
       gallery.pageUrl = page.fullurl ?? null;
       if (page.thumbnail) add({ url: page.thumbnail.source, credit: null, license: null, link: page.fullurl ?? null });
@@ -176,7 +197,7 @@ export async function placeGallery(
     for (const f of files) {
       const info = f.imageinfo?.[0];
       if (!info?.thumburl || info.mime !== "image/jpeg") continue;
-      if (!placeKey(f.title).includes(first) || NOT_A_PHOTO.test(f.title)) continue;
+      if (!mentions(f.title) || NOT_A_PHOTO.test(f.title)) continue;
       add({
         url: info.thumburl,
         credit: stripHtml(info.extmetadata?.Artist?.value),

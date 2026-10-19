@@ -98,8 +98,8 @@ async function startJob(env: Env, url: string): Promise<string> {
 
 // ---------- POST /api/checks : paste a link ----------
 app.post("/checks", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { input?: string };
-  const input = (body.input ?? "").slice(0, 2000);
+  const body = (await c.req.json().catch(() => ({}))) as { input?: unknown };
+  const input = (typeof body.input === "string" ? body.input : "").slice(0, 2000);
   const deviceId = c.get("deviceId");
   const env = c.env;
 
@@ -125,7 +125,7 @@ app.post("/checks", async (c) => {
   // 2. Already checked by anyone? Reuse it: instant and free.
   const existing = await getVideoByKey(env.DB, link.canonicalKey);
   if (existing && existing.status !== "failed") {
-    await recordCheck(env.DB, deviceId, existing.id, false);
+    await recordCheck(env.DB, deviceId, existing.id, false, c.get("rawDeviceId"));
     return c.json<StartCheckResponse>({ id: existing.id, cached: true });
   }
 
@@ -138,13 +138,13 @@ app.post("/checks", async (c) => {
       .bind(Date.now(), existing.id)
       .run();
     c.executionCtx.waitUntil(runAnalysis(env, existing.id, JSON.parse(existing.extract_json) as VideoRecord));
-    await recordCheck(env.DB, deviceId, existing.id, false);
+    await recordCheck(env.DB, deviceId, existing.id, false, c.get("rawDeviceId"));
     return c.json<StartCheckResponse>({ id: existing.id, cached: true });
   }
 
   // 3. Daily limit for new AI checks.
   const limit = Number(env.DAILY_LIMIT || "10");
-  if ((await countBillableToday(env.DB, deviceId)) >= limit) {
+  if ((await countBillableToday(env.DB, deviceId, c.get("rawDeviceId"))) >= limit) {
     return fail(c, 429, "daily_limit", LINK_MESSAGES.daily_limit);
   }
 
@@ -190,11 +190,11 @@ app.post("/checks", async (c) => {
       // Someone submitted the same video at the same moment: use their row.
       const raced = await getVideoByKey(env.DB, link.canonicalKey);
       if (!raced) throw err;
-      await recordCheck(env.DB, deviceId, raced.id, false);
+      await recordCheck(env.DB, deviceId, raced.id, false, c.get("rawDeviceId"));
       return c.json<StartCheckResponse>({ id: raced.id, cached: true });
     }
   }
-  await recordCheck(env.DB, deviceId, id, true);
+  await recordCheck(env.DB, deviceId, id, true, c.get("rawDeviceId"));
   // Cover image (and, for Instagram, title + creator) after the response: copied into our DB.
   c.executionCtx.waitUntil(fillVideoMeta(env, id, thumb).catch((err) => logError(env.DB, "video-meta", err, id)));
   return c.json<StartCheckResponse>({ id, cached: false });
@@ -244,8 +244,9 @@ app.get("/checks/:id", async (c) => {
   if (current.thumbnail_url === null) {
     c.executionCtx.waitUntil(fillVideoMeta(c.env, v.id).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
   }
-  // A finished check never changes: let the browser and Cloudflare keep it.
-  if (current.status === "ready" && current.thumbnail_url !== null) c.header("cache-control", "public, max-age=3600, stale-while-revalidate=86400");
+  // A finished check with its cover in place never changes: let the browser keep it.
+  // ('' means the cover is still being copied or there is none; that answer must not be cached for an hour.)
+  if (current.status === "ready" && current.thumbnail_url) c.header("cache-control", "private, max-age=3600, stale-while-revalidate=86400");
   return c.json<CheckStatus>(toStatus(current));
 });
 
@@ -280,7 +281,7 @@ app.post("/checks/:id/place-card", async (c) => {
   const v = await getVideo(c.env.DB, c.req.param("id"));
   if (!v || v.status !== "ready") return fail(c, 404, "not_found", "This check isn't ready.");
   const body = (await c.req.json().catch(() => ({}))) as { name?: string; typed?: boolean };
-  const name = (body.name ?? "").trim().slice(0, 120);
+  const name = (typeof body.name === "string" ? body.name : "").trim().slice(0, 120);
   if (!name) return fail(c, 400, "bad_request", "Tell us the place name.");
 
   const key = placeKey(name);
@@ -347,7 +348,7 @@ app.post("/checks/:id/feedback", async (c) => {
   const kind = body.kind === "wrong_result" ? "wrong_result" : null;
   if (!kind) return fail(c, 400, "bad_request", "Unknown feedback.");
   await c.env.DB.prepare("INSERT INTO feedback (id, video_id, device_id, kind, value, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(newId(), v.id, c.get("deviceId"), kind, (body.value ?? "").slice(0, 500), Date.now())
+    .bind(newId(), v.id, c.get("deviceId"), kind, (typeof body.value === "string" ? body.value : "").slice(0, 500), Date.now())
     .run();
   return c.json({ ok: true });
 });

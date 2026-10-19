@@ -29,25 +29,50 @@ export function loadSaves(force = false) {
   return loading;
 }
 
-const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 export const findSaved = (name: string, country?: string | null) =>
   state.items.find((s) => norm(s.name) === norm(name) && (!country || !s.country || norm(s.country) === norm(country)));
 
-export async function toggleSave(place: NewSave) {
+const inFlight = new Map<string, Promise<boolean>>();
+/** Server ids of places saved from this session, so an unsave of a still-optimistic row knows what to delete. */
+const serverIds = new Map<string, string>();
+const flightKey = (name: string, country?: string | null) => `${norm(name)}|${norm(country ?? "")}`;
+
+/**
+ * Save or unsave. The heart changes at once; the network work for one place runs in order, so a second tap
+ * while the first is still saving ends where the person left it (and never deletes a temporary id).
+ */
+export function toggleSave(place: NewSave): Promise<boolean> {
+  const key = flightKey(place.name, place.country);
   const existing = findSaved(place.name, place.country);
+  const prev = (inFlight.get(key) ?? Promise.resolve(false)).catch(() => false);
+  let run: Promise<boolean>;
+  const latest = () => inFlight.get(key) === run;
   if (existing) {
     // Optimistic: the heart empties at once.
     set({ items: state.items.filter((s) => s.id !== existing.id) });
-    const r = await tripsApi.unsave(existing.id).catch(() => null);
-    if (r) set({ items: r.items, suggestions: r.suggestions });
-    else loadSaves(true);
-    return false;
+    run = prev.then(async () => {
+      const id = existing.id.startsWith("tmp-") ? serverIds.get(key) : existing.id;
+      const r = id ? await tripsApi.unsave(id).catch(() => null) : null;
+      if (r && latest()) set({ items: r.items, suggestions: r.suggestions });
+      else if (!r) loadSaves(true);
+      return false;
+    });
+  } else {
+    set({ items: [{ ...place, id: `tmp-${Date.now()}`, createdAt: Date.now() }, ...state.items] });
+    run = prev.then(async () => {
+      const r = await tripsApi.save(place).catch(() => null);
+      if (r) {
+        const saved = r.items.find((s) => flightKey(s.name, s.country) === key);
+        if (saved) serverIds.set(key, saved.id);
+        if (latest()) set({ items: r.items, suggestions: r.suggestions });
+      } else loadSaves(true);
+      return true;
+    });
   }
-  set({ items: [{ ...place, id: `tmp-${Date.now()}`, createdAt: Date.now() }, ...state.items] });
-  const r = await tripsApi.save(place).catch(() => null);
-  if (r) set({ items: r.items, suggestions: r.suggestions });
-  else loadSaves(true);
-  return true;
+  inFlight.set(key, run);
+  run.finally(() => latest() && inFlight.delete(key)).catch(() => null);
+  return run;
 }
 
 export function useSaves(): State {
