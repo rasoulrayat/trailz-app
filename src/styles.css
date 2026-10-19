@@ -565,3 +565,15 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .working-text span { font-size: 12px; color: var(--muted-on-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .working-secs { font-size: 12px; color: var(--muted-on-dark); font-variant-numeric: tabular-nums; flex: none; }
 @media (prefers-reduced-motion: reduce) { .working-fill::after, .working-icon { animation: none; } }
+
+/* ---------- Plan your trip: the chosen places, as photo tiles in trip order ---------- */
+.plan-places { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+.plan-places::-webkit-scrollbar { display: none; }
+.plan-place { position: relative; flex: none; width: 92px; min-width: 0; display: flex; flex-direction: column; gap: 2px; scroll-snap-align: start; }
+.plan-place .thumb { margin-bottom: 6px; }
+/* Up to three places: an even row that fills the card, nothing cut off. More: a strip with the next tile peeking in. */
+.plan-places.fit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; overflow: visible; }
+.plan-places.fit .plan-place { width: auto; }
+.plan-place-n { position: absolute; left: 6px; top: 6px; z-index: 1; width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; border: 2px solid #fff; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; pointer-events: none; box-sizing: border-box; }
+.plan-place-name { font-size: 13px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-place-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

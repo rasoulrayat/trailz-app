@@ -68,16 +68,28 @@ export function PlanPage() {
         ) : places.length === 0 ? (
           <div className="empty">No places chosen. Save a place or open a Reality Card first.</div>
         ) : (
-          <section className="card stack" style={{ padding: 12, gap: 8 }}>
+          <section className="card stack" style={{ padding: 14, gap: 10 }}>
             <span className="small">{places.length === 1 ? "Your place" : `${places.length} places, in a sensible order`}</span>
-            <div className="chips">
-              {places.map((p) => (
-                <span key={p.name} className="chip" style={{ gap: 6, paddingLeft: 4, height: 40 }}>
-                  <PlaceThumb q={[p.name, p.country].filter(Boolean).join(", ")} title={p.name} style={{ width: 30, height: 30, borderRadius: 999 }} />
-                  {p.name}
+            {places.length === 1 ? (
+              <div className="row" style={{ gap: 12 }}>
+                <PlaceThumb q={[places[0].name, places[0].country].filter(Boolean).join(", ")} title={places[0].name} count={false} style={{ width: 72, height: 72, borderRadius: 16 }} />
+                <span style={{ minWidth: 0 }}>
+                  <span className="row-title" style={{ fontSize: 16 }}>{places[0].name}</span>
+                  {places[0].country && <span className="row-sub">{[places[0].region, places[0].country].filter(Boolean).join(" · ")}</span>}
                 </span>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <ol className={`plan-places${places.length <= 3 ? " fit" : ""}`} aria-label="Places in this trip">
+                {places.map((p, i) => (
+                  <li key={p.name} className="plan-place">
+                    <span className="plan-place-n" aria-hidden="true">{i + 1}</span>
+                    <PlaceThumb q={[p.name, p.country].filter(Boolean).join(", ")} title={p.name} count={false} style={{ width: "100%", height: "auto", aspectRatio: "1", borderRadius: 16 }} />
+                    <span className="plan-place-name">{p.name}</span>
+                    {p.country && <span className="plan-place-sub">{p.country}</span>}
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
         )}
 

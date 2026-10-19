@@ -162,12 +162,15 @@ export function PlaceThumb({
   style,
   cardTo,
   children,
+  count = true,
 }: {
   q: string;
   title?: string;
   style?: CSSProperties;
   cardTo?: string;
   children?: ReactNode;
+  /** Show the "8 photos" badge. Off where the thumbnail is a picker, not a gallery entry. */
+  count?: boolean;
 }) {
   const { photos } = usePlaceGallery(q);
   const [open, setOpen] = useState(false);
@@ -193,7 +196,7 @@ export function PlaceThumb({
         }}
       >
         <Img src={first.url} style={{ position: "absolute", inset: 0, borderRadius: "inherit" }} />
-        {photos.length > 1 && (
+        {count && photos.length > 1 && (
           <span className="thumb-count">
             <Icon name="photos" size={11} />
             {photos.length}

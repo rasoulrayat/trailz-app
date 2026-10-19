@@ -141,7 +141,7 @@ export function HomePage() {
         ) : (
           <p className="small row" style={{ margin: 0 }}>
             <Icon name="share" size={16} />
-            On Android, tap Share → TrailZ inside TikTok, Instagram or YouTube.
+            On your phone, tap Share → TrailZ inside TikTok, Instagram or YouTube.
           </p>
         )}
       </form>
