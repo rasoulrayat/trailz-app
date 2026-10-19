@@ -186,6 +186,11 @@ All accounts belong to the Dutch company with EU billing.
   verdict in the background; the app shows the card with the score/comparisons shimmering and polls every 2.5 s
   until the full card is stored (`placeCardFull` in `src/api.ts`).
 
+## Design and screens
+
+- [`docs/DESIGN.md`](docs/DESIGN.md) — tokens, fonts, building blocks and the design principles.
+- [`docs/design/SCREENS.md`](docs/design/SCREENS.md) — every screen at phone / tablet / desktop width, rendered from the current code (`npm run visual`).
+
 ## What's next (later phases)
 
 - Accounts (Clerk), so saves and trips follow the user across devices; home city instead of "Amsterdam".

@@ -28,12 +28,16 @@ await req.patch(base + `/api/trips/${trip.id}`, { data: { status: "saved", start
 const pages = [
   ["welcome", "/welcome"], ["welcome-vibes", "/welcome?step=1"], ["home", "/"], ["check-multi", `/check/${multi}`], ["check-single", `/check/${single}`], ["check-pick", `/check/${pick}`], ["check-vibe", `/check/${vibe}`],
   ["place", `/check/${multi}/place?name=Atrani`], ["where", `/check/${single}/where`], ["explore", "/explore"], ["reel", `/explore/reel/${multi}`], ["saved", "/saved"], ["plan", "/plan"], ["trips", "/trips"], ["trip", `/trips/${trip.id}`], ["book", `/trips/${trip.id}/book`], ["shared", `/s/${token}`], ["me", "/me"], ["privacy", "/privacy"], ["404", "/nope"],
+  // the in-progress "Checking your reel" screen: the status call is answered as still analysing
+  ["checking", `/check/${single}?visual=analyzing`],
 ];
+const analyzing = JSON.stringify({ id: single, status: "analyzing", video: { platform: "youtube", url: "https://www.youtube.com/shorts/dQw4w9WgXcQ", title: "Santorini sunset from Oia castle", author: "@sunset.lena", thumbnailUrl: null } });
 const widths = [390, 768, 1280];
 const report = [];
 for (const w of widths) {
   const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: w < 500 ? 844 : 900 });
   await p.addInitScript(() => localStorage.setItem("tz_onboarded", "1"));
+  await p.route(`**/api/checks/${single}`, (route) => (p.url().includes("visual=analyzing") ? route.fulfill({ status: 200, contentType: "application/json", body: analyzing }) : route.continue()));
   for (const [name, url] of pages) {
     try {
       await p.goto(base + url, { waitUntil: "networkidle", timeout: 20000 }); await p.waitForTimeout(1800);
