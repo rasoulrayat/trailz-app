@@ -108,6 +108,31 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .paste input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 15px; }
 .paste .go { height: 44px; padding: 0 18px; border-radius: 14px; border: 0; background: var(--sky); color: var(--navy); font-weight: 600; font-size: 14px; white-space: nowrap; }
 .paste .go:disabled { opacity: 0.6; }
+/* Home's paste box: a slowly turning colour ring with a soft glow; fast while checking, red and still on an error */
+@property --ring { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes ring-turn { to { --ring: 360deg; } }
+@keyframes twinkle { 0%, 80%, 100% { transform: none; } 88% { transform: scale(1.25) rotate(20deg); } }
+.magic-paste { --ring-colors: #5aa9ff, #7a4dff, #ff6fa5, #ffb86b, #5aa9ff; position: relative; isolation: isolate; }
+.magic-paste::before { content: ""; position: absolute; inset: 8px 14px -8px; border-radius: 24px; background: conic-gradient(from var(--ring), var(--ring-colors)); filter: blur(18px); opacity: 0.3; z-index: -1; pointer-events: none; animation: ring-turn 6s linear infinite; transition: opacity 0.2s ease; }
+.magic-paste .paste { height: 64px; border: 2px solid transparent; border-radius: 22px; padding: 0 7px 0 10px; background: linear-gradient(var(--surface), var(--surface)) padding-box, conic-gradient(from var(--ring), var(--ring-colors)) border-box; animation: ring-turn 6s linear infinite; }
+.magic-paste:focus-within::before { opacity: 0.5; }
+.magic-paste.busy::before, .magic-paste.busy .paste { animation-duration: 1.4s; }
+.magic-paste.error::before { opacity: 0; }
+.magic-paste.error .paste { background: linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(var(--warn), var(--warn)) border-box; animation: none; }
+.magic-paste input { font-size: 16px; color: var(--navy); }
+.magic-paste input::placeholder { color: #8090ad; }
+.paste-orb { width: 38px; height: 38px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--blue-tint), #ede5ff); color: #5b45f0; }
+.paste-orb svg { animation: twinkle 4s ease-in-out infinite; }
+.magic-paste.error .paste-orb { background: #fdecea; color: var(--warn); }
+.magic-paste.error .paste-orb svg { animation: none; }
+.magic-paste .go { height: 48px; padding: 0 16px 0 13px; border-radius: 16px; display: inline-flex; align-items: center; gap: 6px; flex: none; background: var(--navy); color: #fff; font-size: 15px; transition: transform 0.12s ease; }
+.magic-paste .go:active { transform: scale(0.97); }
+.magic-paste .go.magic { background: linear-gradient(135deg, var(--blue), #7a4dff); box-shadow: 0 6px 16px rgba(91, 69, 240, 0.35); }
+.magic-paste .go.magic:disabled { opacity: 0.55; box-shadow: none; }
+.magic-paste.busy .go.magic { opacity: 0.9; }
+.paste-hint { margin: 0; text-align: center; font-size: 13px; line-height: 1.45; color: var(--muted); text-wrap: balance; }
+.paste-hint b { color: var(--navy); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .magic-paste::before, .magic-paste .paste, .paste-orb svg { animation: none; } }
 .field-error { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.45; color: var(--warn); }
 .works-with { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .works-with div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 6px; text-align: center; font-size: 14px; font-weight: 600; }

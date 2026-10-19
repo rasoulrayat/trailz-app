@@ -96,40 +96,40 @@ export function HomePage() {
         <p className="lead">Paste a TikTok, Reel or Short. Get the truth: crowds, cost, best month.</p>
       </section>
 
-      <form className="stack" onSubmit={submit} noValidate>
-        <div className={`paste${error ? " error" : ""}`}>
-          <span style={{ color: error ? "var(--warn)" : "var(--muted)", display: "flex" }}>
-            <Icon name="link" />
-          </span>
-          <label htmlFor="reel" className="sr-only">
-            Video link
-          </label>
-          <input
-            id="reel"
-            inputMode="url"
-            autoComplete="off"
-            placeholder="Paste a TikTok, Reel or Short link"
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              if (error) setError(null);
-            }}
-            aria-invalid={!!error}
-            aria-describedby={error ? "reel-error" : undefined}
-          />
-          {input ? (
-            <button className="go" type="submit" disabled={busy}>
-              {busy ? "Checking…" : "Check it"}
-            </button>
-          ) : canPaste ? (
-            <button className="go" type="button" onClick={pasteFromClipboard}>
-              Paste
-            </button>
-          ) : (
-            <button className="go" type="submit" disabled>
-              Check it
-            </button>
-          )}
+      <form className="stack" style={{ gap: 12 }} onSubmit={submit} noValidate>
+        <div className={`magic-paste${busy ? " busy" : ""}${error ? " error" : ""}`}>
+          <div className="paste">
+            <span className="paste-orb" aria-hidden="true">
+              <Icon name={error ? "alert" : "sparkle"} size={18} />
+            </span>
+            <label htmlFor="reel" className="sr-only">
+              Video link
+            </label>
+            <input
+              id="reel"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="Paste a reel link"
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (error) setError(null);
+              }}
+              aria-invalid={!!error}
+              aria-describedby={error ? "reel-error" : "reel-hint"}
+            />
+            {input || !canPaste ? (
+              <button className="go magic" type="submit" disabled={busy || !input.trim()}>
+                <Icon name="sparkle" size={17} />
+                {busy ? "Checking…" : "Check it"}
+              </button>
+            ) : (
+              <button className="go" type="button" onClick={pasteFromClipboard}>
+                <Icon name="paste" size={17} />
+                Paste
+              </button>
+            )}
+          </div>
         </div>
         {error ? (
           <div id="reel-error" role="alert" className="field-error">
@@ -139,9 +139,8 @@ export function HomePage() {
             <span>{error.message}</span>
           </div>
         ) : (
-          <p className="small row" style={{ margin: 0 }}>
-            <Icon name="share" size={16} />
-            On your phone, tap Share → TrailZ inside TikTok, Instagram or YouTube.
+          <p id="reel-hint" className="paste-hint">
+            On your phone, tap <b>Share → TrailZ</b> inside TikTok, Instagram or YouTube.
           </p>
         )}
       </form>
