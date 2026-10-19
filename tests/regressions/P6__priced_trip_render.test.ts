@@ -78,12 +78,15 @@ describe("P6 PricedTrip", () => {
     expect(Number(big)).toBeGreaterThan(300);
   });
 
-  it("tabs: one per part, the city keeps its capitalisation, and it opens on the first part not booked", () => {
+  it("tabs: Flight · Stay · Activities, every town under Stay, opens on the first part not booked", () => {
     const html = render(trip({ booked: { flights: true } }), handoff, null);
-    // Flight booked → the Lisbon stay tab is the selected one; Porto has its own tab.
-    expect(html).toMatch(/role="tab" id="tab-stay:Lisbon" aria-selected="true"/);
+    // Flight booked → the Stay tab is selected, and both towns are sections inside its one panel.
+    expect(html).toMatch(/role="tab" id="tab-stay" aria-selected="true"/);
     expect(html).toMatch(/id="tab-flights" aria-selected="false"[\s\S]*?Booked/);
-    expect(html).toContain("<b>Porto</b>");
+    const stayPanel = html.match(/id="panel-stay"[\s\S]*?(?=id="panel-|$)/)?.[0] ?? "";
+    expect(stayPanel).toContain("Stay in Lisbon");
+    expect(stayPanel).toContain("Stay in Porto");
+    expect(html).not.toMatch(/id="tab-stay:/);
     // No "Next" action bar any more.
     expect(html).not.toContain("Next: book your");
     // Panels other than the selected one are in the page but hidden.

@@ -9,6 +9,9 @@ const fmt = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.sl
 
 type Step = { id: string; kind: "flights" | "stay" | "activities"; label: string; done: boolean };
 const STEP_ICON: Record<Step["kind"], IconName> = { flights: "plane", stay: "bed", activities: "sun" };
+const TAB_ORDER: Step["kind"][] = ["flights", "stay", "activities"];
+const TAB_LABEL: Record<Step["kind"], string> = { flights: "Flight", stay: "Stay", activities: "Activities" };
+type Tab = { id: Step["kind"]; label: string; steps: Step[]; done: boolean };
 
 /** The person taps "book", leaves, and comes back: we ask once whether it worked. */
 const PENDING_KEY = "tz_pending_booking";
@@ -41,18 +44,22 @@ export function PricedTrip({
     ...(activities.length ? [{ id: "activities", kind: "activities" as const, label: "Activities", done: !!trip.booked.activities }] : []),
   ];
   const next = steps.find((s) => !s.done);
-  // The person moves between parts with the tabs; it opens on the first part not booked yet.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const current = steps.find((s) => s.id === selectedId) ?? next ?? steps[0];
-  const select = (id: string, focus = false) => {
-    setSelectedId(id);
+  // Three tabs: Flight, Stay (every base town, one section per town), Activities. Booking is still tracked per step,
+  // so each town can be ticked off on its own. It opens on the first tab with something left to book.
+  const tabs: Tab[] = TAB_ORDER.map((kind) => ({ id: kind, label: TAB_LABEL[kind], steps: steps.filter((s) => s.kind === kind) }))
+    .filter((t) => t.steps.length)
+    .map((t) => ({ ...t, done: t.steps.every((s) => s.done) }));
+  const [selectedTab, setSelectedTab] = useState<Step["kind"] | null>(null);
+  const current = tabs.find((t) => t.id === selectedTab) ?? tabs.find((t) => !t.done) ?? tabs[0];
+  const select = (id: Step["kind"], focus = false) => {
+    setSelectedTab(id);
     if (focus) document.getElementById(`tab-${id}`)?.focus();
   };
   const onTabKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
-    const to = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? steps.length - 1 : null;
+    const to = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : null;
     if (to === null) return;
     e.preventDefault();
-    select(steps[(to + steps.length) % steps.length].id, true);
+    select(tabs[(to + tabs.length) % tabs.length].id, true);
   };
 
   // Coming back from a partner: ask once.
@@ -98,10 +105,19 @@ export function PricedTrip({
   };
   const mark = (step: Step, done = true) =>
     onBooked(step.kind === "flights" ? { flights: done } : step.kind === "activities" ? { activities: done } : { stay: { [step.id.slice(5)]: done } });
+  /** After "Yes, booked": another town in the same tab still to book → stay and scroll to it; otherwise the next tab. */
   const markAndMoveOn = async (step: Step) => {
     await mark(step);
-    const after = steps.slice(steps.indexOf(step) + 1).find((s) => !s.done) ?? steps.find((s) => s.id !== step.id && !s.done);
-    if (after) setSelectedId(after.id);
+    const left = (kind: Step["kind"]) => steps.filter((s) => s.kind === kind && s.id !== step.id && !s.done);
+    const sameTab = left(step.kind);
+    if (sameTab.length) {
+      setSelectedTab(step.kind);
+      requestAnimationFrame(() => document.getElementById(`sec-${sameTab[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      return;
+    }
+    const order = tabs.map((t) => t.id);
+    const after = [...order.slice(order.indexOf(step.kind) + 1), ...order].find((k) => k !== step.kind && left(k).length);
+    if (after) setSelectedTab(after);
   };
 
   // The one number: best flight + best stays (per person) + the plan's activity estimate.
@@ -180,40 +196,47 @@ export function PricedTrip({
         )}
 
         <div className="btabs" role="tablist" aria-label="What to book">
-          {steps.map((s, i) => {
-            const on = s.id === current.id;
-            const price = s.done ? "Booked" : prices === "loading" ? "checking…" : (bestPrice(s, prices, trip) ?? "search");
+          {tabs.map((t, i) => {
+            const on = t.id === current.id;
             return (
               <button
-                key={s.id}
+                key={t.id}
                 type="button"
                 role="tab"
-                id={`tab-${s.id}`}
+                id={`tab-${t.id}`}
                 aria-selected={on}
-                aria-controls={`panel-${s.id}`}
+                aria-controls={`panel-${t.id}`}
                 tabIndex={on ? 0 : -1}
-                className={`btab${on ? " on" : ""}${s.done ? " done" : ""}`}
-                onClick={() => select(s.id)}
+                className={`btab${on ? " on" : ""}${t.done ? " done" : ""}`}
+                onClick={() => select(t.id)}
                 onKeyDown={(e) => onTabKey(e, i)}
               >
-                <Icon name={s.done ? "check" : STEP_ICON[s.kind]} size={18} />
+                <Icon name={t.done ? "check" : STEP_ICON[t.id]} size={18} />
                 <span className="btab-text">
-                  <b>{s.kind === "stay" && stays.length > 1 ? s.id.slice(5) : s.label}</b>
-                  <span>{price}</span>
+                  <b>{t.label}</b>
+                  <span>{tabLine(t, prices, trip)}</span>
                 </span>
               </button>
             );
           })}
         </div>
 
-        <Panel step={steps[0]} current={current}>{flightsSection}</Panel>
+        <Panel id="flights" current={current.id}>{flightsSection}</Panel>
 
+        {stays.length > 0 && (
+          <Panel id="stay" current={current.id}>
+            <div className="stack" style={{ gap: 12 }}>
+              {stays.length > 1 && (
+                <p className="small" style={{ margin: 0 }}>
+                  {stays.length} places to stay, {stays.reduce((n, s) => n + s.nights, 0)} nights: book each one.{" "}
+                  {stays.map((s) => s.city).join(" → ")}
+                </p>
+              )}
         {stays.map((s) => {
               const step = steps.find((x) => x.id === `stay:${s.city}`)!;
-              if (prices === "loading") return <Panel key={s.city} step={step} current={current}><Skeleton h={170} /></Panel>;
+              if (prices === "loading") return <Skeleton key={s.city} h={170} />;
               const offers = s.offers.length ? s.offers : handoff ? (handoff.stay.filter((h) => h.city === s.city).map((h) => searchRow(h.partner, h.url))) : [];
               return (
-                <Panel key={s.city} step={step} current={current}>
                 <Section
                   key={s.city}
                   step={step}
@@ -227,12 +250,14 @@ export function PricedTrip({
                   onLeave={() => leaveFor(step)}
                   onUndo={() => mark(step, false)}
                 />
-                </Panel>
               );
             })}
+            </div>
+          </Panel>
+        )}
 
         {activities.length > 0 && (
-          <Panel step={steps.find((s) => s.id === "activities")!} current={current}>
+          <Panel id="activities" current={current.id}>
             <ActivitiesSection step={steps.find((s) => s.id === "activities")!} items={activities} estimate={trip.plan.estimate.activities} onLeave={() => leaveFor(steps.find((s) => s.id === "activities")!)} onMark={() => markAndMoveOn(steps.find((s) => s.id === "activities")!)} onUndo={() => mark(steps.find((s) => s.id === "activities")!, false)} />
           </Panel>
         )}
@@ -263,6 +288,17 @@ export function PricedTrip({
   );
 }
 
+/** The small line under a tab: its best price, "Booked", or how far the stays are. */
+function tabLine(t: Tab, prices: TripPrices | null | "loading", trip: Trip): string {
+  if (t.done) return "Booked";
+  if (prices === "loading") return "checking…";
+  if (t.id !== "stay" || t.steps.length === 1) return bestPrice(t.steps[0], prices, trip) ?? "search";
+  const booked = t.steps.filter((s) => s.done).length;
+  if (booked) return `${booked} of ${t.steps.length} booked`;
+  const each = t.steps.map((s) => (prices ? prices.stays.find((x) => x.city === s.id.slice(5))?.offers.find((o) => o.kind !== "search")?.price : undefined));
+  return each.every((p) => p !== undefined) ? `${euro(each.reduce((a: number, p) => a + (p ?? 0), 0))} · ${t.steps.length} places` : `${t.steps.length} places`;
+}
+
 function bestPrice(step: Step, prices: TripPrices | null | "loading", trip: Trip): string | null {
   if (prices === "loading" || !prices) return null;
   if (step.kind === "flights") {
@@ -289,9 +325,9 @@ const searchRow = (partner: string, url: string): Offer => ({
 });
 
 /** One tab's content. Every panel stays in the page (hidden when not selected), so the tabs only switch the view. */
-function Panel({ step, current, children }: { step: Step; current: Step; children: ReactNode }) {
+function Panel({ id, current, children }: { id: Step["kind"]; current: Step["kind"]; children: ReactNode }) {
   return (
-    <div role="tabpanel" id={`panel-${step.id}`} aria-labelledby={`tab-${step.id}`} hidden={step.id !== current.id}>
+    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`} hidden={id !== current}>
       {children}
     </div>
   );

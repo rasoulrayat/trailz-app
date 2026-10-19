@@ -74,6 +74,8 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .btn.secondary.icon { width: 52px; padding: 0; flex: none; }
 .btn.accent { background: var(--sky); color: var(--navy); font-weight: 600; }
 .btn.link { background: transparent; color: var(--blue); height: 44px; }
+/* Next to a title (a row or the top bar) a text button takes only its own width; full width squeezed the title. */
+.row > .btn.link, .topbar > .btn.link { width: auto; flex: none; }
 .btn:disabled { opacity: 0.55; cursor: default; }
 .btn-sm { height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--navy); background: var(--surface); font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
