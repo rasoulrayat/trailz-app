@@ -42,7 +42,8 @@ import { dbReport, settingsReport, summarize } from "./health";
 import { ownerForUser, userForSession } from "./lib/auth";
 
 type AppEnv = { Bindings: Env; Variables: AuthVars };
-const app = new Hono<AppEnv>().basePath("/api");
+/** The API (also exported on its own for request-level tests). */
+export const app = new Hono<AppEnv>().basePath("/api");
 
 const LINK_MESSAGES: Record<LinkErrorCode, string> = {
   no_link: "Paste a link to a TikTok, Instagram Reel or YouTube Short.",

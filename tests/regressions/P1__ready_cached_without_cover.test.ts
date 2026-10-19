@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import app from "../../worker/index";
+import { app } from "../../worker/index";
 import { fakeD1, fakeCtx, readyRow } from "./P1__fakeD1";
 
 /**
