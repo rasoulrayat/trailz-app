@@ -375,6 +375,73 @@ ${rules}`;
   };
 }
 
+// ---------- Reel verdict: the reel-specific part of a card, written on top of a stored place profile ----------
+
+const VERDICT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    authenticity: { type: "NUMBER", description: "0-10. 10 = visitors find exactly what the reel shows." },
+    summary: { type: "STRING", description: "One honest sentence about what the place is really like compared with the reel." },
+    comparisons: {
+      type: "ARRAY",
+      description: "2 to 4 pairs: what the reel shows or claims, and what visitors really find.",
+      items: { type: "OBJECT", properties: { reel: S, reality: S }, required: ["reel", "reality"] },
+    },
+  },
+  required: ["authenticity", "summary", "comparisons"],
+};
+
+export type ReelVerdict = Pick<RealityCard, "authenticity" | "summary" | "comparisons">;
+
+/** Judge one reel against a place whose facts we already have (fast: a short prompt, a short answer). */
+export async function generateReelVerdict(
+  cfg: GeminiConfig,
+  place: PlaceRef,
+  record: VideoRecord | null,
+  profile: Pick<RealityCard, "months" | "timing" | "cost" | "practical">,
+  fetcher: typeof fetch = fetch,
+  relation: "reel" | "lookalike" = "reel",
+): Promise<ReelVerdict> {
+  const where = [place.name, place.region, place.country].filter((x, i, a) => x && a.indexOf(x) === i).join(", ");
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const facts = [
+    `Best months: ${profile.months.map((m, i) => (m === "best" ? MONTHS[i] : "")).filter(Boolean).join(", ") || "n/a"}; crowded: ${profile.months.map((m, i) => (m === "crowded" ? MONTHS[i] : "")).filter(Boolean).join(", ") || "n/a"}`,
+    profile.timing ? `Quiet: ${profile.timing.quiet}. Busy: ${profile.timing.busy}.` : "",
+    `Typical trip cost: €${profile.cost.low}-${profile.cost.high} for ${profile.cost.days} days; daily spend €${profile.practical?.dailyBudget ?? "?"}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const prompt =
+    relation === "lookalike"
+      ? `You write the verdict of a "Reality Card" for TrailZ, an app that shows young travelers what places are really like compared with social media.
+
+Place: ${where}
+Known facts about the place:
+${facts}
+
+A traveler saved a reel filmed somewhere else; we suggested ${place.name} because it has the same look and feel (reel vibe: ${record?.vibe_tags?.join(", ") || "not known"}).
+Do NOT judge ${place.name} by that reel. "comparisons" pair how ${place.name} is usually shown on social media ("reel") with what visitors really find ("reality"). "authenticity" (0-10) says how well ${place.name} lives up to its own online image. Be honest and specific.`
+      : `You write the verdict of a "Reality Card" for TrailZ, an app that shows young travelers what a place from a social media reel is really like.
+
+Place: ${where}
+Known facts about the place:
+${facts}
+
+The reel:
+${reelContext(record)}
+
+Compare the reel's promises with what visitors really find (crowds, seasons, filters, private vs public access, cost). Use the known facts; be honest and specific.`;
+  const raw = await generateJson<RawCard>(cfg, prompt, VERDICT_SCHEMA, fetcher);
+  return {
+    authenticity: Math.round(clamp(raw.authenticity, 0, 10, 5)),
+    summary: raw.summary ?? "",
+    comparisons: (raw.comparisons ?? [])
+      .filter((c) => c.reel && c.reality)
+      .slice(0, 4)
+      .map((c) => ({ reel: c.reel!, reality: c.reality! })),
+  };
+}
+
 const VIBE_SCHEMA = {
   type: "OBJECT",
   properties: {

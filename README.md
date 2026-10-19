@@ -171,6 +171,17 @@ All accounts belong to the Dutch company with EU billing.
   (`VIBE_WORDS`), the trip's origin and traveller count. `/me` shows the account and picks, replays the intro,
   logs out. `/privacy` is the policy page the Google consent screen links to (set `CONTACT_EMAIL`).
 
+## Phase 5: place profiles and prebuilt cards (built)
+
+- **One profile per place, shared by everyone.** The stable part of a Reality Card (months, cost, crowds, practicalities,
+  city guide, gems) is stored once in `place_profiles` (keyed by name + country, 180-day refresh). The next reel that
+  shows the same place only gets a short "verdict" call (authenticity, summary, reel-vs-reality pairs) on top of it:
+  a few seconds instead of a full generation, and the same facts for every user.
+- **Cards are written before anyone taps.** After a reel is analysed, the first place's card is built at once; every
+  later visit of the result writes one more missing card in the background, and a cron (`*/10 * * * *`) tops up
+  recent reels. Builds are locked per place in `kv_cache` (`prebuild:<video>:<place>`) so parallel isolates don't
+  write the same card twice. See `worker/lib/cards.ts`, `worker/lib/profiles.ts`.
+
 ## What's next (later phases)
 
 - Accounts (Clerk), so saves and trips follow the user across devices; home city instead of "Amsterdam".

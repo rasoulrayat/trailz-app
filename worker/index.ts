@@ -1,17 +1,16 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import type {
-  RealityCard,
   ApiError,
   CheckResult,
   CheckStatus,
   CheckSummary,
   LinkErrorCode,
-  PlaceRef,
   StartCheckResponse,
 } from "../shared/types";
 import { isMock, type Env } from "./env";
-import { analyze, cardFor, geminiConfig } from "./lib/analyze";
+import { analyze, geminiConfig } from "./lib/analyze";
+import { placeCardFor, prebuildCards, prebuildRecent } from "./lib/cards";
 import { pingGemini } from "./lib/gemini";
 import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
@@ -21,7 +20,6 @@ import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
 import { lookupOEmbed } from "./lib/oembed";
-import { placeKey } from "./lib/route";
 import {
   claimForAnalysis,
   countBillableToday,
@@ -205,6 +203,8 @@ async function runAnalysis(env: Env, id: string, record: VideoRecord) {
   try {
     const result = await analyze(env, record);
     await saveResult(env.DB, id, result);
+    // The first place's card is written now, so the first tap is instant; the rest follow on later polls and the cron.
+    await prebuildCards(env, id, 1).catch(() => 0);
   } catch (err) {
     console.error("analysis failed", id, err);
     await logError(env.DB, "analysis", err, id);
@@ -240,6 +240,8 @@ app.get("/checks/:id", async (c) => {
   const v = await getVideo(c.env.DB, c.req.param("id"));
   if (!v) return fail(c, 404, "not_found", "This check doesn't exist.");
   const current = v.status === "ready" || v.status === "failed" ? v : await advance(c.env, c.executionCtx, v);
+  // Each visit of a finished reel writes one more missing place card in the background (skipped when all exist).
+  if (current.status === "ready") c.executionCtx.waitUntil(prebuildCards(c.env, v.id, 1).catch(() => 0));
   // Videos checked before covers existed get theirs on the next visit.
   if (current.thumbnail_url === null) {
     c.executionCtx.waitUntil(fillVideoMeta(c.env, v.id).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
@@ -284,11 +286,6 @@ app.post("/checks/:id/place-card", async (c) => {
   const name = (typeof body.name === "string" ? body.name : "").trim().slice(0, 120);
   if (!name) return fail(c, 400, "bad_request", "Tell us the place name.");
 
-  const key = placeKey(name);
-  const cached = await c.env.DB.prepare("SELECT card_json, created_at FROM place_cards WHERE video_id = ? AND place_key = ?")
-    .bind(v.id, key)
-    .first<{ card_json: string; created_at: number }>();
-
   // Remember what users pick or type: it becomes labelled data for the AI review queue.
   if (body.typed || v.outcome === "pick" || v.outcome === "not_travel") {
     await c.env.DB.prepare("INSERT INTO feedback (id, video_id, device_id, kind, value, created_at) VALUES (?, ?, ?, ?, ?, ?)")
@@ -296,42 +293,8 @@ app.post("/checks/:id/place-card", async (c) => {
       .run();
   }
 
-  const result = v.result_json ? (JSON.parse(v.result_json) as CheckResult) : null;
-  const known: PlaceRef | undefined =
-    result?.outcome === "multi"
-      ? result.places.find((p) => placeKey(p.name) === key)
-      : result?.outcome === "pick"
-        ? result.candidates.find((p) => placeKey(p.name) === key)
-        : undefined;
-  // A "places with this vibe" suggestion: the reel wasn't filmed there, so the card mustn't judge it by the reel.
-  const lookalike =
-    !body.typed && result?.outcome === "vibe"
-      ? result.suggestions.find((s) => placeKey(`${s.name}, ${s.country}`) === key || placeKey(s.name) === key)
-      : undefined;
-  const place: PlaceRef = known ?? (lookalike ? { name: lookalike.name, country: lookalike.country, confidence: 0.8 } : { name, confidence: 0.6 });
-  const record = v.extract_json ? (JSON.parse(v.extract_json) as VideoRecord) : null;
-  const relation = lookalike ? "lookalike" : "reel";
-  const save = (card: RealityCard, backup: boolean) =>
-    c.env.DB.prepare("INSERT OR REPLACE INTO place_cards (video_id, place_key, card_json, created_at) VALUES (?, ?, ?, ?)")
-      .bind(v.id, key, JSON.stringify(backup ? { ...card, _backup: true } : card), Date.now())
-      .run();
-
-  if (cached) {
-    const { _backup, ...card } = JSON.parse(cached.card_json) as RealityCard & { _backup?: boolean };
-    // Written by the backup model: show it now, and try for Gemini's better card in the background.
-    if (_backup && Date.now() - cached.created_at > 10 * 60_000) {
-      c.executionCtx.waitUntil(
-        cardFor(c.env, { ...place, verified: undefined }, record, relation, true)
-          .then((r) => save(r.card, false))
-          .catch(() => {}),
-      );
-    }
-    return c.json({ card });
-  }
-
   try {
-    const { card, backup } = await cardFor(c.env, { ...place, verified: undefined }, record, relation);
-    await save(card, backup);
+    const card = await placeCardFor(c.env, v, name, !!body.typed, c.executionCtx);
     return c.json({ card });
   } catch (err) {
     console.error("place card failed", err);
@@ -443,4 +406,10 @@ app.onError(async (err, c) => {
   return fail(c, 500, "server_error", FRIENDLY_ERROR);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  /** Cron (see wrangler.jsonc): keep recent reels' place cards filled in, a few per run. */
+  async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+    ctx.waitUntil(prebuildRecent(env, 3).catch((err) => logError(env.DB, "cron-prebuild", err)));
+  },
+};

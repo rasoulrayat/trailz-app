@@ -1,7 +1,8 @@
 import type { CheckResult, PlaceRef, RealityCard } from "../../shared/types";
 import { DEFAULT_ORIGIN, isMock, type Env } from "../env";
 import type { VideoRecord } from "./extract-schema";
-import { generateRealityCard, suggestVibePlaces, type GeminiConfig } from "./gemini";
+import { generateRealityCard, generateReelVerdict, suggestVibePlaces, type GeminiConfig } from "./gemini";
+import { getProfile, profileKey, PROFILE_TTL, saveProfile, toProfile, withVerdict } from "./profiles";
 import { geocode, sleep } from "./geocode";
 import { MOCK_VIBE_SUGGESTIONS, mockCard } from "./mock";
 import { decide, regionAdvice } from "./route";
@@ -96,8 +97,21 @@ export async function cardFor(
   const checked = place.verified === undefined ? await verifyPlace(env, place) : place;
   const cfg = geminiConfig(env);
   if (geminiOnly) cfg.fallback = undefined;
+  const answeredByBackup = () => !!cfg.fallback && cfg.answeredBy === cfg.fallback.name;
+
+  // The place's own facts are shared by every reel: reuse them and only judge this reel (a short, fast call).
+  const key = profileKey(checked);
+  const stored = await getProfile(env.DB, key);
+  if (stored && !stored.backup && stored.age < PROFILE_TTL) {
+    const verdict = await generateReelVerdict(cfg, checked, record, stored.profile, fetch, relation);
+    return { card: withVerdict(stored.profile, verdict, checked), backup: answeredByBackup() };
+  }
+
+  // First reel for this place (or a stale/backup profile): write the whole card, keep its place part for everyone.
   const card = await generateRealityCard(cfg, checked, record, DEFAULT_ORIGIN, !!checked.verified, fetch, relation);
-  return { card, backup: !!cfg.fallback && cfg.answeredBy === cfg.fallback.name };
+  const backup = answeredByBackup();
+  await saveProfile(env.DB, key, toProfile(card), backup).catch(() => {});
+  return { card, backup };
 }
 
 /** Turn a video text record into the result screen the user sees. */

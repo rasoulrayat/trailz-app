@@ -10,6 +10,8 @@
     "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true },
     "traces": { "enabled": false, "head_sampling_rate": 1, "persist": true }
   },
+  // Every 10 minutes: write a few missing place cards for recent reels (see worker/lib/cards.ts).
+  "triggers": { "crons": ["*/10 * * * *"] },
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
