@@ -9,7 +9,7 @@ const num = (no, n) => [(no << 3) | 0, ...varint(n)];
 const date = (iso) => { const [y, m, d] = iso.split("-").map(Number); return [...num(1, y), ...num(2, m), ...num(3, d)]; };
 const ts = (checkIn, checkOut, guests, currency = "EUR") => {
   const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86400000);
-  const stay = [...field(2, [...field(1, date(checkIn)), ...field(2, date(checkOut))]), ...num(3, nights), ...field(6, num(1, guests))];
+  const stay = [...field(2, [...field(1, date(checkIn)), ...field(2, date(checkOut)), ...num(3, nights)]), ...field(6, num(1, guests))];
   const msg = [...num(1, 1), ...field(3, [...field(1, field(3, [])), ...field(2, stay)]), ...field(5, [...field(1, field(7, [...Buffer.from(currency)])), ...field(3, [])])];
   return Buffer.from(msg).toString("base64url");
 };
