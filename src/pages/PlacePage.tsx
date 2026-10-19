@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import type { CheckStatus, RealityCard } from "../../shared/types";
-import { api, placeCardShared } from "../api";
+import type { CheckStatus, PlaceProfile, RealityCard } from "../../shared/types";
+import { api, placeCardFull } from "../api";
 import { Icon } from "../components/Icon";
 import { MapView } from "../components/MapView";
 import { HeroPhotos } from "../components/PlacePhoto";
@@ -28,6 +28,8 @@ export function PlacePage() {
   const name = params.get("name") ?? "";
   const typed = params.get("typed") === "1";
   const [card, setCard] = useState<RealityCard | null>(null);
+  /** The place facts while the verdict on the reel is still being written. */
+  const [profile, setProfile] = useState<PlaceProfile | null>(null);
   const [check, setCheck] = useState<CheckStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -42,8 +44,9 @@ export function PlacePage() {
   }, [id]);
 
   useEffect(() => {
-    let stop = false;
+    const signal = { stop: false };
     setCard(null);
+    setProfile(null);
     setError(null);
     setSeconds(0);
     const started = Date.now();
@@ -52,12 +55,12 @@ export function PlacePage() {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("The AI is very busy right now. Try again in a minute.")), 120_000),
     );
-    Promise.race([placeCardShared(id, name, typed), timeout])
-      .then((r) => !stop && setCard(r.card))
-      .catch((e: Error) => !stop && setError(e.message))
+    Promise.race([placeCardFull(id, name, typed, (r) => !signal.stop && r.profile && setProfile(r.profile), signal), timeout])
+      .then((c) => !signal.stop && setCard(c))
+      .catch((e: Error) => !signal.stop && e.message !== "stopped" && setError(e.message))
       .finally(() => clearInterval(tick));
     return () => {
-      stop = true;
+      signal.stop = true;
       clearInterval(tick);
     };
   }, [id, name, typed, attempt]);
@@ -73,6 +76,9 @@ export function PlacePage() {
 
   const vibe = check?.result?.outcome === "vibe" ? check.result.vibe : undefined;
   if (card) return <RealityCardView card={card} video={check?.video} backTo={`/check/${id}`} context={context} checkId={id} vibe={vibe} placeCard />;
+  // The facts are in; the verdict on the reel is still being written: show everything else now.
+  if (profile && !error)
+    return <RealityCardView card={{ ...profile, authenticity: 0, summary: "", comparisons: [] }} video={check?.video} backTo={`/check/${id}`} context={context} checkId={id} vibe={vibe} placeCard verdictPending />;
 
   // While the card is written: the place's photos and map are ready already.
   const place = lookup(check, name);

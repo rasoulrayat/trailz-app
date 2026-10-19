@@ -1,4 +1,4 @@
-import type { MonthRating, PlaceRef, RealityCard } from "../../shared/types";
+import type { PlaceProfile, MonthRating, PlaceRef, RealityCard } from "../../shared/types";
 import type { VideoRecord } from "./extract-schema";
 
 export interface GeminiConfig {
@@ -285,48 +285,25 @@ function cleanBase(b: RawCard["base"]): RealityCard["base"] {
   };
 }
 
-export async function generateRealityCard(
-  cfg: GeminiConfig,
-  place: PlaceRef,
-  record: VideoRecord | null,
-  origin: string,
-  verified: boolean,
-  fetcher: typeof fetch = fetch,
-  /** "reel": the reel shows this place. "lookalike": we suggested it because it has the reel's vibe. */
-  relation: "reel" | "lookalike" = "reel",
-): Promise<RealityCard> {
-  const where = [place.name, place.region, place.country].filter((x, i, a) => x && a.indexOf(x) === i).join(", ");
-  const common = `Place: ${where}
-Traveler departs from: ${origin}`;
-  const rules = `Write honest, specific, practical facts. If you are unsure about a fact, leave it out.
+/** CARD_SCHEMA without the reel verdict: the facts of a place on their own. */
+const PROFILE_SCHEMA = {
+  type: "OBJECT",
+  properties: Object.fromEntries(Object.entries(CARD_SCHEMA.properties).filter(([k]) => !["authenticity", "summary", "comparisons"].includes(k))),
+  required: CARD_SCHEMA.required.filter((k) => !["authenticity", "summary", "comparisons"].includes(k)),
+};
+
+function profileRules(place: PlaceRef, origin: string): string {
+  return `Write honest, specific, practical facts. If you are unsure about a fact, leave it out.
 "months": 12 ratings for January to December, based on this place's real weather, seasons and crowds.
 "gems": 2 or 3 real, less crowded places near ${place.name} with a similar appeal.
 "timing": when this exact spot is quiet and busy (hours, weekdays vs weekends), closed days, one timing tip.
 "practical": flight hours from ${origin}, time difference, daily spend on the ground, the entry rule for EU passports, one honest safety line.
 "base": the city to base yourself in for ${place.name} (if ${place.name} is an airport, station, hotel, beach or landmark: the city it belongs to or serves), and how to enjoy that city like a local rather than a tourist: real neighbourhoods, markets, the right time of day, what locals eat, what to skip.
 Costs are typical estimates in euros for one person for a trip of 3-5 days, including return travel from ${origin} (flights or trains, never 0); keep them realistic and round them.`;
-  const prompt =
-    relation === "lookalike"
-      ? `You write the "Reality Card" for TrailZ, an app that helps young travelers see what places are really like compared with how social media shows them.
+}
 
-${common}
-
-A traveler saved a reel filmed somewhere else and we suggested ${place.name} because it has the same look and feel.
-The reel's vibe: ${record?.vibe_tags?.join(", ") || "not known"}. What the reel showed: ${record?.what_we_saw ?? "not known"}
-
-Do NOT judge ${place.name} by that reel: it wasn't filmed there. "comparisons" pair how ${place.name} is usually shown on social media ("reel") with what visitors really find ("reality"): crowds, seasons, filters, access, cost. "authenticity" (0-10) says how well ${place.name} lives up to its own online image.
-${rules}`
-      : `You write the "Reality Card" for TrailZ, an app that helps young travelers see what a place from a social media reel is really like.
-
-${common}
-
-The reel:
-${reelContext(record)}
-
-Compare the reel's promises with what visitors really find (crowds, seasons, filters, private vs public access, cost).
-${rules}`;
-
-  const raw = await generateJson<RawCard>(cfg, prompt, CARD_SCHEMA, fetcher);
+/** Turn the model's raw answer into the place part of a card (validated, clamped, padded). */
+function cleanProfile(raw: RawCard, place: PlaceRef, origin: string, verified: boolean): PlaceProfile {
   const months = (raw.months ?? []).slice(0, 12) as MonthRating[];
   while (months.length < 12) months.push("good");
   const low = money(raw.cost?.low);
@@ -339,12 +316,6 @@ ${rules}`;
       lng: place.lng,
     },
     confidence: verified ? "high" : "medium",
-    authenticity: Math.round(clamp(raw.authenticity, 0, 10, 5)),
-    summary: raw.summary ?? "",
-    comparisons: (raw.comparisons ?? [])
-      .filter((c) => c.reel && c.reality)
-      .slice(0, 4)
-      .map((c) => ({ reel: c.reel!, reality: c.reality! })),
     months: months.map((m) => (["best", "good", "crowded", "quiet"].includes(m) ? m : "good")),
     cost: {
       currency: "EUR",
@@ -372,6 +343,66 @@ ${rules}`;
             safety: raw.practical.safety ?? "",
           }
         : undefined,
+  };
+}
+
+/** The facts of a place, with no reel involved: what every Reality Card for this place is built on. */
+export async function generatePlaceProfile(cfg: GeminiConfig, place: PlaceRef, origin: string, verified: boolean, fetcher: typeof fetch = fetch): Promise<PlaceProfile> {
+  const where = [place.name, place.region, place.country].filter((x, i, a) => x && a.indexOf(x) === i).join(", ");
+  const prompt = `You write the place facts of a "Reality Card" for TrailZ, an app that helps young travelers see what places are really like compared with how social media shows them.
+
+Place: ${where}
+Traveler departs from: ${origin}
+
+${profileRules(place, origin)}`;
+  const raw = await generateJson<RawCard>(cfg, prompt, PROFILE_SCHEMA, fetcher);
+  return cleanProfile(raw, place, origin, verified);
+}
+
+export async function generateRealityCard(
+  cfg: GeminiConfig,
+  place: PlaceRef,
+  record: VideoRecord | null,
+  origin: string,
+  verified: boolean,
+  fetcher: typeof fetch = fetch,
+  /** "reel": the reel shows this place. "lookalike": we suggested it because it has the reel's vibe. */
+  relation: "reel" | "lookalike" = "reel",
+): Promise<RealityCard> {
+  const where = [place.name, place.region, place.country].filter((x, i, a) => x && a.indexOf(x) === i).join(", ");
+  const common = `Place: ${where}
+Traveler departs from: ${origin}`;
+  const rules = profileRules(place, origin);
+  const prompt =
+    relation === "lookalike"
+      ? `You write the "Reality Card" for TrailZ, an app that helps young travelers see what places are really like compared with how social media shows them.
+
+${common}
+
+A traveler saved a reel filmed somewhere else and we suggested ${place.name} because it has the same look and feel.
+The reel's vibe: ${record?.vibe_tags?.join(", ") || "not known"}. What the reel showed: ${record?.what_we_saw ?? "not known"}
+
+Do NOT judge ${place.name} by that reel: it wasn't filmed there. "comparisons" pair how ${place.name} is usually shown on social media ("reel") with what visitors really find ("reality"): crowds, seasons, filters, access, cost. "authenticity" (0-10) says how well ${place.name} lives up to its own online image.
+${rules}`
+      : `You write the "Reality Card" for TrailZ, an app that helps young travelers see what a place from a social media reel is really like.
+
+${common}
+
+The reel:
+${reelContext(record)}
+
+Compare the reel's promises with what visitors really find (crowds, seasons, filters, private vs public access, cost).
+${rules}`;
+
+  const raw = await generateJson<RawCard>(cfg, prompt, CARD_SCHEMA, fetcher);
+  return {
+    ...cleanProfile(raw, place, origin, verified),
+    authenticity: Math.round(clamp(raw.authenticity, 0, 10, 5)),
+    summary: raw.summary ?? "",
+    comparisons: (raw.comparisons ?? [])
+      .filter((c) => c.reel && c.reality)
+      .slice(0, 4)
+      .map((c) => ({ reel: c.reel!, reality: c.reality! })),
   };
 }
 

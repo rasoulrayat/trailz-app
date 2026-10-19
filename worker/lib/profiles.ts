@@ -1,4 +1,4 @@
-import type { PlaceRef, RealityCard } from "../../shared/types";
+import type { PlaceProfile, PlaceRef, RealityCard } from "../../shared/types";
 import { placeKey } from "./route";
 
 /**
@@ -7,7 +7,7 @@ import { placeKey } from "./route";
  * It is written once per place and reused by every reel that shows it; only the verdict
  * (authenticity, summary, comparisons) is generated per reel.
  */
-export type PlaceProfile = Omit<RealityCard, "authenticity" | "summary" | "comparisons">;
+export type { PlaceProfile };
 
 /** Profiles older than this are rebuilt (prices and seasons drift slowly). */
 export const PROFILE_TTL = 180 * 24 * 3600_000;

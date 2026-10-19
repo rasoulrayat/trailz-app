@@ -1,8 +1,9 @@
 import type { CheckResult, PlaceRef, RealityCard } from "../../shared/types";
 import { DEFAULT_ORIGIN, isMock, type Env } from "../env";
 import type { VideoRecord } from "./extract-schema";
-import { generateRealityCard, generateReelVerdict, suggestVibePlaces, type GeminiConfig } from "./gemini";
-import { getProfile, profileKey, PROFILE_TTL, saveProfile, toProfile, withVerdict } from "./profiles";
+import { generatePlaceProfile, generateRealityCard, generateReelVerdict, suggestVibePlaces, type GeminiConfig, type ReelVerdict } from "./gemini";
+import { getProfile, profileKey, PROFILE_TTL, saveProfile, toProfile, withVerdict, type PlaceProfile } from "./profiles";
+import { mockPlaceProfile } from "./mock";
 import { geocode, sleep } from "./geocode";
 import { MOCK_VIBE_SUGGESTIONS, mockCard } from "./mock";
 import { decide, regionAdvice } from "./route";
@@ -85,6 +86,36 @@ async function verifyPlace(env: Env, place: PlaceRef): Promise<PlaceRef> {
   return { ...place, lat: hit.lat, lng: hit.lng, country: place.country ?? hit.country, verified: true };
 }
 
+export interface ProfileResult {
+  profile: PlaceProfile;
+  /** The verified/geocoded place, for the verdict step. */
+  place: PlaceRef;
+  backup: boolean;
+}
+
+/** The place's facts: stored and fresh → instant; otherwise written now (one model call) and kept for everyone. */
+export async function profileFor(env: Env, place: PlaceRef): Promise<ProfileResult> {
+  const checked = place.verified === undefined ? await verifyPlace(env, place) : place;
+  if (isMock(env)) return { profile: mockPlaceProfile(checked, DEFAULT_ORIGIN), place: checked, backup: false };
+  const key = profileKey(checked);
+  const stored = await getProfile(env.DB, key);
+  if (stored && !stored.backup && stored.age < PROFILE_TTL) return { profile: stored.profile, place: checked, backup: false };
+  const cfg = geminiConfig(env);
+  const profile = await generatePlaceProfile(cfg, checked, DEFAULT_ORIGIN, !!checked.verified);
+  const backup = !!cfg.fallback && cfg.answeredBy === cfg.fallback.name;
+  await saveProfile(env.DB, key, profile, backup).catch(() => {});
+  return { profile, place: checked, backup };
+}
+
+/** The verdict on one reel, written on top of the place's facts (a short call). */
+export async function verdictFor(env: Env, p: ProfileResult, record: VideoRecord | null, relation: "reel" | "lookalike", geminiOnly = false): Promise<{ card: RealityCard; backup: boolean }> {
+  if (isMock(env)) return { card: mockCard(p.place, DEFAULT_ORIGIN), backup: false };
+  const cfg = geminiConfig(env);
+  if (geminiOnly) cfg.fallback = undefined;
+  const verdict: ReelVerdict = await generateReelVerdict(cfg, p.place, record, p.profile, fetch, relation);
+  return { card: withVerdict(p.profile, verdict, p.place), backup: p.backup || (!!cfg.fallback && cfg.answeredBy === cfg.fallback.name) };
+}
+
 export async function cardFor(
   env: Env,
   place: PlaceRef,
@@ -103,8 +134,7 @@ export async function cardFor(
   const key = profileKey(checked);
   const stored = await getProfile(env.DB, key);
   if (stored && !stored.backup && stored.age < PROFILE_TTL) {
-    const verdict = await generateReelVerdict(cfg, checked, record, stored.profile, fetch, relation);
-    return { card: withVerdict(stored.profile, verdict, checked), backup: answeredByBackup() };
+    return verdictFor(env, { profile: stored.profile, place: checked, backup: false }, record, relation, geminiOnly);
   }
 
   // First reel for this place (or a stale/backup profile): write the whole card, keep its place part for everyone.

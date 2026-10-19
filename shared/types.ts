@@ -105,6 +105,16 @@ export type CheckResult =
     }
   | { outcome: "not_travel"; whatWeSaw: string; kind: "not_travel" | "tips" };
 
+/** The place part of a Reality Card (everything except the verdict on one reel). Written once per place, shared by all reels. */
+export type PlaceProfile = Omit<RealityCard, "authenticity" | "summary" | "comparisons">;
+
+/** A place card as the API serves it: the full card, or the place facts while the reel verdict is still being written. */
+export interface PlaceCardResponse {
+  card?: RealityCard;
+  profile?: PlaceProfile;
+  pending: boolean;
+}
+
 export interface CheckStatus {
   id: string;
   status: CheckStatusName;

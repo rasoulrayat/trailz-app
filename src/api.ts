@@ -1,4 +1,4 @@
-import type { ApiError, CheckStatus, CheckSummary, Handoff, Me, Mood, Profile, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
+import type { ApiError, CheckStatus, CheckSummary, Handoff, Me, Mood, PlaceCardResponse, Profile, RealityCard, SavedPlace, StartCheckResponse, ExploreResponse, SharePayload, Trip, TripPrices, TripSuggestion } from "../shared/types";
 
 export class ApiFailure extends Error {
   constructor(
@@ -34,7 +34,7 @@ export const api = {
   getCheck: (id: string) => call<CheckStatus>(`/api/checks/${encodeURIComponent(id)}`),
   listChecks: () => call<{ items: CheckSummary[] }>("/api/checks"),
   placeCard: (id: string, name: string, typed = false) =>
-    call<{ card: RealityCard }>(`/api/checks/${encodeURIComponent(id)}/place-card`, {
+    call<PlaceCardResponse>(`/api/checks/${encodeURIComponent(id)}/place-card`, {
       method: "POST",
       body: JSON.stringify({ name, typed }),
     }),
@@ -46,7 +46,8 @@ export const api = {
 };
 
 // Reality Cards in flight or done, so a card started in the background is reused when the place is opened.
-const cardCache = new Map<string, Promise<{ card: RealityCard }>>();
+// Only full cards stay cached: a partial answer (facts without the verdict) is asked again.
+const cardCache = new Map<string, Promise<PlaceCardResponse>>();
 
 /** Reality Card for a place, shared with any background request for the same place. */
 export function placeCardShared(id: string, name: string, typed = false) {
@@ -54,10 +55,22 @@ export function placeCardShared(id: string, name: string, typed = false) {
   let p = cardCache.get(key);
   if (!p) {
     p = api.placeCard(id, name, typed);
-    p.catch(() => cardCache.delete(key)); // a failure can be retried
+    p.then((r) => r.pending && cardCache.delete(key)).catch(() => cardCache.delete(key)); // partial or failed: retry later
     cardCache.set(key, p);
   }
   return p;
+}
+
+/** The full card: shows the facts as soon as they exist (via `onPartial`) and keeps asking until the verdict is in. */
+export async function placeCardFull(id: string, name: string, typed: boolean, onPartial: (r: PlaceCardResponse) => void, signal?: { stop: boolean }): Promise<RealityCard> {
+  for (;;) {
+    const r = await placeCardShared(id, name, typed);
+    if (signal?.stop) throw new Error("stopped");
+    if (r.card && !r.pending) return r.card;
+    onPartial(r);
+    await new Promise((res) => setTimeout(res, 2500));
+    if (signal?.stop) throw new Error("stopped");
+  }
 }
 
 /**

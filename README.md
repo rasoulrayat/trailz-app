@@ -181,6 +181,10 @@ All accounts belong to the Dutch company with EU billing.
   later visit of the result writes one more missing card in the background, and a cron (`*/10 * * * *`) tops up
   recent reels. Builds are locked per place in `kv_cache` (`prebuild:<video>:<place>`) so parallel isolates don't
   write the same card twice. See `worker/lib/cards.ts`, `worker/lib/profiles.ts`.
+- **Facts first, verdict after.** `POST /checks/:id/place-card` answers with the place facts as soon as they exist
+  (`{ profile, pending: true }` — instantly for a known place, one model call for a new one) and finishes the reel
+  verdict in the background; the app shows the card with the score/comparisons shimmering and polls every 2.5 s
+  until the full card is stored (`placeCardFull` in `src/api.ts`).
 
 ## What's next (later phases)
 

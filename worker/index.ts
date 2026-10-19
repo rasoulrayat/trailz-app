@@ -5,6 +5,7 @@ import type {
   CheckResult,
   CheckStatus,
   CheckSummary,
+  PlaceCardResponse,
   LinkErrorCode,
   StartCheckResponse,
 } from "../shared/types";
@@ -295,8 +296,7 @@ app.post("/checks/:id/place-card", async (c) => {
   }
 
   try {
-    const card = await placeCardFor(c.env, v, name, !!body.typed, c.executionCtx);
-    return c.json({ card });
+    return c.json<PlaceCardResponse>(await placeCardFor(c.env, v, name, !!body.typed, c.executionCtx, true));
   } catch (err) {
     console.error("place card failed", err);
     await logError(c.env.DB, "place-card", err, `${v.id} ${name}`);

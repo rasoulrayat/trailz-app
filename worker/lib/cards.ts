@@ -1,6 +1,6 @@
-import type { CheckResult, PlaceRef, RealityCard } from "../../shared/types";
+import type { CheckResult, PlaceCardResponse, PlaceRef, RealityCard } from "../../shared/types";
 import type { Env } from "../env";
-import { cardFor } from "./analyze";
+import { cardFor, profileFor, verdictFor } from "./analyze";
 import type { VideoRecord } from "./extract-schema";
 import { placeKey } from "./route";
 import { getVideo, logError, type VideoRow } from "./store";
@@ -10,8 +10,12 @@ type Ctx = { waitUntil(p: Promise<unknown>): void };
 /**
  * The Reality Card for one place of a checked reel: served from `place_cards` when it exists,
  * written (and stored) otherwise. Used by the place-card route and by the prebuilder.
+ *
+ * `partial` (the route): the place facts are returned as soon as they exist (stored profile → instantly), and the
+ * verdict on the reel is finished in the background; the client polls until the full card is stored.
+ * Without `partial` (prebuild, cron): the full card is written before returning.
  */
-export async function placeCardFor(env: Env, v: VideoRow, name: string, typed: boolean, ctx?: Ctx): Promise<RealityCard> {
+export async function placeCardFor(env: Env, v: VideoRow, name: string, typed: boolean, ctx?: Ctx, partial = false): Promise<PlaceCardResponse> {
   const key = placeKey(name);
   const cached = await env.DB.prepare("SELECT card_json, created_at FROM place_cards WHERE video_id = ? AND place_key = ?")
     .bind(v.id, key)
@@ -47,12 +51,25 @@ export async function placeCardFor(env: Env, v: VideoRow, name: string, typed: b
           .catch(() => {}),
       );
     }
-    return card;
+    return { card, pending: false };
+  }
+
+  if (partial && ctx) {
+    // Facts first (instant when the place is known), the reel verdict in the background.
+    const p = await profileFor(env, { ...place, verified: undefined });
+    if (await claim(env, v.id, `verdict:${key}`)) {
+      ctx.waitUntil(
+        verdictFor(env, p, record, relation)
+          .then((r) => save(r.card, r.backup))
+          .catch((err) => logError(env.DB, "place-verdict", err, `${v.id} ${name}`)),
+      );
+    }
+    return { profile: p.profile, pending: true };
   }
 
   const { card, backup } = await cardFor(env, { ...place, verified: undefined }, record, relation);
   await save(card, backup);
-  return card;
+  return { card, pending: false };
 }
 
 /** The places of a reel whose cards are worth having ready before anyone taps them. */
@@ -76,6 +93,7 @@ const LOCK_MS = 3 * 60_000;
 /** One build per place at a time, across isolates: a short-lived row in kv_cache. */
 async function claim(env: Env, videoId: string, key: string): Promise<boolean> {
   const lock = `prebuild:${videoId}:${key}`;
+  // (also used for in-flight verdicts: key "verdict:<place>")
   await env.DB.prepare("DELETE FROM kv_cache WHERE key = ? AND expires_at < ?").bind(lock, Date.now()).run();
   const res = await env.DB.prepare("INSERT OR IGNORE INTO kv_cache (key, json, expires_at) VALUES (?, '1', ?)").bind(lock, Date.now() + LOCK_MS).run();
   return (res.meta.changes ?? 0) === 1;

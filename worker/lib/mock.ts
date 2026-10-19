@@ -4,7 +4,7 @@
  * The scenario is picked from words in the link, e.g. a link containing "italy"
  * gives the many-places result.
  */
-import type { Offer, PlaceRef, RealityCard, Mood, PlanDay, PlanItem, Trip, TripPlan, TripPrices } from "../../shared/types";
+import type { Offer, PlaceProfile, PlaceRef, RealityCard, Mood, PlanDay, PlanItem, Trip, TripPlan, TripPrices } from "../../shared/types";
 import type { VideoRecord } from "./extract-schema";
 import type { ExtractJob } from "./supadata";
 
@@ -118,6 +118,12 @@ export function mockMeta(url: string) {
     not_travel: { title: "My nonna's cacio e pepe, 3 ingredients only", author: "@pasta.nights" },
   };
   return meta[s];
+}
+
+/** The place part of the sample card. */
+export function mockPlaceProfile(place: PlaceRef, origin: string): PlaceProfile {
+  const { authenticity: _a, summary: _s, comparisons: _c, ...profile } = mockCard(place, origin);
+  return profile;
 }
 
 export function mockCard(place: PlaceRef, origin: string): RealityCard {

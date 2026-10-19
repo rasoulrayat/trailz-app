@@ -49,10 +49,12 @@ interface Props {
   readOnly?: boolean;
   /** This card is one place inside a reel (not the reel's own single result): share links must carry the place name. */
   placeCard?: boolean;
+  /** The verdict on the reel (score, summary, comparisons) is still being written: show the facts, shimmer the rest. */
+  verdictPending?: boolean;
   footer?: ReactNode;
 }
 
-export function RealityCardView({ card, video, backTo, context, checkId, vibe, readOnly, placeCard, footer }: Props) {
+export function RealityCardView({ card, video, backTo, context, checkId, vibe, readOnly, placeCard, verdictPending, footer }: Props) {
   const { place } = card;
   const savePlace: NewSave = {
     name: place.name,
@@ -117,18 +119,31 @@ export function RealityCardView({ card, video, backTo, context, checkId, vibe, r
           {card.summary && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{card.summary}</p>}
         </div>
 
-        <Decision card={card} />
+        <Decision card={card} pending={verdictPending} />
 
-        <section className="card stack" style={{ padding: 16, gap: 12 }}>
+        <section className="card stack" style={{ padding: 16, gap: 12 }} aria-busy={verdictPending}>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
             <h2 style={{ fontSize: 15 }}>1 · How real is this reel?</h2>
-            <div className="big-number" style={{ fontSize: 28 }}>
-              {card.authenticity}
-              <span style={{ fontSize: 16, color: "var(--muted)" }}>/10</span>
-            </div>
+            {verdictPending ? (
+              <span className="skeleton" style={{ width: 56, height: 30 }} aria-label="Score coming" />
+            ) : (
+              <div className="big-number" style={{ fontSize: 28 }}>
+                {card.authenticity}
+                <span style={{ fontSize: 16, color: "var(--muted)" }}>/10</span>
+              </div>
+            )}
           </div>
-          <Meter value={card.authenticity} />
-          {card.comparisons.length > 0 && (
+          {verdictPending ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <span className="skeleton" style={{ height: 10, borderRadius: 5 }} />
+              <span className="skeleton" style={{ height: 14, width: "85%" }} />
+              <span className="skeleton" style={{ height: 14, width: "70%" }} />
+              <span className="small">Comparing the reel with reality…</span>
+            </div>
+          ) : (
+            <Meter value={card.authenticity} />
+          )}
+          {!verdictPending && card.comparisons.length > 0 && (
             <div className="compare" style={{ marginTop: 4 }}>
               {card.comparisons.map((c, i) => (
                 <ComparisonRows key={i} reel={c.reel} reality={c.reality} last={i === card.comparisons.length - 1} />
@@ -373,7 +388,7 @@ function RightNow({ months }: { months: MonthRating[] }) {
 }
 
 /** The five-second read: the three facts that decide a trip. */
-function Decision({ card }: { card: RealityCard }) {
+function Decision({ card, pending }: { card: RealityCard; pending?: boolean }) {
   const m = new Date().getMonth();
   const best = card.months.map((x, i) => (x === "best" ? MONTH_NAMES[i] : null)).filter(Boolean) as string[];
   const nowWord = card.months[m] === "best" ? "best time now" : card.months[m] === "good" ? "good now" : card.months[m] === "crowded" ? "crowded now" : "quiet now";
@@ -385,11 +400,23 @@ function Decision({ card }: { card: RealityCard }) {
         <span className="small" style={{ color: "var(--muted-on-dark)" }}>{nowWord}</span>
       </div>
       <div className="decision-row">
-        <span className={`decision-score ${scoreClass(card.authenticity)}`}>{card.authenticity}</span>
-        <span>
-          <b>{verdict}</b>
-          <span>{card.comparisons[0] ? card.comparisons[0].reality : card.summary}</span>
-        </span>
+        {pending ? (
+          <>
+            <span className="decision-score skeleton" style={{ background: "rgba(255,255,255,0.18)" }} aria-label="Score coming" />
+            <span>
+              <b>Checking the reel…</b>
+              <span>The facts below are ready; the verdict on this reel lands in a few seconds.</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className={`decision-score ${scoreClass(card.authenticity)}`}>{card.authenticity}</span>
+            <span>
+              <b>{verdict}</b>
+              <span>{card.comparisons[0] ? card.comparisons[0].reality : card.summary}</span>
+            </span>
+          </>
+        )}
       </div>
       <div className="decision-facts">
         <span>
