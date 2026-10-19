@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { CheckResult, ExploreItem, ExploreResponse, MonthRating, SavedPlace } from "../shared/types";
+import { buildVibe } from "../shared/vibe";
 import type { Env } from "./env";
 import { distanceKm, placeKey } from "./lib/route";
 
@@ -50,10 +51,16 @@ explore.get("/explore", async (c) => {
   ]);
 
   const saves: Pick<SavedPlace, "name" | "country" | "lat" | "lng" | "vibe">[] = mySaves.results.map((s) => ({ ...s, vibe: JSON.parse(s.vibe_json) as string[] }));
-  const myVibeCount = new Map<string, number>();
-  saves.forEach((s) => s.vibe.forEach((v) => myVibeCount.set(placeKey(v), (myVibeCount.get(placeKey(v)) ?? 0) + 1)));
   // Saved places say the most about taste; the onboarding picks fill in before anything is saved.
-  (profile?.vibes ?? []).forEach((id) => (VIBE_WORDS[id] ?? []).forEach((w) => myVibeCount.set(w, (myVibeCount.get(w) ?? 0) + 0.5)));
+  // The person can mute single words or switch learning off on the Vibe page (profile.vibeOff / learnVibe).
+  const learned = buildVibe(
+    saves.map((s, i) => ({ ...s, id: String(i), createdAt: 0 })),
+    profile,
+  );
+  const myVibeCount = new Map<string, number>();
+  learned.tags.forEach((t) => myVibeCount.set(t.key, t.count));
+  const muted = new Set(learned.muted);
+  (profile?.vibes ?? []).forEach((id) => (VIBE_WORDS[id] ?? []).forEach((w) => !muted.has(w) && myVibeCount.set(w, (myVibeCount.get(w) ?? 0) + 0.5)));
   const myVibe = [...myVibeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([v]) => v);
 
   const month = Number(c.req.query("month") || 0);

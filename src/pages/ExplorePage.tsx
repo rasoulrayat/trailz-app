@@ -23,7 +23,8 @@ export function ExplorePage() {
   const [retry, setRetry] = useState(0);
   const [myVibe, setMyVibe] = useState<string[]>([]);
   const [hasSaves, setHasSaves] = useState(false);
-  const [vibe, setVibe] = useState(false);
+  // /explore?vibe=1 (from the Vibe page) opens with "My vibe" on.
+  const [vibe, setVibe] = useState(() => typeof location !== "undefined" && new URLSearchParams(location.search).get("vibe") === "1");
   const [near, setNear] = useState(false);
   const [month, setMonth] = useState(0);
   const [budget, setBudget] = useState(0);

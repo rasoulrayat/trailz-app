@@ -6,6 +6,8 @@ import { Icon, type IconName } from "../components/Icon";
 import { MapView, toPoints } from "../components/MapView";
 import { PlaceThumb } from "../components/PlacePhoto";
 import { TabBar } from "../components/TabBar";
+import { VibeCard } from "../components/VibeCard";
+import { useMe } from "../auth";
 import { groupPlaces, type GroupBy, type PlaceGroup } from "../groups";
 import { planUrl } from "../plan-url";
 import { toggleSave, useSaves } from "../saves";
@@ -35,6 +37,7 @@ const q = (p: SavedPlace) => [p.name, p.country].filter(Boolean).join(", ");
 
 export function SavedPage() {
   const { items, loaded } = useSaves();
+  const me = useMe();
   const navigate = useNavigate();
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -56,7 +59,7 @@ export function SavedPage() {
     <>
       <main className="page" style={{ gap: 18 }}>
         <div className="topbar">
-          <h1>Saved</h1>
+          <h1>Your vibe</h1>
           {items.length > 1 && (
             <button
               className="btn-sm"
@@ -70,6 +73,8 @@ export function SavedPage() {
           )}
         </div>
 
+        {!picking && <VibeCard items={items} profile={me.profile} loaded={loaded && me.loaded} />}
+
         {!loaded ? (
           <div className="skeleton" style={{ height: 120 }} />
         ) : items.length === 0 ? (
@@ -78,7 +83,7 @@ export function SavedPage() {
               <Icon name="heart" size={20} />
             </span>
             <h2>Nothing saved yet</h2>
-            <p className="lead">Tap the heart on a Reality Card or a place. After a few saves, we'll know your vibe and suggest trips.</p>
+            <p className="lead">Tap the heart on a Reality Card or a place. Every save teaches your vibe and, from three, suggests trips.</p>
             <Link to="/" className="btn" style={{ width: "auto" }}>
               Check a reel
             </Link>
@@ -136,7 +141,7 @@ export function SavedPage() {
 
             <section className="stack">
               <h2>
-                {items.length} {items.length === 1 ? "place" : "places"}
+                Saved {items.length === 1 ? "place" : "places"} ({items.length})
               </h2>
               {items.map((p) => (
                 <div key={p.id} className={`list-row${picked.has(p.id) ? " selected" : ""}`} style={{ padding: "10px 12px" }}>
@@ -155,8 +160,8 @@ export function SavedPage() {
                     <span className="row-title">{p.name}</span>
                     <span className="row-sub">
                       {[p.region, p.country].filter(Boolean).join(" · ")}
-                      {p.vibe.length ? ` · ${p.vibe.slice(0, 2).join(", ")}` : ""}
                     </span>
+                    {p.vibe.length > 0 && <span className="row-sub taught">taught: {p.vibe.slice(0, 3).join(", ")}</span>}
                   </Link>
                   {!picking && (
                     <button className="heart on" aria-label={`Remove ${p.name}`} onClick={() => toggleSave(p)}>

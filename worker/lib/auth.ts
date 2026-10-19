@@ -1,4 +1,5 @@
 import type { Profile } from "../../shared/types";
+import { vibeKey } from "../../shared/vibe";
 
 /** Owner id for everything a logged-in user owns. Anonymous owners use the bare device id. */
 export const ownerForUser = (userId: string) => `u:${userId}`;
@@ -135,6 +136,8 @@ export function cleanPatch(raw: unknown): Partial<Profile> {
   if ("budget" in r && full.budget !== undefined) out.budget = full.budget;
   if ("home" in r && full.home !== undefined) out.home = full.home;
   if (full.onboarded) out.onboarded = true;
+  if (Array.isArray(r.vibeOff)) out.vibeOff = full.vibeOff ?? [];
+  if ("learnVibe" in r && typeof r.learnVibe === "boolean") out.learnVibe = r.learnVibe;
   return out;
 }
 
@@ -150,6 +153,11 @@ export function cleanProfile(raw: unknown): Profile {
   if (typeof r.budget === "number" && Number.isFinite(r.budget) && r.budget >= 0) p.budget = Math.round(r.budget);
   if (typeof r.home === "string" && r.home.trim()) p.home = r.home.trim().slice(0, 60);
   if (r.onboarded === true) p.onboarded = true;
+  if (Array.isArray(r.vibeOff)) {
+    const off = [...new Set(r.vibeOff.filter((v): v is string => typeof v === "string").map(vibeKey).filter((k) => k && k.length <= 32))].slice(0, 60);
+    if (off.length) p.vibeOff = off;
+  }
+  if (r.learnVibe === false) p.learnVibe = false;
   return p;
 }
 

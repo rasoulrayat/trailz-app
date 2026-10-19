@@ -297,6 +297,10 @@ export interface Profile {
   home?: string;
   /** Set once the intro has been seen (or skipped). */
   onboarded?: boolean;
+  /** Learned-vibe words the person removed by hand (normalised keys). */
+  vibeOff?: string[];
+  /** false = saves no longer teach the vibe; Explore then uses the onboarding picks only. Default true. */
+  learnVibe?: boolean;
 }
 
 export interface Me {
