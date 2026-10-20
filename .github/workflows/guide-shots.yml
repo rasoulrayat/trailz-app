@@ -11,23 +11,17 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch Tiqets sitemaps
-        run: |
-          mkdir -p tiqets-sitemaps
-          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
-          curl -s -A "$UA" -o tiqets-sitemaps/index.xml -w "index %{http_code}\n" https://www.tiqets.com/sitemapindex.xml
-          head -c 3000 tiqets-sitemaps/index.xml; echo
-          for t in product location region country bundle; do
-            u="https://www.tiqets.com/sitemap/site-map-$t-en.xml.gz"
-            curl -s -A "$UA" -o "tiqets-sitemaps/site-map-$t-en.xml.gz" -w "$u %{http_code} %{size_download}\n" "$u"
-          done
-          # a product sitemap may itself be an index of parts
-          zcat tiqets-sitemaps/site-map-product-en.xml.gz | head -c 600; echo
-          ls -la tiqets-sitemaps
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: node scripts/probe-viator.mjs
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f tiqets-sitemaps
-          git commit -m "Tiqets sitemaps [skip ci]"
+          git add -f viator
+          git commit -m "Viator link probe [skip ci]"
           git push origin HEAD:guide-screens
