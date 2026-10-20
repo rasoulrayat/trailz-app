@@ -392,3 +392,41 @@ export function isFutureDate(s: string): boolean {
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return false;
   return d.getTime() >= Date.now() - 36 * 3600_000;
 }
+
+/** For /api/health?activities=1: what the Activities tab gets for a sample plan, without signing in. */
+export async function sampleActivities(env: Env) {
+  const start = new Date(Date.now() + 28 * 86400_000).toISOString().slice(0, 10);
+  const stop = (time: string, title: string) => ({ time, kind: "see" as const, title, detail: "", cost: 20, book: "activity" as const });
+  const day = (n: number, base: string, items: ReturnType<typeof stop>[]) => ({ day: n, title: "", base, items });
+  const trip: Trip = {
+    id: "health", status: "saved", mood: "friends", budgetMode: false, origin: "Amsterdam, Netherlands", travelers: 2, startDate: start, booked: {}, bestMonths: [], createdAt: 0, updatedAt: 0,
+    places: [{ id: "g", name: "Granada", country: "Spain", lat: 37.18, lng: -3.6, vibe: [], createdAt: 0 }],
+    plan: {
+      title: "health", summary: "", estimate: { travel: 0, stay: 0, activities: 0, food: 0 }, tips: [],
+      days: [
+        day(1, "Granada", [stop("09:30", "Alhambra & Generalife"), stop("21:00", "Flamenco night in Sacromonte")]),
+        day(2, "Barcelona", [stop("10:00", "Sagrada Família"), stop("18:00", "Picnic on Barceloneta beach")]),
+        day(3, "Rome", [stop("09:00", "Vatican Museums & Sistine Chapel")]),
+        day(4, "Amsterdam", [stop("11:00", "Van Gogh Museum")]),
+      ],
+    },
+  };
+  const h = await enrichActivities(env, buildHandoff(trip, partnerIds(env)));
+  return h.activities.map((a) => ({
+    place: a.place,
+    town: a.town,
+    date: a.date,
+    note: a.note,
+    options: (a.options ?? []).map((o) => ({
+      partner: o.partner,
+      label: o.label,
+      price: o.price ?? null,
+      rating: o.rating ?? null,
+      reviews: o.reviews ?? null,
+      title: o.title ?? null,
+      host: new URL(o.url).host,
+      tracked: /tp\.media|tpx\.gr|tp\.st|[?&](pid|mcid|partner_id)=/.test(o.url),
+      url: o.url.length > 160 ? `${o.url.slice(0, 160)}…` : o.url,
+    })),
+  }));
+}
