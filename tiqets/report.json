@@ -1,0 +1,72 @@
+{
+  "A_search_slash": {
+    "url": "https://www.tiqets.com/en/search/?q=Sagrada%20Familia%20Barcelona",
+    "final": "https://www.tiqets.com/en/search/?q=Sagrada%20Familia%20Barcelona",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "B_search": {
+    "url": "https://www.tiqets.com/en/search?q=Sagrada%20Familia%20Barcelona",
+    "final": "https://www.tiqets.com/en/search?q=Sagrada%20Familia%20Barcelona",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "C_date": {
+    "url": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&date=2026-12-03",
+    "final": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&date=2026-12-03",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "D_start_date": {
+    "url": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&start_date=2026-12-03&end_date=2026-12-03",
+    "final": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&start_date=2026-12-03&end_date=2026-12-03",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "E_from_to": {
+    "url": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&from=2026-12-03&to=2026-12-03",
+    "final": "https://www.tiqets.com/en/search/?q=Alhambra%20Granada&from=2026-12-03&to=2026-12-03",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "F_place_only": {
+    "url": "https://www.tiqets.com/en/search/?q=Oia%20Santorini",
+    "final": "https://www.tiqets.com/en/search/?q=Oia%20Santorini",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  },
+  "G_tracked_home": {
+    "url": "https://www.tiqets.com/en/?partner=travelpayouts.com&tq_campaign=test-789861",
+    "final": "https://www.tiqets.com/en/?partner=travelpayouts.com&tq_campaign=test-789861",
+    "title": "Request filtered by WAF. (403)",
+    "products": [],
+    "dates": [],
+    "inputs": [],
+    "head": "Request filtered by WAF. (403) Your request has been flagged by our security system. Please contact our customer service for more information. (403)",
+    "cookies": ""
+  }
+}
