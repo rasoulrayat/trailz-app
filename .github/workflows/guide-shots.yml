@@ -1,26 +1,27 @@
-# Temporary: resolve a partner short link (where does it redirect?). Runs on pushes to this temporary branch only.
-name: Resolve partner link
+# Temporary: probe partner links in a real browser. Runs on pushes to this temporary branch only.
+name: Partner link probe
 on:
   push:
     branches: [guide-screens]
 permissions:
   contents: write
 jobs:
-  resolve:
+  probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Follow the redirects
-        run: |
-          mkdir -p resolve
-          curl -s -o /dev/null -L --max-redirs 10 -w "%{url_effective}\n" -A "Mozilla/5.0" -D resolve/headers.txt "https://tiqets.tpx.gr/vFMaOA4h" > resolve/final.txt || true
-          grep -i "^location:" resolve/headers.txt > resolve/hops.txt || true
-          cat resolve/hops.txt resolve/final.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: node scripts/probe-tiqets.mjs
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f resolve
-          git commit -m "Resolve partner link [skip ci]"
+          git add -f tiqets
+          git commit -m "Tiqets link probe [skip ci]"
           git push origin HEAD:guide-screens
