@@ -59,8 +59,21 @@ const LINK_MESSAGES: Record<LinkErrorCode, string> = {
 };
 const FRIENDLY_FAILURE = "We couldn't open this video. It may be private, deleted or blocked in our region.";
 const FRIENDLY_ERROR = "Something went wrong while checking this reel. Try again in a minute.";
+const BUSY = "Reading new reels is paused right now: our video service reached its limit. Reels someone already checked still open. Please try again later.";
 
-const fail = (c: Context<AppEnv>, status: 400 | 404 | 429 | 500, error: ApiError["error"], message: string) =>
+/**
+ * What to tell the person when the video service won't start reading a reel. Its plan limit (HTTP 429,
+ * "Limit Exceeded") is not their link's fault, so it must not say "private or deleted".
+ */
+export function startFailure(err: unknown): { status: 400 | 500 | 503; code: "unavailable" | "busy" | "server_error"; message: string } {
+  if (err instanceof SupadataError) {
+    if (err.httpStatus === 429 || err.httpStatus === 402 || /limit|quota|credit/i.test(err.message)) return { status: 503, code: "busy", message: BUSY };
+    if (err.httpStatus >= 400 && err.httpStatus < 500 && err.httpStatus !== 401) return { status: 400, code: "unavailable", message: LINK_MESSAGES.unavailable };
+  }
+  return { status: 500, code: "server_error", message: FRIENDLY_ERROR };
+}
+
+const fail = (c: Context<AppEnv>, status: 400 | 404 | 429 | 500 | 503, error: ApiError["error"], message: string) =>
   c.json<ApiError>({ error, message }, status);
 
 // Who is asking: an anonymous device id (cookie), or the account behind a session cookie.
@@ -163,10 +176,8 @@ app.post("/checks", async (c) => {
   } catch (err) {
     console.error("startExtract failed", err);
     await logError(env.DB, "start-extract", err, link.url);
-    const unavailable = err instanceof SupadataError && err.httpStatus >= 400 && err.httpStatus < 500;
-    return unavailable
-      ? fail(c, 400, "unavailable", LINK_MESSAGES.unavailable)
-      : fail(c, 500, "server_error", FRIENDLY_ERROR);
+    const f = startFailure(err);
+    return fail(c, f.status, f.code, f.message);
   }
 
   const now = Date.now();

@@ -143,7 +143,7 @@ export interface StartCheckResponse {
 }
 
 export interface ApiError {
-  error: LinkErrorCode | "not_found" | "bad_request" | "server_error" | "login_required";
+  error: LinkErrorCode | "not_found" | "bad_request" | "server_error" | "login_required" | "busy";
   message: string;
 }
 
