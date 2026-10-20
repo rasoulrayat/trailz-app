@@ -33,6 +33,7 @@ export const OPS: Record<string, string> = {
   "auth.google": "Sign-in with Google",
   "cron.prebuild": "Background: place cards (cron)",
   "api.error": "Unexpected server errors",
+  "health.edge": "Health check from a monitor (by data centre)",
 };
 
 const als = new AsyncLocalStorage<{ fail?: string; skip?: string }>();

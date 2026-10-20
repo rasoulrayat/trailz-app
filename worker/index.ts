@@ -428,8 +428,22 @@ app.get("/health", async (c) => {
   if (c.req.query("activities") === "1") out.activities = await sampleActivities(c.env);
   // /api/health?tiqets=1 → can Travelpayouts track a Tiqets deep link for this project? (Tiqets must be joined on TP_TRS.) Free.
   if (c.req.query("tiqets") === "1") out.tiqetsLinks = await checkTrackedLink({ token: c.env.TP_TOKEN, marker: c.env.TP_MARKER, trs: c.env.TP_TRS }, "https://www.tiqets.com/en/barcelona-attractions-c66342/");
-  if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(out);
-  return c.json({ ...out, gemini: await pingGemini(geminiConfig(c.env)) });
+  if (c.req.query("ai") === "1" && c.env.GEMINI_API_KEY) out.gemini = await pingGemini(geminiConfig(c.env));
+  // Which Cloudflare data centre answered: a Worker runs (and calls Gemini, Viator…) from the one nearest the visitor,
+  // and some providers refuse some places (Gemini: Hong Kong, mainland China, Russia…).
+  const cf = (c.req.raw as unknown as { cf?: { colo?: string; country?: string } }).cf;
+  out.edge = { colo: cf?.colo ?? null, country: cf?.country ?? null };
+  // &strict=1 → the status code says whether the live tests passed (502 if one failed), for outside monitors that only
+  // see the status, e.g. check-host.net running this from many countries. A failure is also kept in the ops log.
+  if (c.req.query("strict") === "1") {
+    const failed = (["gemini", "viator"] as const).filter((k) => (out[k] as { ok?: boolean } | undefined)?.ok === false);
+    if (failed.length) {
+      const why = failed.map((k) => `${k}: ${String((out[k] as { error?: unknown }).error ?? "failed").slice(0, 120)}`).join(" · ");
+      await recordOp(c.env.DB, "health.edge", "fail", { ref: `${cf?.colo ?? "?"} ${cf?.country ?? ""}`.trim(), detail: why });
+      return c.json(out, 502);
+    }
+  }
+  return c.json(out);
 });
 
 app.notFound((c) => fail(c, 404, "not_found", "Not found."));
