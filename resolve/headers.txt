@@ -1,0 +1,79 @@
+HTTP/2 302 
+content-type: text/html; charset=utf-8
+content-length: 165
+location: https://tiqets.com?partner=travelpayouts.com&tq_campaign=4e1f4a8fae2443e293c86184e-789861&tq_click_id=4e1f4a8fae2443e293c86184e-789861
+date: Tue, 20 Oct 2026 08:57:48 GMT
+x-url-short: https://tiqets.tpx.gr/vFMaOA4h
+x-rate-limit: 1200
+x-rate-limit-remaining: 1199
+x-rate-limit-reset: 60
+x-request-id: c536517281d94b10c09f71c75e4b36d5
+x-robots-tag: noindex
+x-url-full: https://tp.media/r?campaign_id=89&marker=789861&p=2074&trs=585453&u=https%3A%2F%2Ftiqets.com
+x-cache: Miss from cloudfront
+via: 1.1 ee40b6fb86110741a6ccff39169674a0.cloudfront.net (CloudFront)
+x-amz-cf-pop: PHX50-P2
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: 4BpQibrbBcduNHmYVXkzmWxHBWzoAdDusrUtijafErt0uzM67o5tvg==
+
+HTTP/2 301 
+content-type: text/html
+content-length: 162
+location: https://www.tiqets.com/?partner=travelpayouts.com&tq_campaign=4e1f4a8fae2443e293c86184e-789861&tq_click_id=4e1f4a8fae2443e293c86184e-789861
+date: Tue, 20 Oct 2026 08:57:49 GMT
+server: HAL9000
+gateway: external-gateway
+x-cache: Miss from cloudfront
+via: 1.1 8c3a327cfabf4b41ac8516033c03dfcc.cloudfront.net (CloudFront)
+x-amz-cf-pop: PHX50-P2
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: GBw5yN0wBdvBqUFSk6iYkgw8eip0OlIWMIy602uUVdLiCxjM4kLxBw==
+
+HTTP/2 301 
+content-type: text/html; charset=utf-8
+content-length: 487
+location: https://www.tiqets.com/en/?partner=travelpayouts.com&tq_campaign=4e1f4a8fae2443e293c86184e-789861&tq_click_id=4e1f4a8fae2443e293c86184e-789861
+date: Tue, 20 Oct 2026 08:57:49 GMT
+x-frame-options: SAMEORIGIN
+referrer-policy: origin-when-cross-origin
+x-content-type-options: nosniff
+permissions-policy: geolocation=(self)
+server: HAL9000
+gateway: external-gateway
+x-cache: Miss from cloudfront
+via: 1.1 c7d407b9c4de0647c7b6da7ef4265032.cloudfront.net (CloudFront)
+x-amz-cf-pop: PHX50-P2
+alt-svc: h3=":443"; ma=86400
+x-amz-cf-id: 2ipJUf_C7d8q3gDTONOuvfctM9omoayzzCSWRxN_Hf4VP3-AVnKK-A==
+
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 271926
+date: Tue, 20 Oct 2026 08:57:50 GMT
+cache-control: max-age=1800, no-cache="Set-Cookie", stale-while-revalidate=1800
+set-cookie: aff_sitebrand=travelpayouts.com; Expires=Thu, 19 Nov 2026 08:57:50 GMT; Max-Age=2592000; Secure; Path=/
+set-cookie: l10n=%7B%22language%22%3A%22en%22%2C%22country%22%3A%22US%22%2C%22currency%22%3A%22USD%22%7D; Domain=tiqets.com; Expires=Thu, 19 Nov 2026 08:57:50 GMT; Max-Age=2592000; Secure; Path=/
+set-cookie: cns=%7B%22cookie_consent%22%3Afalse%7D; Domain=tiqets.com; Expires=Thu, 19 Nov 2026 08:57:50 GMT; Max-Age=2592000; Secure; Path=/
+set-cookie: tiqets_vf=qkkQ8ZxNpJMVmQWkkv09pvq2d; Max-Age=31536000; Secure; Path=/; Domain=.tiqets.com; SameSite=Lax
+set-cookie: session=f39389dc-ef39-453b-9786-edbd44ff7028; Max-Age=2592000; Secure; Path=/; Domain=.tiqets.com; SameSite=Lax
+set-cookie: pb=travelpayouts.com; Max-Age=2592000; Secure; Path=/; Domain=.tiqets.com
+set-cookie: ce={"cdn_pop":"PHX50-P2","fbl_origin_ms":407,"fbl_viewer_ms":550,"cached":false}; Max-Age=15; Secure; Path=/; Domain=.tiqets.com
+set-cookie: l10n=%7B%22language%22%3A%22en%22%2C%22currency%22%3A%22USD%22%2C%22country%22%3A%22US%22%7D; Max-Age=2592000; Secure; Path=/; Domain=.tiqets.com
+set-cookie: tplt=1; Max-Age=86400; Secure; Path=/; Domain=.tiqets.com; HttpOnly; SameSite=Lax
+set-cookie: tph=e051d6eb9b7913047810015f27406a8d0c6ef3db48fcc031404a4f1edfabda02; Max-Age=86400; Secure; Path=/; Domain=.tiqets.com; HttpOnly; SameSite=Lax
+x-ratelimit-remaining: 99
+x-ratelimit-limit: 100
+x-ratelimit-reset: 1792486730
+x-frame-options: SAMEORIGIN
+referrer-policy: origin-when-cross-origin
+x-content-type-options: nosniff
+permissions-policy: geolocation=(self)
+server: HAL9000
+gateway: external-gateway
+vary: Accept-Encoding,Cookie
+via: 1.1 c7d407b9c4de0647c7b6da7ef4265032.cloudfront.net (CloudFront)
+alt-svc: h3=":443"; ma=86400
+x-cache: Miss from cloudfront
+x-amz-cf-pop: PHX50-P2
+x-amz-cf-id: 8RvjTWBV51QD7jN9JrJhkBTTrAYkn-ptkGdksLxMSZ2d2_HHc_N8Xg==
+
