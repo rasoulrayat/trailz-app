@@ -240,6 +240,8 @@ export interface ActivityOption {
   partner: string;
   url: string;
   label: string;
+  /** The main button's words when this option comes first ("Find it on Viator"). */
+  cta?: string;
   price?: number;
   currency?: string;
   rating?: number | null;

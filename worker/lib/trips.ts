@@ -202,6 +202,8 @@ export interface PartnerIds {
   booking?: string;
   getyourguide?: string;
   omio?: string;
+  /** Viator partner id (pid): Viator search links earn commission with it. */
+  viator?: string;
   /** Travelpayouts: marker (partner id), trs (project id) and each brand's campaign ("p") id. */
   tp?: { marker: string; trs: string; kiwiP?: string; bookingP?: string; gygP?: string; omioP?: string };
 }
@@ -288,9 +290,9 @@ export function buildHandoff(
     };
   });
 
-  // Activities: every bookable stop gets Tiqets and GetYourGuide. Tiqets comes first when it sells the exact
-  // ticket in that town (the most pre-filled link there is); otherwise a GetYourGuide search comes first and
-  // Tiqets offers its page for the town. Neither takes a date in the link.
+  // Activities: Viator first, GetYourGuide always among the options. Each bookable stop gets a Viator search
+  // (enrichActivities swaps in Viator's priced tour for that day when it has one), Tiqets and GetYourGuide.
+  // Tiqets goes first only when it sells the exact ticket and Viator has no price. No partner takes a date in the link.
   const activities = trip.plan.days
     .flatMap((d) => d.items.filter((it) => it.book === "activity").map((it) => ({ day: d.day, base: d.base || firstBase, it })))
     .slice(0, 6)
@@ -299,11 +301,24 @@ export function buildHandoff(
       u.searchParams.set("q", `${it.title} ${base}`);
       if (start) u.searchParams.set("date_from", addDays(start, day - 1));
       if (ids.getyourguide) u.searchParams.set("partner_id", ids.getyourguide);
-      const gyg = { partner: "GetYourGuide", url: tpWrap(u.toString(), ids.tp, ids.tp?.gygP, "activity"), label: "GetYourGuide" };
+      const gyg = { partner: "GetYourGuide", url: tpWrap(u.toString(), ids.tp, ids.tp?.gygP, "activity"), label: "GetYourGuide", cta: "Find it on GetYourGuide" };
+      const v = new URL("https://www.viator.com/searchResults/all");
+      v.searchParams.set("text", `${it.title} ${base}`);
+      if (ids.viator) {
+        v.searchParams.set("pid", ids.viator);
+        v.searchParams.set("mcid", "42383");
+        v.searchParams.set("medium", "link");
+      }
+      const viator = { partner: "Viator", url: v.toString(), label: "Viator", cta: "Find it on Viator" };
       const tq = tiqetsFor(it.title, [base, arrive, ...bases.map((b) => b.city), ...trip.places.map((pl) => pl.name)], country);
-      const tiqets = { partner: "Tiqets", url: tq.url, label: tq.match === "ticket" ? "Tiqets · ticket" : tq.where ? `Tiqets · ${titleCase(tq.where)}` : "Tiqets" };
-      const options = tq.match === "ticket" ? [tiqets, gyg] : [gyg, tiqets];
-      const why = tq.match === "ticket" ? "the ticket itself on Tiqets" : "search on GetYourGuide";
+      const tiqets = {
+        partner: "Tiqets",
+        url: tq.url,
+        label: tq.match === "ticket" ? "Tiqets · ticket" : tq.where ? `Tiqets · ${titleCase(tq.where)}` : "Tiqets",
+        cta: tq.match === "ticket" ? "Book the ticket on Tiqets" : "See it on Tiqets",
+      };
+      const options = tq.match === "ticket" ? [tiqets, viator, gyg] : [viator, tiqets, gyg];
+      const why = tq.match === "ticket" ? "the ticket itself on Tiqets" : "search on Viator";
       return { partner: options[0].partner, url: options[0].url, place: it.title, note: `Day ${day} · ${it.time} · ${why}`, day, town: base, date: start ? addDays(start, day - 1) : null, options };
     });
 

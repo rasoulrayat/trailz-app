@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const MIGRATIONS = ["0001_init.sql", "0002_error_detail.sql", "0003_error_log.sql", "0004_media.sql", "0005_place_galleries.sql", "0006_saves_trips.sql", "0007_kv_cache.sql", "0008_trip_booking_state.sql", "0009_shares.sql", "0010_accounts.sql", "0011_checks_origin_and_indexes.sql"];
+const MIGRATIONS = ["0001_init.sql", "0002_error_detail.sql", "0003_error_log.sql", "0004_media.sql", "0005_place_galleries.sql", "0006_saves_trips.sql", "0007_kv_cache.sql", "0008_trip_booking_state.sql", "0009_shares.sql", "0010_accounts.sql", "0011_checks_origin_and_indexes.sql", "0012_place_profiles.sql", "0013_ops.sql"];
 
 type Param = string | number | null;
 

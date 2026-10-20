@@ -26,6 +26,8 @@ export interface Env {
   SERPAPI_KEY?: string;
   /** Secret. Viator Partner API key (affiliate): activity prices, ratings and tracked product links. */
   VIATOR_API_KEY?: string;
+  /** Viator affiliate partner id (pid, public), for Viator search links. */
+  VIATOR_PID?: string;
   /** Searches per month we allow ourselves on SerpApi (free plan: 250). */
   SERPAPI_MONTHLY_LIMIT?: string;
   /** Secret: Duffel access token (live airline fares + hosted checkout). */

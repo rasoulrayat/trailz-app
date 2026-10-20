@@ -19,6 +19,7 @@ import { cached, flightQuotes } from "./lib/prices";
 import { debugHotels, duffelCheckoutLink, duffelFlights, googleFlights } from "./lib/providers";
 import { checkTrackedLink } from "./lib/tp-links";
 import { checkViator } from "./lib/viator";
+import { opsSummary, recordOp, track } from "./lib/ops";
 import { sampleActivities } from "./trips-api";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
@@ -158,7 +159,7 @@ app.post("/checks", async (c) => {
   // 5. Start the paid extraction job.
   let jobId: string;
   try {
-    jobId = await startJob(env, link.url);
+    jobId = await track(env.DB, "check.read-start", () => startJob(env, link.url), { ref: link.platform });
   } catch (err) {
     console.error("startExtract failed", err);
     await logError(env.DB, "start-extract", err, link.url);
@@ -199,14 +200,14 @@ app.post("/checks", async (c) => {
   }
   await recordCheck(env.DB, deviceId, id, true, c.get("rawDeviceId"));
   // Cover image (and, for Instagram, title + creator) after the response: copied into our DB.
-  c.executionCtx.waitUntil(fillVideoMeta(env, id, thumb).catch((err) => logError(env.DB, "video-meta", err, id)));
+  c.executionCtx.waitUntil(track(env.DB, "check.video-meta", () => fillVideoMeta(env, id, thumb), { ref: id }).catch((err) => logError(env.DB, "video-meta", err, id)));
   return c.json<StartCheckResponse>({ id, cached: false });
 });
 
 /** Run the analysis step and store the result (or a friendly failure). */
 async function runAnalysis(env: Env, id: string, record: VideoRecord) {
   try {
-    const result = await analyze(env, record);
+    const result = await track(env.DB, "check.analysis", () => analyze(env, record), { ref: id });
     await saveResult(env.DB, id, result);
     // The first place's card is written now, so the first tap is instant; the rest follow on later polls and the cron.
     await prebuildCards(env, id, 1).catch(() => 0);
@@ -227,8 +228,10 @@ async function advance(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, 
     await env.DB.prepare("UPDATE videos SET last_polled_at = ? WHERE id = ?").bind(now, v.id).run();
     const job = isMock(env) ? mockGetExtract(v.job_id) : await getExtract(env.SUPADATA_API_KEY!, v.job_id);
     if (job.status === "failed") {
+      await recordOp(env.DB, "check.read", "fail", { ref: v.id, detail: "Supadata job failed", ms: now - v.created_at });
       await saveFailure(env.DB, v.id, FRIENDLY_FAILURE, "Supadata job failed");
     } else if (job.status === "completed") {
+      await recordOp(env.DB, "check.read", "ok", { ref: v.id, ms: now - v.created_at });
       const record = normalizeRecord(job.data);
       if (await claimForAnalysis(env.DB, v.id, JSON.stringify(record))) {
         ctx.waitUntil(runAnalysis(env, v.id, record));
@@ -249,7 +252,7 @@ app.get("/checks/:id", async (c) => {
   if (current.status === "ready") c.executionCtx.waitUntil(prebuildCards(c.env, v.id, 1).catch(() => 0));
   // Videos checked before covers existed get theirs on the next visit.
   if (current.thumbnail_url === null) {
-    c.executionCtx.waitUntil(fillVideoMeta(c.env, v.id).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
+    c.executionCtx.waitUntil(track(c.env.DB, "check.video-meta", () => fillVideoMeta(c.env, v.id), { ref: v.id }).catch((err) => logError(c.env.DB, "video-meta", err, v.id)));
   }
   // A finished check with its cover in place never changes: let the browser keep it.
   // ('' means the cover is still being copied or there is none; that answer must not be cached for an hour.)
@@ -299,7 +302,7 @@ app.post("/checks/:id/place-card", async (c) => {
   }
 
   try {
-    return c.json<PlaceCardResponse>(await placeCardFor(c.env, v, name, !!body.typed, c.executionCtx, true));
+    return c.json<PlaceCardResponse>(await track(c.env.DB, "check.place-card", () => placeCardFor(c.env, v, name, !!body.typed, c.executionCtx, true), { ref: v.id }));
   } catch (err) {
     console.error("place card failed", err);
     await logError(c.env.DB, "place-card", err, `${v.id} ${name}`);
@@ -331,6 +334,12 @@ app.get("/img/:key", async (c) => {
     "content-type": row.content_type,
     "cache-control": "public, max-age=604800, immutable",
   });
+});
+
+// ---------- GET /api/ops : each workflow step's outcomes (the /status page) ----------
+app.get("/ops", async (c) => {
+  c.header("cache-control", "no-store");
+  return c.json(await opsSummary(c.env.DB));
 });
 
 // ---------- GET /api/place-photos?q=Kandersteg, Switzerland : openly licensed photos of a place ----------
@@ -399,6 +408,8 @@ app.get("/health", async (c) => {
     }
     out.providers = checks;
   }
+  // /api/health?ops=1 → what works and what doesn't: every workflow step, last 24 h and 7 days (also at /status).
+  if (c.req.query("ops") === "1") out.ops = await opsSummary(c.env.DB).catch((e) => ({ error: String(e) }));
   // /api/health?viator=1 → does the Viator key work? One search for a known sight (free).
   if (c.req.query("viator") === "1") out.viator = await checkViator(c.env.VIATOR_API_KEY);
   // /api/health?activities=1 → the real Activities step (Viator prices, Tiqets matches and tracking) for a sample
@@ -414,6 +425,7 @@ app.notFound((c) => fail(c, 404, "not_found", "Not found."));
 app.onError(async (err, c) => {
   console.error(err);
   await logError(c.env.DB, `${c.req.method} ${c.req.path}`, err);
+  await recordOp(c.env.DB, "api.error", "fail", { ref: `${c.req.method} ${c.req.routePath || c.req.path}`, detail: err });
   return fail(c, 500, "server_error", FRIENDLY_ERROR);
 });
 
@@ -421,6 +433,6 @@ export default {
   fetch: app.fetch,
   /** Cron (see wrangler.jsonc): keep recent reels' place cards filled in, a few per run. */
   async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
-    ctx.waitUntil(prebuildRecent(env, 3).catch((err) => logError(env.DB, "cron-prebuild", err)));
+    ctx.waitUntil(track(env.DB, "cron.prebuild", () => prebuildRecent(env, 3)).catch((err) => logError(env.DB, "cron-prebuild", err)));
   },
 };

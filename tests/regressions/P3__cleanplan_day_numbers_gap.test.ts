@@ -32,7 +32,7 @@ describe("P3-04 cleanPlan leaves gaps in day numbers", () => {
     const trip: Trip = { id: "t", status: "saved", mood: "solo", budgetMode: false, origin: "Amsterdam", travelers: 1, startDate: "2027-06-12", booked: {}, bestMonths: [], places: [], plan, createdAt: 0, updatedAt: 0 };
     const h = buildHandoff(trip, {});
     const checkout = new URL(h.stay[0].url).searchParams.get("checkout"); // 2027-06-13 (1 night)
-    const activityDate = new URL(h.activities[0].url).searchParams.get("date_from");
+    const activityDate = new URL(h.activities[0].options!.find((o) => o.partner === "GetYourGuide")!.url).searchParams.get("date_from");
     // Expected: the activity falls within the stay. Actual: 2027-06-14, after the 2027-06-13 checkout.
     expect(activityDate! <= checkout!).toBe(true);
     expect(plan.days.map((d) => d.day)).toEqual([1, 2]);

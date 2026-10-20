@@ -508,7 +508,9 @@ function ActivitiesSection({ step, items, estimate, onLeave, onMark, onUndo }: {
               const options = a.options?.length ? a.options : [{ partner: a.partner, url: a.url, label: a.partner }];
               const [first, ...others] = options;
               const priced = first.price !== undefined;
-              const small = priced ? others : options;
+              // The first option is the main button; with only one partner (older plans) it's the small row.
+              const main = options.length > 1 || priced;
+              const small = main ? others : options;
               return (
                 <div key={`${a.place}·${a.note}`} className="act">
                   <span>
@@ -533,17 +535,17 @@ function ActivitiesSection({ step, items, estimate, onLeave, onMark, onUndo }: {
                       )}
                     </span>
                   )}
-                  {priced && (
+                  {main && (
                     <a href={first.url} target="_blank" rel="noopener noreferrer" className="btn act-main" onClick={onLeave}>
-                      Book on {first.partner} · from {euro(first.price!)} <Icon name="external" size={13} />
+                      {first.cta ?? (priced ? `Book on ${first.partner} · from ${euro(first.price!)}` : `Book on ${first.partner}`)} <Icon name="external" size={13} />
                     </a>
                   )}
                   {small.length > 0 && (
                     <span className="act-btns">
-                      {small.map((o, i) => {
+                      {small.map((o) => {
                         const [name, ...rest] = o.label.split(" · ");
                         return (
-                          <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className={`btn act-btn${i || priced ? " secondary" : ""}`} onClick={onLeave} aria-label={`Book ${a.place} on ${o.partner}`}>
+                          <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className="btn act-btn secondary" onClick={onLeave} aria-label={`Book ${a.place} on ${o.partner}`}>
                             <b>{name}</b>
                             {rest.length > 0 && <span>· {rest.join(" · ")}</span>}
                             <Icon name="external" size={12} />

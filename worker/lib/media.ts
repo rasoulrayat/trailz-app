@@ -1,4 +1,5 @@
 import type { Env } from "../env";
+import { recordOp } from "./ops";
 import { isMock } from "../env";
 import { placeKey } from "./route";
 import { logError } from "./store";
@@ -210,6 +211,8 @@ export async function placeGallery(
     await logError(db, "place-photos", err, query);
   }
 
+  // Only fresh lookups are counted (cached galleries are served many times a minute).
+  await recordOp(db, "photos", failed === 2 ? "fail" : gallery.photos.length ? "ok" : "empty", { ref: query, detail: failed ? `${failed} of 2 sources failed` : "no matching photo" });
   // Don't remember an empty result caused by an outage.
   if (failed === 0 || gallery.photos.length > 0) {
     await db

@@ -5,6 +5,8 @@
  * Docs: https://docs.viator.com/partner-api/affiliate/technical · key: Worker Secret VIATOR_API_KEY
  */
 
+import { noteFail } from "./ops";
+
 const BASE = "https://api.viator.com/partner";
 const TTL = 55 * 60_000;
 
@@ -99,11 +101,12 @@ export async function viatorFor(
   if (row) return JSON.parse(row.json) as ViatorPick | null;
   try {
     const { status, products } = await freetext(key, `${o.activity} ${o.town}`.trim(), o.date, fetcher);
-    if (status !== 200) return null; // bad key, limits, outage: try again next time
+    if (status !== 200) return noteFail(`Viator HTTP ${status}`), null; // bad key, limits, outage: try again next time
     const best = products.map((p) => ({ p, v: pick(p) })).find((x) => x.v && relevant(o.activity, o.town, x.p.title ?? ""))?.v ?? null;
     await db.prepare("INSERT OR REPLACE INTO kv_cache (key, json, expires_at) VALUES (?, ?, ?)").bind(cacheKey, JSON.stringify(best), Date.now() + TTL).run();
     return best;
-  } catch {
+  } catch (e) {
+    noteFail(String(e));
     return null;
   }
 }

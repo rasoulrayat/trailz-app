@@ -60,9 +60,9 @@ describe("Viator prices for a stop of the plan", () => {
       flights: [], stay: [], transport: [], disclaimer: "",
       activities: [
         { partner: "Tiqets", url: "https://www.tiqets.com/en/x-p1/", place: "Alhambra & Generalife", note: "Day 2 · 09:30 · the ticket itself on Tiqets", day: 2, town: "Granada", date: "2027-06-13",
-          options: [{ partner: "Tiqets", url: "https://www.tiqets.com/en/x-p1/", label: "Tiqets · ticket" }, { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=a", label: "GetYourGuide" }] },
-        { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=b", place: "Picnic in the Albaicín", note: "Day 3 · 13:00 · search on GetYourGuide", day: 3, town: "Granada", date: "2027-06-14",
-          options: [{ partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=b", label: "GetYourGuide" }, { partner: "Tiqets", url: "https://www.tiqets.com/en/granada/", label: "Tiqets · Granada" }] },
+          options: [{ partner: "Tiqets", url: "https://www.tiqets.com/en/x-p1/", label: "Tiqets · ticket" }, { partner: "Viator", url: "https://www.viator.com/searchResults/all?text=a", label: "Viator" }, { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=a", label: "GetYourGuide" }] },
+        { partner: "Viator", url: "https://www.viator.com/searchResults/all?text=b", place: "Picnic in the Albaicín", note: "Day 3 · 13:00 · search on Viator", day: 3, town: "Granada", date: "2027-06-14",
+          options: [{ partner: "Viator", url: "https://www.viator.com/searchResults/all?text=b", label: "Viator", cta: "Find it on Viator" }, { partner: "Tiqets", url: "https://www.tiqets.com/en/granada/", label: "Tiqets · Granada" }, { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=b", label: "GetYourGuide" }] },
       ],
     };
     const fetcher = (async (_u: string, init: RequestInit) => {
@@ -71,10 +71,12 @@ describe("Viator prices for a stop of the plan", () => {
     }) as unknown as typeof fetch;
     const out = await enrichActivities({ DB: fakeD1(), VIATOR_API_KEY: "key" } as never, h, fetcher);
     const [alhambra, picnic] = out.activities;
+    // The priced tour replaces the Viator search and goes first; GetYourGuide stays an option.
     expect(alhambra.options!.map((o) => o.label)).toEqual(["Viator · from €19", "Tiqets · ticket", "GetYourGuide"]);
+    expect(alhambra.options![0].cta).toBe("Book on Viator · from €19");
     expect(alhambra).toMatchObject({ partner: "Viator", note: "Day 2 · 09:30" });
     expect(alhambra.options![0]).toMatchObject({ price: 19, rating: 4.7, reviews: 8412, title: "Alhambra & Generalife Skip-the-Line Ticket" });
-    expect(picnic.options!.map((o) => o.partner)).toEqual(["GetYourGuide", "Tiqets"]);
-    expect(picnic.note).toBe("Day 3 · 13:00 · search on GetYourGuide");
+    expect(picnic.options!.map((o) => o.partner)).toEqual(["Viator", "Tiqets", "GetYourGuide"]);
+    expect(picnic.note).toBe("Day 3 · 13:00 · search on Viator");
   });
 });

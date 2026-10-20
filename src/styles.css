@@ -600,6 +600,25 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .act-rating { margin-left: auto; color: var(--muted); white-space: nowrap; }
 .act-what { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* status page (internal): each workflow step's outcomes */
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; background: var(--line-strong); }
+.status-dot.good { background: var(--real); }
+.status-dot.mixed { background: #c98a00; }
+.status-dot.failing { background: var(--warn); }
+.chip.status-chip { gap: 6px; background: var(--surface); }
+.chip.status-chip b { font-weight: 600; }
+.card.status-group { padding: 6px 16px 4px; }
+.status-group h2 { margin: 8px 0 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.status-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.status-row .status-dot { margin-top: 5px; }
+.status-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.status-name b { font-size: 14px; font-weight: 500; }
+.status-name span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.status-name span.bad { color: var(--warn); }
+.status-nums { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.status-fail { padding: 6px 0; border-top: 1px solid var(--line-soft); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.status-fail span { color: var(--muted); }
+
 /* ---------- Home ---------- */
 .home { position: relative; isolation: isolate; overflow-x: clip; }
 .home::before { content: ""; position: absolute; left: -40px; right: -40px; top: -80px; height: 320px; background: radial-gradient(60% 70% at 20% 30%, rgba(90, 169, 255, 0.28), transparent 70%), radial-gradient(50% 60% at 85% 10%, rgba(255, 183, 122, 0.3), transparent 70%); pointer-events: none; z-index: -1; }

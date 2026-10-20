@@ -146,4 +146,27 @@ describe("P6 PricedTrip", () => {
     expect(html).toContain('aria-label="Book Alhambra &amp; Generalife on Tiqets"');
     expect(html).toContain("Prices are Viator&#x27;s lowest per person for that day");
   });
+  it("without a Viator price, the Viator search is the main button and GetYourGuide stays a small option", () => {
+    const h: Handoff = {
+      ...handoff,
+      activities: [
+        {
+          partner: "Viator",
+          url: "https://www.viator.com/searchResults/all?text=Picnic",
+          place: "Picnic at the Mirador",
+          note: "Day 3 · 19:00 · search on Viator",
+          options: [
+            { partner: "Viator", url: "https://www.viator.com/searchResults/all?text=Picnic", label: "Viator", cta: "Find it on Viator" },
+            { partner: "Tiqets", url: "https://tiqets.tpx.gr/town", label: "Tiqets · Granada" },
+            { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=Picnic", label: "GetYourGuide" },
+          ],
+        },
+      ],
+    };
+    const html = render(trip(), h, null);
+    expect(html).toContain("Find it on Viator");
+    expect(html).toMatch(/class="btn act-main"[^>]*>Find it on Viator/);
+    expect(html).toContain('aria-label="Book Picnic at the Mirador on GetYourGuide"');
+    expect(html.indexOf("viator.com")).toBeLessThan(html.indexOf("getyourguide.com"));
+  });
 });

@@ -58,11 +58,13 @@ describe("partner hand-off links", () => {
     expect(h.stay[1].url).toContain("checkin=2027-06-14");
     expect(h.stay[0].url).toContain("aid=123");
     expect(h.stay[0].url).toContain("order=price");
-    expect(h.activities[0].url).toContain("date_from=2027-06-13");
+    // Viator comes first (its search); GetYourGuide stays an option, with the day's date.
+    expect(h.activities[0].partner).toBe("Viator");
+    expect(h.activities[0].options!.find((o) => o.partner === "GetYourGuide")!.url).toContain("date_from=2027-06-13");
     expect(h.transport).toHaveLength(1);
   });
 
-  it("gives each activity Tiqets and GetYourGuide, the exact Tiqets ticket first when there is one", () => {
+  it("gives each activity Viator, Tiqets and GetYourGuide: Viator first, the exact Tiqets ticket first when there is one, GetYourGuide always an option", () => {
     const t: Trip = {
       ...trip,
       places: [save("Sagrada Família", "Spain", 41.4, 2.17)],
@@ -74,13 +76,20 @@ describe("partner hand-off links", () => {
         ],
       },
     };
-    const [sagrada, sailing] = buildHandoff(t).activities;
-    expect(sagrada.options!.map((o) => o.label)).toEqual(["Tiqets · ticket", "GetYourGuide"]);
+    const [sagrada, sailing] = buildHandoff(t, { viator: "P00327013" }).activities;
+    expect(sagrada.options!.map((o) => o.label)).toEqual(["Tiqets · ticket", "Viator", "GetYourGuide"]);
     expect(sagrada.url).toBe("https://www.tiqets.com/en/barcelona-attractions-c66342/tickets-for-sagrada-familia-entry-ticket-p1111400/");
     expect(sagrada.note).toBe("Day 1 · 10:00 · the ticket itself on Tiqets");
-    expect(sailing.options!.map((o) => o.label)).toEqual(["GetYourGuide", "Tiqets · Barcelona"]);
-    expect(new URL(sailing.url).searchParams.get("q")).toBe("Picnic on Barceloneta beach Barcelona");
-    expect(new URL(sailing.url).searchParams.get("date_from")).toBe("2027-06-13");
+    expect(sailing.options!.map((o) => o.label)).toEqual(["Viator", "Tiqets · Barcelona", "GetYourGuide"]);
+    expect(sailing.note).toBe("Day 2 · 18:00 · search on Viator");
+    const viator = new URL(sailing.url);
+    expect(viator.origin + viator.pathname).toBe("https://www.viator.com/searchResults/all");
+    expect(viator.searchParams.get("text")).toBe("Picnic on Barceloneta beach Barcelona");
+    expect(viator.searchParams.get("pid")).toBe("P00327013");
+    expect(viator.searchParams.get("mcid")).toBe("42383");
+    const gyg = new URL(sailing.options!.find((o) => o.partner === "GetYourGuide")!.url);
+    expect(gyg.searchParams.get("q")).toBe("Picnic on Barceloneta beach Barcelona");
+    expect(gyg.searchParams.get("date_from")).toBe("2027-06-13");
   });
 
   it("works without dates (flexible)", () => {

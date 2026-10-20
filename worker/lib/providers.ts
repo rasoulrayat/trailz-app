@@ -6,6 +6,7 @@
  */
 import type { Offer } from "../../shared/types";
 import { googleHotelsLink } from "./google-hotels-link";
+import { noteFail, noteSkip } from "./ops";
 import { cached } from "./prices";
 import { placeKey } from "./route";
 
@@ -42,7 +43,7 @@ export async function googleFlights(
 ): Promise<Offer[]> {
   const key = `gf:${origin}:${destination}:${departure}:${ret ?? "ow"}:${adults}`;
   return cached(db, key, 30 * 60_000, async () => {
-    if (!(await serpBudget(db, monthlyLimit))) return [];
+    if (!(await serpBudget(db, monthlyLimit))) return noteSkip("SerpApi monthly limit reached"), [];
     try {
       const u = new URL("https://serpapi.com/search.json");
       u.searchParams.set("engine", "google_flights");
@@ -56,7 +57,7 @@ export async function googleFlights(
       u.searchParams.set("hl", "en");
       u.searchParams.set("api_key", apiKey);
       const res = await fetcher(u.toString(), { signal: withTimeout(12000) });
-      if (!res.ok) return [];
+      if (!res.ok) return noteFail(`HTTP ${res.status}`), [];
       const body = (await res.json()) as {
         best_flights?: GFlight[];
         other_flights?: GFlight[];
@@ -80,8 +81,8 @@ export async function googleFlights(
           unit: "per person" as const,
         };
       });
-    } catch {
-      return [];
+    } catch (e) {
+      return noteFail(String(e)), [];
     }
   });
 }
@@ -109,7 +110,7 @@ export async function googleHotels(
   // gh2: offers now link to Google Hotels itself (gh: entries linked to the hotel's own site).
   const key = `gh2:${placeKey(q)}:${checkIn}:${checkOut}:${adults}`;
   return cached(db, key, 30 * 60_000, async () => {
-    if (!(await serpBudget(db, monthlyLimit))) return [];
+    if (!(await serpBudget(db, monthlyLimit))) return noteSkip("SerpApi monthly limit reached"), [];
     try {
       const u = new URL("https://serpapi.com/search.json");
       u.searchParams.set("engine", "google_hotels");
@@ -122,7 +123,7 @@ export async function googleHotels(
       u.searchParams.set("sort_by", "3"); // lowest price
       u.searchParams.set("api_key", apiKey);
       const res = await fetcher(u.toString(), { signal: withTimeout(12000) });
-      if (!res.ok) return [];
+      if (!res.ok) return noteFail(`HTTP ${res.status}`), [];
       const body = (await res.json()) as {
         properties?: {
           name: string;
@@ -154,8 +155,8 @@ export async function googleHotels(
           bookUrl: googleHotelsLink({ token: p.property_token, place: q, checkIn, checkOut, adults }),
           unit: "total" as const,
         }));
-    } catch {
-      return [];
+    } catch (e) {
+      return noteFail(String(e)), [];
     }
   });
 }
@@ -184,7 +185,7 @@ export async function duffelFlights(
         body: JSON.stringify({ data: { slices, passengers: Array.from({ length: adults }, () => ({ type: "adult" })), cabin_class: "economy", max_connections: 1 } }),
         signal: withTimeout(15000),
       });
-      if (!res.ok) return [];
+      if (!res.ok) return noteFail(`HTTP ${res.status}`), [];
       const body = (await res.json()) as {
         data?: { offers?: { id: string; total_amount: string; total_currency: string; owner?: { name?: string }; slices?: { duration?: string; segments?: unknown[] }[] }[] };
       };
@@ -211,8 +212,8 @@ export async function duffelFlights(
           unit: "per person" as const,
         };
       });
-    } catch {
-      return [];
+    } catch (e) {
+      return noteFail(String(e)), [];
     }
   });
   return offers.map((o) => ({ ...o, bookUrl: `/api/trips/${tripId}/duffel-link${o.bookUrl}` }));

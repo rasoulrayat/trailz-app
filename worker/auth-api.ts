@@ -4,6 +4,7 @@ import type { Me } from "../shared/types";
 import { isMock, type Env } from "./env";
 import { createSession, deleteSession, mergeDeviceIntoUser, randomToken, readProfile, safeNext, upsertGoogleUser, writeProfile, type GoogleIdentity, type UserRow } from "./lib/auth";
 import { logError } from "./lib/store";
+import { recordOp } from "./lib/ops";
 
 export type AuthVars = { deviceId: string; rawDeviceId: string; user: UserRow | null };
 type AppEnv = { Bindings: Env; Variables: AuthVars };
@@ -52,7 +53,11 @@ auth.get("/auth/google/callback", async (c) => {
   const state = dot > 0 ? saved.slice(0, dot) : "";
   const next = dot > 0 ? saved.slice(dot + 1) : "/";
   const code = c.req.query("code");
-  if (!code || !state || c.req.query("state") !== state) return c.redirect(`${safeNext(next)}?login=failed`);
+  if (!code || !state || c.req.query("state") !== state) {
+    // Google's own error (access_denied: not a test user, or the person said no) arrives here as ?error=…
+    await recordOp(c.env.DB, "auth.google", "fail", { detail: c.req.query("error") ? `Google: ${c.req.query("error")}` : "missing or mismatched state" });
+    return c.redirect(`${safeNext(next)}?login=failed`);
+  }
   try {
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -73,6 +78,7 @@ auth.get("/auth/google/callback", async (c) => {
     const info = (await infoRes.json()) as { aud?: string; sub?: string; email?: string; email_verified?: string; name?: string; picture?: string; iss?: string };
     if (!infoRes.ok || info.aud !== c.env.GOOGLE_CLIENT_ID || !info.sub) throw new Error("tokeninfo: audience mismatch");
     if (!["https://accounts.google.com", "accounts.google.com"].includes(info.iss ?? "")) throw new Error("tokeninfo: issuer");
+    await recordOp(c.env.DB, "auth.google", "ok");
     return await finishLogin(
       c,
       { sub: info.sub, email: info.email_verified === "true" ? (info.email ?? null) : null, name: info.name ?? null, picture: info.picture ?? null },
@@ -80,6 +86,7 @@ auth.get("/auth/google/callback", async (c) => {
     );
   } catch (err) {
     await logError(c.env.DB, "google-login", err, "");
+    await recordOp(c.env.DB, "auth.google", "fail", { detail: err });
     return c.redirect(`${safeNext(next)}?login=failed`);
   }
 });

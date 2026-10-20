@@ -52,6 +52,8 @@
     "BOOKING_AFFILIATE_ID": "",
     "GYG_PARTNER_ID": "",
     "OMIO_PARTNER_ID": "",
+    // Viator affiliate partner id (pid), as in every Viator API product link; added to Viator search links.
+    "VIATOR_PID": "P00327013",
     // Travelpayouts (one account for Kiwi.com, Booking.com, GetYourGuide, Omio …). From the long version of any
     // Travelpayouts link: marker=TP_MARKER, trs=TP_TRS, and p=<campaign id> per brand. Empty = plain partner links.
     "TP_MARKER": "789861",

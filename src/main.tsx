@@ -19,6 +19,7 @@ import { ReelViewerPage } from "./pages/ReelViewerPage";
 import { MePage } from "./pages/MePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { WelcomePage } from "./pages/WelcomePage";
+import { StatusPage } from "./pages/StatusPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -30,6 +31,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/me" element={<MePage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/status" element={<StatusPage />} />
           <Route path="/check/:id" element={<CheckPage />} />
           <Route path="/check/:id/place" element={<PlacePage />} />
           <Route path="/check/:id/where" element={<WherePage />} />

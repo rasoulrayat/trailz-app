@@ -1,5 +1,6 @@
 import type { Offer, Trip, TripPrices } from "../../shared/types";
 import { duffelFlights, googleFlights, googleHotels } from "./providers";
+import { noteFail, someOrEmpty, track } from "./ops";
 import { placeKey } from "./route";
 
 /** Cached JSON with expiry, so partner APIs are called once per query. */
@@ -40,7 +41,7 @@ export async function iataFor(db: D1Database, place: string, fetcher: typeof fet
     try {
       const u = `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=city&types[]=airport&term=${encodeURIComponent(city)}`;
       const res = await fetcher(u, { signal: withTimeout(5000) });
-      if (!res.ok) throw new Uncached(null); // a hiccup upstream must not become "no airport" for 30 days
+      if (!res.ok) throw (noteFail(`airports HTTP ${res.status}`), new Uncached(null)); // a hiccup upstream must not become "no airport" for 30 days
       const rows = (await res.json()) as { code: string; name: string; country_name?: string; type?: string }[];
       const inCountry = country ? rows.filter((r) => placeKey(r.country_name ?? "") === placeKey(country)) : rows;
       const pool = inCountry.length ? inCountry : rows;
@@ -86,7 +87,8 @@ export async function flightQuotes(
       const month = departureAt.slice(0, 7);
       const near = await fetchFares(token, marker, origin, destination, month, returnAt ? returnAt.slice(0, 7) : null, fetcher);
       return near.map((q) => ({ ...q, approx: true }));
-    } catch {
+    } catch (e) {
+      noteFail(String(e));
       throw new Uncached([] as FlightQuote[]); // provider down: answer empty now, ask again next time
     }
   });
@@ -236,21 +238,33 @@ export async function tripPrices(
 
   // Airports: the arrival city, then the first base town, then the first place, then the country.
   const candidates = [...new Set([arrive, firstBase, trip.places[0]?.name ?? "", country ?? ""].filter(Boolean))];
-  let destination: Place | null = null;
-  for (const c of candidates) {
-    destination = await iataFor(db, c);
-    if (destination) break;
-  }
-  const origin = await iataFor(db, trip.origin);
+  const { origin, destination } = await track(
+    db,
+    "prices.airports",
+    async () => {
+      let destination: Place | null = null;
+      for (const c of candidates) {
+        destination = await iataFor(db, c);
+        if (destination) break;
+      }
+      return { origin: await iataFor(db, trip.origin), destination };
+    },
+    {
+      ref: trip.id,
+      judge: (v) => (v.origin && v.destination ? "ok" : ["empty", [v.origin ? null : `no airport for ${trip.origin}`, v.destination ? null : `no airport for ${candidates.join(" / ")}`].filter(Boolean).join("; ")]),
+      fallback: { origin: null, destination: null },
+    },
+  );
 
   let flights: TripPrices["flights"] = { origin, destination, offers: [], nights };
   if (origin && destination && start) {
     const ret = addDays(start, nights);
     const jobs: Promise<Offer[]>[] = [];
-    if (keys.serpApiKey) jobs.push(googleFlights(db, keys.serpApiKey, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers).then((o) => (o.length && sources.add("Google Flights"), o)));
+    const watch = (op: string, run: () => Promise<Offer[]>) => track(db, op, run, { ref: `${trip.id} ${origin.code}→${destination.code}`, judge: someOrEmpty, fallback: [] as Offer[] });
+    if (keys.serpApiKey) jobs.push(watch("prices.google-flights", () => googleFlights(db, keys.serpApiKey!, keys.serpMonthlyLimit, origin.code, destination.code, start, ret, trip.travelers)).then((o) => (o.length && sources.add("Google Flights"), o)));
     const duffelToken = keys.duffelToken && (keys.duffelAllowTest || !keys.duffelToken.startsWith("duffel_test")) ? keys.duffelToken : undefined;
-    if (duffelToken) jobs.push(duffelFlights(db, duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
-    if (keys.tpToken) jobs.push(flightQuotes(db, keys.tpToken, keys.tpMarker, origin.code, destination.code, start, ret).then((q) => (q.length && sources.add("Aviasales"), q.map((x) => toFlightOffer(x, !!keys.tpMarker, trip.travelers)))));
+    if (duffelToken) jobs.push(watch("prices.duffel", () => duffelFlights(db, duffelToken, origin.code, destination.code, start, ret, trip.travelers, trip.id)).then((o) => (o.length && sources.add("airlines via Duffel"), o)));
+    if (keys.tpToken) jobs.push(watch("prices.aviasales", async () => (await flightQuotes(db, keys.tpToken!, keys.tpMarker, origin.code, destination.code, start, ret)).map((x) => toFlightOffer(x, !!keys.tpMarker, trip.travelers))).then((o) => (o.length && sources.add("Aviasales"), o)));
     const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
     const all = results.flat().map((o) => viaKiwi(o, searches.flights, trip.travelers));
     // Nearby-date fares only when nothing exact exists.
@@ -275,7 +289,12 @@ export async function tripPrices(
       const checkIn = addDays(start, b.from);
       const checkOut = addDays(start, b.from + b.nights);
       const jobs: Promise<Offer[]>[] = [];
-      if (keys.serpApiKey) jobs.push(googleHotels(db, keys.serpApiKey, keys.serpMonthlyLimit, b.city, country, checkIn, checkOut, trip.travelers).then((o) => (o.length && sources.add("Google Hotels"), o)));
+      if (keys.serpApiKey)
+        jobs.push(
+          track(db, "prices.google-hotels", () => googleHotels(db, keys.serpApiKey!, keys.serpMonthlyLimit, b.city, country, checkIn, checkOut, trip.travelers), { ref: `${trip.id} ${b.city}`, judge: someOrEmpty, fallback: [] as Offer[] }).then(
+            (o) => (o.length && sources.add("Google Hotels"), o),
+          ),
+        );
       const results = await Promise.all(jobs.map((j) => j.catch(() => [] as Offer[])));
       const partner = searches.stay[b.city] ?? [];
       stays.push({ city: b.city, checkIn, checkOut, nights: b.nights, offers: rank([...results.flat(), ...partner]), searchUrl: partner[0]?.bookUrl ?? "" });

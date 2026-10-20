@@ -11,6 +11,7 @@ import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 import { trackedLinks } from "./lib/tp-links";
 import { viatorFor } from "./lib/viator";
+import { recordOp, track } from "./lib/ops";
 
 type AppEnv = { Bindings: Env; Variables: AuthVars };
 import type { AuthVars } from "./auth-api";
@@ -193,7 +194,7 @@ trips.post("/trips", async (c) => {
   try {
     plan = isMock(c.env)
       ? mockPlan(places, mood, days, origin)
-      : await generatePlan(geminiConfig(c.env), { places, mood, budgetMode, days, origin, travelers, notes });
+      : await track(c.env.DB, "trip.plan", () => generatePlan(geminiConfig(c.env), { places, mood, budgetMode, days, origin, travelers, notes }), { ref: `${places.length} places, ${days} days` });
   } catch (err) {
     await logError(c.env.DB, "plan", err, places.map((p) => p.name).join(", "));
     return bad(c, 500, "server_error", "We couldn't write this plan right now. Try again in a minute.");
@@ -256,6 +257,7 @@ const partnerIds = (env: Env) => ({
   booking: env.BOOKING_AFFILIATE_ID,
   getyourguide: env.GYG_PARTNER_ID,
   omio: env.OMIO_PARTNER_ID,
+  viator: env.VIATOR_PID,
   tp: env.TP_MARKER && env.TP_TRS
     ? { marker: env.TP_MARKER, trs: env.TP_TRS, kiwiP: env.TP_KIWI_P, bookingP: env.TP_BOOKING_P, gygP: env.TP_GYG_P, omioP: env.TP_OMIO_P }
     : undefined,
@@ -304,20 +306,38 @@ trips.get("/trips/:id/handoff", async (c) => {
 export async function enrichActivities(env: Env, h: Handoff, fetcher: typeof fetch = fetch): Promise<Handoff> {
   if (!h.activities.length) return h;
   const viator = await Promise.all(
-    h.activities.map((a) => viatorFor(env.DB, env.VIATOR_API_KEY, { activity: a.place, town: a.town ?? "", date: a.date ?? null }, fetcher).catch(() => null)),
+    h.activities.map((a) =>
+      env.VIATOR_API_KEY
+        ? track(env.DB, "activities.viator", () => viatorFor(env.DB, env.VIATOR_API_KEY, { activity: a.place, town: a.town ?? "", date: a.date ?? null }, fetcher), {
+            ref: `${a.place} · ${a.town ?? ""}`,
+            judge: (v) => (v ? "ok" : ["empty", "no matching tour with a price"]),
+            fallback: null,
+          })
+        : Promise.resolve(null),
+    ),
   );
   const urls = h.activities.flatMap((a) => (a.options ?? []).filter((o) => o.partner === "Tiqets").map((o) => o.url));
-  const tracked = await trackedLinks(env.DB, { token: env.TP_TOKEN, marker: env.TP_MARKER, trs: env.TP_TRS }, urls, "activity", fetcher).catch(() => new Map<string, string>());
+  const tracked = urls.length
+    ? await track(env.DB, "links.travelpayouts", () => trackedLinks(env.DB, { token: env.TP_TOKEN, marker: env.TP_MARKER, trs: env.TP_TRS }, urls, "activity", fetcher), {
+        ref: "tiqets",
+        judge: (m) => (m.size >= new Set(urls).size ? "ok" : ["empty", `${new Set(urls).size - m.size} of ${new Set(urls).size} links left untracked`]),
+        fallback: new Map<string, string>(),
+      })
+    : new Map<string, string>();
   const fix = (o: ActivityOption): ActivityOption => (o.partner === "Tiqets" ? { ...o, url: tracked.get(o.url) ?? o.url } : o);
   return {
     ...h,
     activities: h.activities.map((a, i) => {
       const v = viator[i];
       const rest = (a.options ?? [{ partner: a.partner, url: a.url, label: a.partner }]).map(fix);
+      // Viator's priced tour replaces the Viator search and goes first; GetYourGuide stays an option.
       const options: ActivityOption[] = v
-        ? [{ partner: "Viator", url: v.url, label: `Viator · from €${v.fromPrice}`, price: v.fromPrice, currency: v.currency, rating: v.rating, reviews: v.reviews, title: v.title }, ...rest]
+        ? [
+            { partner: "Viator", url: v.url, label: `Viator · from €${v.fromPrice}`, cta: `Book on Viator · from €${v.fromPrice}`, price: v.fromPrice, currency: v.currency, rating: v.rating, reviews: v.reviews, title: v.title },
+            ...rest.filter((o) => o.partner !== "Viator"),
+          ]
         : rest;
-      const note = v ? a.note.replace(/ · (the ticket itself on Tiqets|search on GetYourGuide)$/, "") : a.note;
+      const note = v ? a.note.replace(/ · (the ticket itself on Tiqets|search on Viator|search on GetYourGuide)$/, "") : a.note;
       return { ...a, partner: options[0].partner, url: options[0].url, note, options };
     }),
   };
@@ -379,6 +399,7 @@ trips.get("/trips/:id/duffel-link", async (c) => {
     currency: "EUR",
     logoUrl: `${origin}/icons/icon-512.png`,
   });
+  await recordOp(c.env.DB, "booking.duffel-link", url ? "ok" : "fail", { ref: row.id, detail: error ?? (url ? null : "no checkout url") });
   if (!url) {
     await logError(c.env.DB, "duffel-link", error ?? "no checkout url", row.id);
     return c.redirect(`/trips/${row.id}/book?error=duffel`, 302);
