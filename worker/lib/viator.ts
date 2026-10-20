@@ -37,13 +37,17 @@ const fold = (s: string) =>
     .trim();
 const words = (s: string) => fold(s).split(" ").filter((w) => w.length >= 4 && !STOP.has(w));
 
-/** A result counts only when its title shares a real word with the plan's stop (town names don't count). */
+/**
+ * A result counts only when its title shares real words with the plan's stop: two of them when the stop has two
+ * or more ("Picnic on Barceloneta beach" is not a beach bike tour), and town names don't count.
+ */
 export function relevant(activity: string, town: string, productTitle: string): boolean {
   const townWords = new Set(words(town));
   const want = words(activity).filter((w) => !townWords.has(w));
   if (!want.length) return false;
   const have = new Set(words(productTitle));
-  return want.some((w) => have.has(w) || (w.endsWith("s") && have.has(w.slice(0, -1))) || have.has(`${w}s`));
+  const shared = want.filter((w) => have.has(w) || (w.endsWith("s") && have.has(w.slice(0, -1))) || have.has(`${w}s`)).length;
+  return shared >= Math.min(2, want.length);
 }
 
 const headers = (key: string) => ({
@@ -90,7 +94,7 @@ export async function viatorFor(
   fetcher: typeof fetch = fetch,
 ): Promise<ViatorPick | null> {
   if (!key || !o.activity) return null;
-  const cacheKey = `vi1:${fold(o.activity)}:${fold(o.town)}:${o.date ?? "any"}`;
+  const cacheKey = `vi2:${fold(o.activity)}:${fold(o.town)}:${o.date ?? "any"}`;
   const row = await db.prepare("SELECT json FROM kv_cache WHERE key = ? AND expires_at > ?").bind(cacheKey, Date.now()).first<{ json: string }>();
   if (row) return JSON.parse(row.json) as ViatorPick | null;
   try {

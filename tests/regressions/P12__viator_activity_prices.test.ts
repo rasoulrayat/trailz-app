@@ -50,6 +50,9 @@ describe("Viator prices for a stop of the plan", () => {
     expect(relevant("Flamenco night in Sacromonte", "Granada", "Granada Cathedral Tour")).toBe(false);
     expect(relevant("Flamenco night in Sacromonte", "Granada", "Flamenco Show in the Sacromonte Caves")).toBe(true);
     expect(relevant("Vatican Museums", "Rome", "Vatican Museum & Sistine Chapel")).toBe(true);
+    // Seen live: one shared word ("beach") is not enough when the stop names more.
+    expect(relevant("Picnic on Barceloneta beach", "Barcelona", "Barcelona Bike tour, Gaudí houses or beach bike or eBike tour")).toBe(false);
+    expect(relevant("Colosseum", "Rome", "Colosseum Underground Tour")).toBe(true);
   });
 
   it("puts Viator first with its price; stops Viator doesn't have keep their links", async () => {
