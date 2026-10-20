@@ -1,0 +1,26 @@
+{
+  "search": {
+    "url": "https://www.viator.com/searchResults/all?text=Picnic%20Barceloneta%20beach%20Barcelona&pid=P00327013&mcid=42383&medium=link",
+    "status": 403,
+    "final": "https://www.viator.com/searchResults/all?text=Picnic%20Barceloneta%20beach%20Barcelona&pid=P00327013&mcid=42383&medium=link",
+    "title": "viator.com",
+    "head": "",
+    "products": []
+  },
+  "search_simple": {
+    "url": "https://www.viator.com/searchResults/all?text=Flamenco%20Granada&pid=P00327013&mcid=42383&medium=link",
+    "status": 403,
+    "final": "https://www.viator.com/searchResults/all?text=Flamenco%20Granada&pid=P00327013&mcid=42383&medium=link",
+    "title": "viator.com",
+    "head": "",
+    "products": []
+  },
+  "search_dates": {
+    "url": "https://www.viator.com/searchResults/all?text=Flamenco%20Granada&startDate=2026-11-17&endDate=2026-11-17&pid=P00327013&mcid=42383&medium=link",
+    "status": 403,
+    "final": "https://www.viator.com/searchResults/all?text=Flamenco%20Granada&startDate=2026-11-17&endDate=2026-11-17&pid=P00327013&mcid=42383&medium=link",
+    "title": "viator.com",
+    "head": "",
+    "products": []
+  }
+}
