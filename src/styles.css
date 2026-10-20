@@ -583,6 +583,49 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .city-hint { font-size: 12px; font-weight: 500; color: #7ec8ff; flex: none; }
 .city-credit { margin: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.45); }
 .ob-p.small-note { font-size: 13px; }
+.city-picker { display: flex; flex-direction: column; gap: 14px; }
+.city-note { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.78); }
+
+/* The same picker in the light look: the trip's "Flying from" sheet (canvas 12a–12b) */
+.city-sheet { max-width: 480px; margin: 0 auto; height: calc(100dvh - 40px); box-sizing: border-box; padding: 8px 16px 0; gap: 10px; border-radius: 24px 24px 0 0; box-shadow: 0 -10px 30px rgba(11, 27, 63, 0.18); }
+.sheet-handle { width: 36px; height: 5px; border-radius: 3px; background: #d5ddea; margin: 0 auto; flex: none; }
+.city-sheet-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+.city-sheet-top h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.3px; }
+.city-sheet-top p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.city-sheet-top .icon-btn { border: 0; background: var(--bg); color: var(--navy); }
+.sheet-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); }
+.city-light { gap: 8px; }
+.city-light .city-edge { margin-bottom: -9px; }
+.city-light .city-head { margin: 0 -16px; padding: 2px 16px 8px; background: var(--surface); }
+.city-light .city-head.stuck { background: var(--surface); box-shadow: 0 8px 12px -10px rgba(11, 27, 63, 0.25); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.city-light .city-back { background: var(--bg); color: var(--navy); }
+.city-light .city-search { height: 48px; border-radius: 14px; border-color: transparent; background: var(--bg); color: var(--muted); padding: 0 8px 0 12px; }
+.city-light .city-search:focus-within { border-color: var(--blue); background: var(--surface); }
+.city-light .city-search input { color: var(--navy); }
+.city-light .city-search input::placeholder { color: #5a6883; }
+.city-light .city-clear { background: var(--line-soft); color: var(--navy); }
+.city-light .city-label { font-size: 11px; font-weight: 600; color: var(--muted); padding: 10px 4px 0; margin-bottom: 0; }
+.city-light .city-group { background: none; border-radius: 0; }
+.city-light .city-row { color: var(--navy); border-bottom-color: var(--line-soft); padding: 6px 12px; }
+.city-light .city-row:active { background: var(--bg); }
+.city-light .city-row.on { background: #eef3ff; color: var(--navy); border-radius: 14px; border-bottom-color: transparent; }
+.city-light .city-row.on > svg { color: var(--blue); }
+.city-light .city-row.skeleton { pointer-events: none; border-radius: 12px; margin-bottom: 6px; }
+.city-light .city-row > svg, .city-light .city-lead { color: var(--muted); }
+.city-light .city-lead.sky, .city-light .city-hint { color: var(--blue); }
+.city-light .city-text > span, .city-light .city-muted, .city-light .city-credit, .city-light .city-note { color: var(--muted); }
+.city-light .city-text mark { color: var(--blue); }
+.city-light .city-more { color: var(--blue); }
+.city-light .city-credit { padding-top: 8px; }
+
+/* "Flying from" on When do you go? */
+.from-field { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 12px 8px 14px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); color: var(--navy); font: inherit; text-align: left; cursor: pointer; box-sizing: border-box; }
+.from-field:active { background: var(--bg); }
+.from-field .from-flag { width: 24px; font-size: 20px; line-height: 1; display: flex; justify-content: center; flex: none; color: var(--muted); }
+.from-field .from-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.from-field b { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.from-field .from-text > span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.from-field .from-change { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 500; color: var(--blue); flex: none; }
 
 /* booking: activities, each with its partners */
 .acts { display: flex; flex-direction: column; }

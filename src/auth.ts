@@ -40,6 +40,7 @@ export function useMe() {
       return () => listeners.delete(l);
     },
     () => state,
+    () => state, // server render (tests): the same snapshot
   );
   useEffect(() => {
     loadMe();

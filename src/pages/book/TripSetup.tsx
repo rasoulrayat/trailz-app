@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { Trip } from "../../../shared/types";
+import { useMe } from "../../auth";
+import { findCity, homeCity, loadCountries, type Country } from "../../cities";
+import { CityPicker } from "../../components/CityPicker";
 import { Icon } from "../../components/Icon";
 import { PRICE_STAGES, Working } from "../../components/Working";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DEPARTURES = ["Amsterdam", "Rotterdam", "Eindhoven", "Brussels", "Düsseldorf", "Berlin", "London", "Paris"];
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 /** Today where the person is (not UTC): after midnight in Tehran, "today" must already be the new day. */
@@ -59,6 +61,36 @@ export function TripSetup({
   const [flexible, setFlexible] = useState(false);
   const [origin, setOrigin] = useState(trip.origin);
   const [travelers, setTravelers] = useState(trip.travelers);
+  const [picking, setPicking] = useState(false);
+  const me = useMe();
+  const home = me.profile?.home ?? null;
+  // The city list (cached after onboarding) gives the field its flag and country.
+  const [countries, setCountries] = useState<Country[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadCountries()
+      .then((c) => live && setCountries(c))
+      .catch(() => null);
+    return () => {
+      live = false;
+    };
+  }, []);
+  const from = useMemo(() => (countries ? findCity(countries, origin) : null), [countries, origin]);
+  const homeHit = useMemo(() => (countries && home ? findCity(countries, home) : null), [countries, home]);
+  const isHome = !!home && (from ? from === homeHit : origin.trim().toLowerCase() === home.trim().toLowerCase());
+  const fromNote = [from?.country.name ?? origin.split(",")[1]?.trim(), isHome ? "your city" : null].filter(Boolean).join(" · ");
+  // While the sheet is open the page behind it doesn't scroll, and Escape closes it.
+  useEffect(() => {
+    if (!picking) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPicking(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = before;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [picking]);
   const starts = useMemo(() => startOptions(month.y, month.m, days), [month, days]);
   const today = localIso(new Date());
   const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(startDate) && startDate >= today;
@@ -165,19 +197,23 @@ export function TripSetup({
           </div>
         )}
 
+        <section className="stack">
+          <h2 style={{ fontSize: 14 }}>Flying from</h2>
+          <button type="button" className="from-field" aria-haspopup="dialog" aria-label={origin.trim() ? `Flying from ${origin.trim()}. Change` : "Choose where you fly from"} onClick={() => setPicking(true)}>
+            <span className="from-flag" aria-hidden="true">
+              {from ? from.country.flag : <Icon name="plane" size={18} />}
+            </span>
+            <span className="from-text">
+              <b>{origin.trim() ? (from?.name ?? homeCity(origin)) : "Choose your city"}</b>
+              {origin.trim() && fromNote && <span>{fromNote}</span>}
+            </span>
+            <span className="from-change">
+              {origin.trim() ? "Change" : "Choose"} <Icon name="chevron" size={16} />
+            </span>
+          </button>
+        </section>
+
         <section className="card stack" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="row" style={{ padding: "12px 14px", borderBottom: "1px solid var(--line-soft)", gap: 12 }}>
-            <Icon name="plane" size={18} />
-            <label style={{ flex: 1, minWidth: 0 }}>
-              <span className="small" style={{ display: "block" }}>Flying from</span>
-              <input list="departures" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Your city" className="plain-input" />
-              <datalist id="departures">
-                {DEPARTURES.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
-            </label>
-          </div>
           <div className="row" style={{ padding: "12px 14px", justifyContent: "space-between" }}>
             <span className="row" style={{ gap: 12 }}>
               <Icon name="users" size={18} />
@@ -208,6 +244,34 @@ export function TripSetup({
         )}
         <span className="small" style={{ textAlign: "center" }}>Nothing is charged in TrailZ. You pay the airline or hotel directly.</span>
       </div>
+
+      {picking && (
+        <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && setPicking(false)}>
+          <div className="sheet city-sheet" role="dialog" aria-modal="true" aria-labelledby="from-h">
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="city-sheet-top">
+              <div style={{ minWidth: 0 }}>
+                <h2 id="from-h">Flying from</h2>
+                <p>Prices for this trip start at this airport.</p>
+              </div>
+              <button type="button" className="icon-btn" aria-label="Close" onClick={() => setPicking(false)}>
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+            <div className="sheet-scroll">
+              <CityPicker
+                light
+                value={origin}
+                home={home}
+                onPick={(v) => {
+                  setOrigin(v);
+                  setPicking(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
