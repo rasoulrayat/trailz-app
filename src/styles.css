@@ -274,7 +274,8 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .tab.on { color: var(--navy); font-weight: 600; }
 .tab.on::before { content: ""; position: absolute; inset: 0; border-radius: 999px; background: var(--blue-tint); z-index: -1; animation: tab-pop 0.35s cubic-bezier(0.2, 1.3, 0.4, 1); }
 @keyframes tab-pop { from { transform: scale(0.7); opacity: 0; } to { transform: none; opacity: 1; } }
-.tab.on svg { fill: currentColor; }
+/* Icons are outlines: the active tab gets a heavier stroke, never a fill (a fill turns the compass into a solid disc). */
+.tab.on svg { stroke-width: 2.6; }
 .tab-label { max-height: 16px; opacity: 1; transition: max-height 0.3s ease, opacity 0.2s ease; overflow: hidden; }
 .tabbar.compact { transform: translateX(-50%) scale(0.88); height: 52px; width: min(calc(100% - 96px), 280px); background: rgba(255, 255, 255, 0.82); }
 .tabbar.compact .tab-label { max-height: 0; opacity: 0; }
