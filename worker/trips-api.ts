@@ -9,6 +9,7 @@ import { logError, newId } from "./lib/store";
 import { iataFor, rank, tripPrices } from "./lib/prices";
 import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
+import { trackedLinks } from "./lib/tp-links";
 
 type AppEnv = { Bindings: Env; Variables: AuthVars };
 import type { AuthVars } from "./auth-api";
@@ -291,9 +292,21 @@ trips.get("/trips/:id/handoff", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   const trip = toTrip(row);
-  const handoff: Handoff = buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip));
+  const handoff: Handoff = await trackActivities(c.env, buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip)));
   return c.json({ handoff });
 });
+
+/** Tiqets deep links (exact ticket, town page) through the Travelpayouts links API, so they earn commission. */
+async function trackActivities(env: Env, h: Handoff): Promise<Handoff> {
+  const urls = h.activities.flatMap((a) => (a.options ?? []).filter((o) => o.partner === "Tiqets").map((o) => o.url));
+  const tracked = await trackedLinks(env.DB, { token: env.TP_TOKEN, marker: env.TP_MARKER, trs: env.TP_TRS }, urls, "activity").catch(() => new Map<string, string>());
+  if (!tracked.size) return h;
+  const fix = (partner: string, url: string) => (partner === "Tiqets" ? (tracked.get(url) ?? url) : url);
+  return {
+    ...h,
+    activities: h.activities.map((a) => ({ ...a, url: fix(a.partner, a.url), options: a.options?.map((o) => ({ ...o, url: fix(o.partner, o.url) })) })),
+  };
+}
 
 /** Prices to show before leaving the app (Aviasales fares, Hotellook rates), when a Travelpayouts token is set. */
 trips.get("/trips/:id/prices", async (c) => {

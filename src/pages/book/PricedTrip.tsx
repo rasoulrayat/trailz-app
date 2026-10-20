@@ -503,19 +503,34 @@ function ActivitiesSection({ step, items, estimate, onLeave, onMark, onUndo }: {
         </div>
       ) : (
         <>
-          <div className="stack" style={{ gap: 6 }}>
-            {items.map((a) => (
-              <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer" className="offer" onClick={onLeave}>
-                <span style={{ minWidth: 0, flex: 1 }}>
-                  <span className="offer-title">{a.place}</span>
-                  <span className="offer-sub">{a.note} · book on {a.partner}</span>
-                </span>
-                <span className="offer-price">
-                  <Icon name="external" size={12} />
-                </span>
-              </a>
-            ))}
+          <div className="acts">
+            {items.map((a) => {
+              const options = a.options?.length ? a.options : [{ partner: a.partner, url: a.url, label: a.partner }];
+              return (
+                <div key={`${a.place}·${a.note}`} className="act">
+                  <span>
+                    <span className="offer-title">{a.place}</span>
+                    <span className="offer-sub">{a.note}</span>
+                  </span>
+                  <span className="act-btns">
+                    {options.map((o, i) => {
+                      const [name, ...rest] = o.label.split(" · ");
+                      return (
+                        <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className={`btn act-btn${i ? " secondary" : ""}`} onClick={onLeave} aria-label={`Book ${a.place} on ${o.partner}`}>
+                          <b>{name}</b>
+                          {rest.length > 0 && <span>· {rest.join(" · ")}</span>}
+                          <Icon name="external" size={12} />
+                        </a>
+                      );
+                    })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
+          {items.some((a) => a.options?.some((o) => o.partner === "Tiqets")) && (
+            <p className="small" style={{ margin: 0 }}>Tiqets opens the exact ticket when it sells one for that place, otherwise its page for the town. Pick the date there.</p>
+          )}
           <button className="btn secondary" style={{ height: 44 }} onClick={onMark}>
             <Icon name="check" size={16} /> I've booked these
           </button>

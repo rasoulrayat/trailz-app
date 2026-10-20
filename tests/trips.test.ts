@@ -62,6 +62,27 @@ describe("partner hand-off links", () => {
     expect(h.transport).toHaveLength(1);
   });
 
+  it("gives each activity Tiqets and GetYourGuide, the exact Tiqets ticket first when there is one", () => {
+    const t: Trip = {
+      ...trip,
+      places: [save("Sagrada Família", "Spain", 41.4, 2.17)],
+      plan: {
+        ...trip.plan,
+        days: [
+          { day: 1, title: "", base: "Barcelona", items: [{ time: "10:00", kind: "see", title: "Sagrada Família", detail: "", cost: 26, book: "activity" }] },
+          { day: 2, title: "", base: "Barcelona", items: [{ time: "18:00", kind: "do", title: "Picnic on Barceloneta beach", detail: "", cost: 60, book: "activity" }] },
+        ],
+      },
+    };
+    const [sagrada, sailing] = buildHandoff(t).activities;
+    expect(sagrada.options!.map((o) => o.label)).toEqual(["Tiqets · ticket", "GetYourGuide"]);
+    expect(sagrada.url).toBe("https://www.tiqets.com/en/barcelona-attractions-c66342/tickets-for-sagrada-familia-entry-ticket-p1111400/");
+    expect(sagrada.note).toBe("Day 1 · 10:00 · the ticket itself on Tiqets");
+    expect(sailing.options!.map((o) => o.label)).toEqual(["GetYourGuide", "Tiqets · Barcelona"]);
+    expect(new URL(sailing.url).searchParams.get("q")).toBe("Picnic on Barceloneta beach Barcelona");
+    expect(new URL(sailing.url).searchParams.get("date_from")).toBe("2027-06-13");
+  });
+
   it("works without dates (flexible)", () => {
     const h = buildHandoff({ ...trip, startDate: null }, {}, { origin: "AMS", destination: "JTR" });
     const f = new URL(h.flights[0].url);

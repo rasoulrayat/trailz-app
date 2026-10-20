@@ -17,6 +17,7 @@ import { checkLabel } from "./lib/labels";
 import { fillVideoMeta, placeGallery } from "./lib/media";
 import { cached, flightQuotes } from "./lib/prices";
 import { debugHotels, duffelCheckoutLink, duffelFlights, googleFlights } from "./lib/providers";
+import { checkTrackedLink } from "./lib/tp-links";
 import { normalizeRecord, type VideoRecord } from "./lib/extract-schema";
 import { parseLink, resolveShortLink, type VideoLink } from "./lib/links";
 import { mockGetExtract, mockJobId, mockMeta } from "./lib/mock";
@@ -396,6 +397,8 @@ app.get("/health", async (c) => {
     }
     out.providers = checks;
   }
+  // /api/health?tiqets=1 → can Travelpayouts track a Tiqets deep link for this project? (Tiqets must be joined on TP_TRS.) Free.
+  if (c.req.query("tiqets") === "1") out.tiqetsLinks = await checkTrackedLink({ token: c.env.TP_TOKEN, marker: c.env.TP_MARKER, trs: c.env.TP_TRS }, "https://www.tiqets.com/en/barcelona-attractions-c66342/");
   if (c.req.query("ai") !== "1" || !c.env.GEMINI_API_KEY) return c.json(out);
   return c.json({ ...out, gemini: await pingGemini(geminiConfig(c.env)) });
 });

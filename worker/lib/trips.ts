@@ -3,6 +3,9 @@ import { MOODS } from "../../shared/types";
 import type { GeminiConfig } from "./gemini";
 import { generateJsonPublic } from "./gemini";
 import { distanceKm, placeKey, THRESHOLDS } from "./route";
+import { tiqetsFor } from "./tiqets";
+
+const titleCase = (s: string) => s.split(" ").map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(" ");
 
 // ---------- "A trip is forming": group saved places that are close together ----------
 
@@ -285,16 +288,23 @@ export function buildHandoff(
     };
   });
 
-  // Activities: GetYourGuide search for each bookable activity in the plan.
+  // Activities: every bookable stop gets Tiqets and GetYourGuide. Tiqets comes first when it sells the exact
+  // ticket in that town (the most pre-filled link there is); otherwise a GetYourGuide search comes first and
+  // Tiqets offers its page for the town. Neither takes a date in the link.
   const activities = trip.plan.days
-    .flatMap((d) => d.items.filter((it) => it.book === "activity").map((it) => ({ day: d.day, it })))
+    .flatMap((d) => d.items.filter((it) => it.book === "activity").map((it) => ({ day: d.day, base: d.base || firstBase, it })))
     .slice(0, 6)
-    .map(({ day, it }) => {
+    .map(({ day, base, it }) => {
       const u = new URL("https://www.getyourguide.com/s/");
-      u.searchParams.set("q", `${it.title} ${firstBase}`);
+      u.searchParams.set("q", `${it.title} ${base}`);
       if (start) u.searchParams.set("date_from", addDays(start, day - 1));
       if (ids.getyourguide) u.searchParams.set("partner_id", ids.getyourguide);
-      return { partner: "GetYourGuide", url: tpWrap(u.toString(), ids.tp, ids.tp?.gygP, "activity"), place: it.title, note: `Day ${day} · ${it.time}` };
+      const gyg = { partner: "GetYourGuide", url: tpWrap(u.toString(), ids.tp, ids.tp?.gygP, "activity"), label: "GetYourGuide" };
+      const tq = tiqetsFor(it.title, [base, arrive, ...bases.map((b) => b.city), ...trip.places.map((pl) => pl.name)], country);
+      const tiqets = { partner: "Tiqets", url: tq.url, label: tq.match === "ticket" ? "Tiqets · ticket" : tq.where ? `Tiqets · ${titleCase(tq.where)}` : "Tiqets" };
+      const options = tq.match === "ticket" ? [tiqets, gyg] : [gyg, tiqets];
+      const why = tq.match === "ticket" ? "the ticket itself on Tiqets" : "search on GetYourGuide";
+      return { partner: options[0].partner, url: options[0].url, place: it.title, note: `Day ${day} · ${it.time} · ${why}`, options };
     });
 
   // Trains and buses between bases: Omio.

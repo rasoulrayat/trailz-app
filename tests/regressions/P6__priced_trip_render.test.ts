@@ -99,4 +99,27 @@ describe("P6 PricedTrip", () => {
     expect(html).toMatch(/id="tab-activities"/);
     expect(html).toMatch(/id="panel-activities"[^>]*hidden/);
   });
+  it("activities show every partner: the exact Tiqets ticket first, GetYourGuide next", () => {
+    const withActs: Handoff = {
+      ...handoff,
+      activities: [
+        {
+          partner: "Tiqets",
+          url: "https://tiqets.tpx.gr/ticket",
+          place: "Belém Tower",
+          note: "Day 2 · 10:00 · the ticket itself on Tiqets",
+          options: [
+            { partner: "Tiqets", url: "https://tiqets.tpx.gr/ticket", label: "Tiqets · ticket" },
+            { partner: "GetYourGuide", url: "https://www.getyourguide.com/s/?q=Bel%C3%A9m", label: "GetYourGuide" },
+          ],
+        },
+      ],
+    };
+    const html = render(trip(), withActs, null);
+    expect(html).toContain("Belém Tower");
+    expect(html).toContain('href="https://tiqets.tpx.gr/ticket"');
+    expect(html).toContain('aria-label="Book Belém Tower on GetYourGuide"');
+    expect(html.indexOf("tiqets.tpx.gr")).toBeLessThan(html.indexOf("getyourguide.com"));
+    expect(html).toContain("Tiqets opens the exact ticket");
+  });
 });

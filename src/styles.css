@@ -584,6 +584,15 @@ h2, .h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .city-credit { margin: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.45); }
 .ob-p.small-note { font-size: 13px; }
 
+/* booking: activities, each with its partners */
+.acts { display: flex; flex-direction: column; }
+.act { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.act > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.act-btns { display: flex; gap: 8px; }
+.btn.act-btn { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 14px; font-size: 13px; gap: 5px; }
+.btn.act-btn b { font-weight: 600; }
+.btn.act-btn span { font-weight: 400; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; }
+
 /* ---------- Home ---------- */
 .home { position: relative; isolation: isolate; overflow-x: clip; }
 .home::before { content: ""; position: absolute; left: -40px; right: -40px; top: -80px; height: 320px; background: radial-gradient(60% 70% at 20% 30%, rgba(90, 169, 255, 0.28), transparent 70%), radial-gradient(50% 60% at 85% 10%, rgba(255, 183, 122, 0.3), transparent 70%); pointer-events: none; z-index: -1; }

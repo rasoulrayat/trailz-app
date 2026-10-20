@@ -239,7 +239,8 @@ export interface Trip {
 export interface Handoff {
   flights: { partner: string; url: string; note: string }[];
   stay: { partner: string; url: string; note: string; city: string; nights: number }[];
-  activities: { partner: string; url: string; note: string; place: string }[];
+  /** partner/url = the first choice; options = every partner for it, best pre-filled first (Tiqets' exact ticket, then a GetYourGuide search). */
+  activities: { partner: string; url: string; note: string; place: string; options?: { partner: string; url: string; label: string }[] }[];
   transport: { partner: string; url: string; note: string }[];
   disclaimer: string;
 }
