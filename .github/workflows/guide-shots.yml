@@ -11,17 +11,21 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright-core install --with-deps chromium
-      - run: node scripts/probe-tiqets.mjs
+      - name: Fetch Tiqets sitemaps
+        run: |
+          mkdir -p tiqets-sitemaps
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
+          curl -s -A "$UA" -o tiqets-sitemaps/index.xml -w "index %{http_code}\n" https://www.tiqets.com/sitemapindex.xml
+          head -c 3000 tiqets-sitemaps/index.xml; echo
+          for u in $(grep -o '<loc>[^<]*</loc>' tiqets-sitemaps/index.xml | sed 's/<\/\?loc>//g' | grep -iE 'cit|attraction|en' | head -12); do
+            f=tiqets-sitemaps/$(echo "$u" | sed 's#.*/##')
+            curl -s -A "$UA" -o "$f" -w "$u %{http_code} %{size_download}\n" "$u"
+          done
+          ls -la tiqets-sitemaps
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f tiqets
-          git commit -m "Tiqets link probe [skip ci]"
+          git add -f tiqets-sitemaps
+          git commit -m "Tiqets sitemaps [skip ci]"
           git push origin HEAD:guide-screens
