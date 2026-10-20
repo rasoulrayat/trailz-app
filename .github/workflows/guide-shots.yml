@@ -17,10 +17,12 @@ jobs:
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
           curl -s -A "$UA" -o tiqets-sitemaps/index.xml -w "index %{http_code}\n" https://www.tiqets.com/sitemapindex.xml
           head -c 3000 tiqets-sitemaps/index.xml; echo
-          for u in $(grep -o '<loc>[^<]*</loc>' tiqets-sitemaps/index.xml | sed 's/<\/\?loc>//g' | grep -iE 'cit|attraction|en' | head -12); do
-            f=tiqets-sitemaps/$(echo "$u" | sed 's#.*/##')
-            curl -s -A "$UA" -o "$f" -w "$u %{http_code} %{size_download}\n" "$u"
+          for t in product location region country bundle; do
+            u="https://www.tiqets.com/sitemap/site-map-$t-en.xml.gz"
+            curl -s -A "$UA" -o "tiqets-sitemaps/site-map-$t-en.xml.gz" -w "$u %{http_code} %{size_download}\n" "$u"
           done
+          # a product sitemap may itself be an index of parts
+          zcat tiqets-sitemaps/site-map-product-en.xml.gz | head -c 600; echo
           ls -la tiqets-sitemaps
       - name: Commit
         run: |
