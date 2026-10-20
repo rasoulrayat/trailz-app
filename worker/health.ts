@@ -35,6 +35,7 @@ export function settingsReport(env: Env, origin: string): Record<string, Check> 
     TP_BRAND_CAMPAIGNS: s(!!(env.TP_KIWI_P && env.TP_BOOKING_P), "Per-brand campaign ids (p=) for Kiwi/Booking/GYG/Omio. Empty = links still work, Travelpayouts may not attribute.", "warn"),
     SERPAPI_KEY: s(!!env.SERPAPI_KEY, `Secret. Google Flights + Hotels live prices (free ${env.SERPAPI_MONTHLY_LIMIT || "250"}/month).`, "off"),
     DUFFEL_TOKEN: s(!!env.DUFFEL_TOKEN, "Secret. Airline fares + hosted checkout.", "off"),
+    VIATOR_API_KEY: s(!!env.VIATOR_API_KEY, "Secret. Viator activity prices per day (\"from €X\"), ratings and affiliate product links. Test: /api/health?viator=1", "off"),
     DUFFEL_ALLOW_TEST: {
       status: env.DUFFEL_ALLOW_TEST === "1" ? "warn" : "ok",
       note: env.DUFFEL_ALLOW_TEST === "1" ? "Sandbox airline (\"Duffel Airways\") is shown to users. Set \"0\" before launch." : "Sandbox fares hidden.",

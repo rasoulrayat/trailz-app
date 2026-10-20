@@ -304,7 +304,7 @@ export function buildHandoff(
       const tiqets = { partner: "Tiqets", url: tq.url, label: tq.match === "ticket" ? "Tiqets · ticket" : tq.where ? `Tiqets · ${titleCase(tq.where)}` : "Tiqets" };
       const options = tq.match === "ticket" ? [tiqets, gyg] : [gyg, tiqets];
       const why = tq.match === "ticket" ? "the ticket itself on Tiqets" : "search on GetYourGuide";
-      return { partner: options[0].partner, url: options[0].url, place: it.title, note: `Day ${day} · ${it.time} · ${why}`, options };
+      return { partner: options[0].partner, url: options[0].url, place: it.title, note: `Day ${day} · ${it.time} · ${why}`, day, town: base, date: start ? addDays(start, day - 1) : null, options };
     });
 
   // Trains and buses between bases: Omio.

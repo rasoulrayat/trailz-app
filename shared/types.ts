@@ -235,12 +235,35 @@ export interface Trip {
   updatedAt: number;
 }
 
+/** One partner for one stop of the plan. With a price, it is Viator's lowest per person for that day. */
+export interface ActivityOption {
+  partner: string;
+  url: string;
+  label: string;
+  price?: number;
+  currency?: string;
+  rating?: number | null;
+  reviews?: number;
+  /** The partner's own name for the product ("Alhambra & Generalife skip-the-line ticket"). */
+  title?: string;
+}
+
 /** Partner links with the trip's dates and places filled in. */
 export interface Handoff {
   flights: { partner: string; url: string; note: string }[];
   stay: { partner: string; url: string; note: string; city: string; nights: number }[];
   /** partner/url = the first choice; options = every partner for it, best pre-filled first (Tiqets' exact ticket, then a GetYourGuide search). */
-  activities: { partner: string; url: string; note: string; place: string; options?: { partner: string; url: string; label: string }[] }[];
+  activities: {
+    partner: string;
+    url: string;
+    note: string;
+    place: string;
+    /** Plan day, its base town and its date (null without trip dates). */
+    day?: number;
+    town?: string;
+    date?: string | null;
+    options?: ActivityOption[];
+  }[];
   transport: { partner: string; url: string; note: string }[];
   disclaimer: string;
 }

@@ -122,4 +122,28 @@ describe("P6 PricedTrip", () => {
     expect(html.indexOf("tiqets.tpx.gr")).toBeLessThan(html.indexOf("getyourguide.com"));
     expect(html).toContain("Tiqets opens the exact ticket");
   });
+  it("an activity Viator prices gets the main button with its price and rating, the others below", () => {
+    const withViator: Handoff = {
+      ...handoff,
+      activities: [
+        {
+          partner: "Viator",
+          url: "https://www.viator.com/tours/x?pid=P1",
+          place: "Alhambra & Generalife",
+          note: "Day 2 · 09:30",
+          date: "2027-06-13",
+          options: [
+            { partner: "Viator", url: "https://www.viator.com/tours/x?pid=P1", label: "Viator · from €19", price: 19, currency: "EUR", rating: 4.7, reviews: 8412, title: "Alhambra Skip-the-Line Ticket" },
+            { partner: "Tiqets", url: "https://tiqets.tpx.gr/t", label: "Tiqets · ticket" },
+          ],
+        },
+      ],
+    };
+    const html = render(trip(), withViator, null);
+    expect(html).toContain("Book on Viator · from €19");
+    expect(html).toContain("★ 4.7 (8,412)");
+    expect(html).toContain("Viator: Alhambra Skip-the-Line Ticket · on 13 Jun");
+    expect(html).toContain('aria-label="Book Alhambra &amp; Generalife on Tiqets"');
+    expect(html).toContain("Prices are Viator&#x27;s lowest per person for that day");
+  });
 });

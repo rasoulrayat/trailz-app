@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import type { ApiError, Handoff, Mood, Offer, RealityCard, SavedPlace, Trip, TripPlan } from "../shared/types";
+import type { ActivityOption, ApiError, Handoff, Mood, Offer, RealityCard, SavedPlace, Trip, TripPlan } from "../shared/types";
 import { MOODS } from "../shared/types";
 import { DEFAULT_ORIGIN, isMock, type Env } from "./env";
 import { geminiConfig } from "./lib/analyze";
@@ -10,6 +10,7 @@ import { iataFor, rank, tripPrices } from "./lib/prices";
 import { duffelCheckoutLink } from "./lib/providers";
 import { buildHandoff, daysFor, generatePlan, suggestTrips } from "./lib/trips";
 import { trackedLinks } from "./lib/tp-links";
+import { viatorFor } from "./lib/viator";
 
 type AppEnv = { Bindings: Env; Variables: AuthVars };
 import type { AuthVars } from "./auth-api";
@@ -292,19 +293,33 @@ trips.get("/trips/:id/handoff", async (c) => {
   const row = await getTrip(c.env.DB, c.req.param("id"), c.get("deviceId"));
   if (!row) return bad(c, 404, "not_found", "This trip doesn't exist.");
   const trip = toTrip(row);
-  const handoff: Handoff = await trackActivities(c.env, buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip)));
+  const handoff: Handoff = await enrichActivities(c.env, buildHandoff(trip, partnerIds(c.env), await codesFor(c.env.DB, trip)));
   return c.json({ handoff });
 });
 
-/** Tiqets deep links (exact ticket, town page) through the Travelpayouts links API, so they earn commission. */
-async function trackActivities(env: Env, h: Handoff): Promise<Handoff> {
+/**
+ * Activities, finished on the server: Viator's lowest price for each stop on its day goes first when Viator has
+ * that stop; Tiqets deep links (exact ticket, town page) go through the Travelpayouts links API to earn commission.
+ */
+export async function enrichActivities(env: Env, h: Handoff, fetcher: typeof fetch = fetch): Promise<Handoff> {
+  if (!h.activities.length) return h;
+  const viator = await Promise.all(
+    h.activities.map((a) => viatorFor(env.DB, env.VIATOR_API_KEY, { activity: a.place, town: a.town ?? "", date: a.date ?? null }, fetcher).catch(() => null)),
+  );
   const urls = h.activities.flatMap((a) => (a.options ?? []).filter((o) => o.partner === "Tiqets").map((o) => o.url));
-  const tracked = await trackedLinks(env.DB, { token: env.TP_TOKEN, marker: env.TP_MARKER, trs: env.TP_TRS }, urls, "activity").catch(() => new Map<string, string>());
-  if (!tracked.size) return h;
-  const fix = (partner: string, url: string) => (partner === "Tiqets" ? (tracked.get(url) ?? url) : url);
+  const tracked = await trackedLinks(env.DB, { token: env.TP_TOKEN, marker: env.TP_MARKER, trs: env.TP_TRS }, urls, "activity", fetcher).catch(() => new Map<string, string>());
+  const fix = (o: ActivityOption): ActivityOption => (o.partner === "Tiqets" ? { ...o, url: tracked.get(o.url) ?? o.url } : o);
   return {
     ...h,
-    activities: h.activities.map((a) => ({ ...a, url: fix(a.partner, a.url), options: a.options?.map((o) => ({ ...o, url: fix(o.partner, o.url) })) })),
+    activities: h.activities.map((a, i) => {
+      const v = viator[i];
+      const rest = (a.options ?? [{ partner: a.partner, url: a.url, label: a.partner }]).map(fix);
+      const options: ActivityOption[] = v
+        ? [{ partner: "Viator", url: v.url, label: `Viator · from €${v.fromPrice}`, price: v.fromPrice, currency: v.currency, rating: v.rating, reviews: v.reviews, title: v.title }, ...rest]
+        : rest;
+      const note = v ? a.note.replace(/ · (the ticket itself on Tiqets|search on GetYourGuide)$/, "") : a.note;
+      return { ...a, partner: options[0].partner, url: options[0].url, note, options };
+    }),
   };
 }
 

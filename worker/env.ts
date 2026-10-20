@@ -24,6 +24,8 @@ export interface Env {
   TP_TOKEN?: string;
   /** Secret: SerpApi key (Google Flights / Google Hotels live prices). */
   SERPAPI_KEY?: string;
+  /** Secret. Viator Partner API key (affiliate): activity prices, ratings and tracked product links. */
+  VIATOR_API_KEY?: string;
   /** Searches per month we allow ourselves on SerpApi (free plan: 250). */
   SERPAPI_MONTHLY_LIMIT?: string;
   /** Secret: Duffel access token (live airline fares + hosted checkout). */

@@ -506,30 +506,61 @@ function ActivitiesSection({ step, items, estimate, onLeave, onMark, onUndo }: {
           <div className="acts">
             {items.map((a) => {
               const options = a.options?.length ? a.options : [{ partner: a.partner, url: a.url, label: a.partner }];
+              const [first, ...others] = options;
+              const priced = first.price !== undefined;
+              const small = priced ? others : options;
               return (
                 <div key={`${a.place}·${a.note}`} className="act">
                   <span>
                     <span className="offer-title">{a.place}</span>
                     <span className="offer-sub">{a.note}</span>
                   </span>
-                  <span className="act-btns">
-                    {options.map((o, i) => {
-                      const [name, ...rest] = o.label.split(" · ");
-                      return (
-                        <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className={`btn act-btn${i ? " secondary" : ""}`} onClick={onLeave} aria-label={`Book ${a.place} on ${o.partner}`}>
-                          <b>{name}</b>
-                          {rest.length > 0 && <span>· {rest.join(" · ")}</span>}
-                          <Icon name="external" size={12} />
-                        </a>
-                      );
-                    })}
-                  </span>
+                  {priced && (
+                    <span className="act-price">
+                      <span className="act-from">
+                        <b>from {euro(first.price!)}</b> per person
+                        {first.rating ? (
+                          <span className="act-rating" aria-label={`Rated ${first.rating} of 5 from ${first.reviews ?? 0} reviews`}>
+                            ★ {first.rating} ({(first.reviews ?? 0).toLocaleString("en-US")})
+                          </span>
+                        ) : null}
+                      </span>
+                      {first.title && (
+                        <span className="act-what">
+                          {first.partner}: {first.title}
+                          {a.date ? ` · on ${fmt(a.date)}` : ""}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {priced && (
+                    <a href={first.url} target="_blank" rel="noopener noreferrer" className="btn act-main" onClick={onLeave}>
+                      Book on {first.partner} · from {euro(first.price!)} <Icon name="external" size={13} />
+                    </a>
+                  )}
+                  {small.length > 0 && (
+                    <span className="act-btns">
+                      {small.map((o, i) => {
+                        const [name, ...rest] = o.label.split(" · ");
+                        return (
+                          <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className={`btn act-btn${i || priced ? " secondary" : ""}`} onClick={onLeave} aria-label={`Book ${a.place} on ${o.partner}`}>
+                            <b>{name}</b>
+                            {rest.length > 0 && <span>· {rest.join(" · ")}</span>}
+                            <Icon name="external" size={12} />
+                          </a>
+                        );
+                      })}
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
           {items.some((a) => a.options?.some((o) => o.partner === "Tiqets")) && (
-            <p className="small" style={{ margin: 0 }}>Tiqets opens the exact ticket when it sells one for that place, otherwise its page for the town. Pick the date there.</p>
+            <p className="small" style={{ margin: 0 }}>
+              {items.some((a) => a.options?.[0]?.price !== undefined) ? "Prices are Viator's lowest per person for that day, checked within the hour. " : ""}
+              Tiqets opens the exact ticket when it sells one for that place, otherwise its page for the town. Pick the date there.
+            </p>
           )}
           <button className="btn secondary" style={{ height: 44 }} onClick={onMark}>
             <Icon name="check" size={16} /> I've booked these
