@@ -47,8 +47,9 @@
     // Google sign-in: the OAuth client id is public; the secret is GOOGLE_CLIENT_SECRET (secret).
     // Register https://<host>/api/auth/google/callback as the redirect URI in Google Cloud.
     "GOOGLE_CLIENT_ID": "892982400205-2cvganv2su3ugjf6p2f65a4em8fpmdft.apps.googleusercontent.com",
-    // Log in with email: the sender of the code email (domain verified in Resend); the key is RESEND_API_KEY (secret).
-    "EMAIL_FROM": "TrailZ <login@trailz.me>",
+    // Log in with email: the sender of the code email. Its domain must be the one verified in Resend (app.trailz.me);
+    // the key is RESEND_API_KEY (secret).
+    "EMAIL_FROM": "TrailZ <login@app.trailz.me>",
     // Partner affiliate ids: fill in once each partner program is approved (links work without them).
     "KIWI_AFFILIATE_ID": "",
     "BOOKING_AFFILIATE_ID": "",
