@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import type { Profile } from "../../shared/types";
 import { markOnboarded, saveProfile, useMe } from "../auth";
 import { homeCity, loadCountries } from "../cities";
-import { GoogleButton } from "../components/Account";
+import { EmailButton, GoogleButton } from "../components/Account";
 import { CityPicker } from "../components/CityPicker";
 import { Icon } from "../components/Icon";
 import { Img } from "../components/Img";
@@ -126,7 +126,7 @@ export function WelcomePage() {
             }}
           />
         )}
-        {step === 3 && <Done picks={picks} signedIn={!!me.user} canLogin={me.canLogin} editing={editing} onFinish={finish} />}
+        {step === 3 && <Done picks={picks} signedIn={!!me.user} canLogin={me.canLogin} canEmail={me.canEmail} editing={editing} onFinish={finish} />}
       </div>
     </div>
   );
@@ -244,7 +244,21 @@ function HomeStep({ value, onDone }: { value: string; onDone: (home: string) => 
 }
 
 // ---------- 3. Done ----------
-function Done({ picks, signedIn, canLogin, editing, onFinish }: { picks: Profile; signedIn: boolean; canLogin: boolean; editing: boolean; onFinish: () => void }) {
+function Done({
+  picks,
+  signedIn,
+  canLogin,
+  canEmail,
+  editing,
+  onFinish,
+}: {
+  picks: Profile;
+  signedIn: boolean;
+  canLogin: boolean;
+  canEmail: boolean;
+  editing: boolean;
+  onFinish: () => void;
+}) {
   const chips = [
     ...picks.vibes.map((id) => VIBES.find((v) => v.id === id)?.label ?? id),
     picks.home ? `from ${homeCity(picks.home)}` : null,
@@ -273,6 +287,7 @@ function Done({ picks, signedIn, canLogin, editing, onFinish }: { picks: Profile
         <>
           <p className="ob-p">Keep your picks, saves and trips on every phone — and unlock prices when you're ready to book.</p>
           {canLogin && <GoogleButton next="/" light />}
+          {canEmail && <EmailButton next="/" onDark />}
           <button type="button" className="ob-skip center" onClick={onFinish}>
             Skip for now, just show me reels
           </button>

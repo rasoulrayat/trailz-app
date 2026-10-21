@@ -161,6 +161,18 @@ All accounts belong to the Dutch company with EU billing.
   id token checked with Google's tokeninfo endpoint, 90-day session cookie (`tz_session`, hashed in D1 `sessions`).
   Settings: var `GOOGLE_CLIENT_ID`, secret `GOOGLE_CLIENT_SECRET`; the redirect URI to register in Google Cloud
   is `https://<your host>/api/auth/google/callback`. In mock mode "Continue with Google" signs in a sample user.
+- **Log in with email** (`/login`, design 23–23d): "Continue with email" under every Google button. The person
+  types an address, gets a 6-digit code by email (`POST /api/auth/email/start`), and the code logs them in or
+  creates the account (`POST /api/auth/email/verify`). A code works 15 minutes and 5 tries, once; a new one after
+  60 s, at most 5 per address and 20 per network an hour. Only hashes are stored (`login_codes`, `login_sends`).
+  The answer is the same whether or not the address has an account. An address that also logs in with Google
+  (Google-verified) is the same account.
+  **Password (optional)**: set or changed in You (`/me/password`, `POST /api/me/password`; changing asks for the
+  current one), then `POST /api/auth/password/login`. 8+ characters, not the email or a common one; stored as
+  PBKDF2-SHA256 (100,000 iterations, salted). 10 wrong tries lock password log-in for 15 minutes (a code still works).
+  Settings: secret `RESEND_API_KEY` and var `EMAIL_FROM` (e.g. `TrailZ <login@your-domain>`, a domain verified in
+  Resend). Without them "Continue with email" stays hidden. Locally with `MOCK_AI=1` and no key, no email is sent
+  and the code shows on the screen ("Test mode").
 - **One owner id.** A logged-in user's rows are keyed `u:<user id>`; on login the device's checks, saves, trips,
   shares, votes and picks move to the account (`mergeDeviceIntoUser`), so every phone they log in on sees the same.
 - **Login only for booking**: `/trips/:id/book`, `/prices`, `/handoff` and the Duffel link need an account

@@ -27,7 +27,7 @@ await req.get(base + "/api/auth/google/start?next=/", { maxRedirects: 3 });
 await req.patch(base + `/api/trips/${trip.id}`, { data: { status: "saved", startDate: "2027-05-14", origin: "Amsterdam", travelers: 3 } });
 const pages = [
   ["welcome", "/welcome"], ["welcome-vibes", "/welcome?step=1"], ["home", "/"], ["check-multi", `/check/${multi}`], ["check-single", `/check/${single}`], ["check-pick", `/check/${pick}`], ["check-vibe", `/check/${vibe}`],
-  ["place", `/check/${multi}/place?name=Atrani`], ["where", `/check/${single}/where`], ["explore", "/explore"], ["reel", `/explore/reel/${multi}`], ["saved", "/saved"], ["plan", "/plan"], ["trips", "/trips"], ["trip", `/trips/${trip.id}`], ["book", `/trips/${trip.id}/book`], ["shared", `/s/${token}`], ["me", "/me"], ["privacy", "/privacy"], ["status", "/status"], ["404", "/nope"],
+  ["place", `/check/${multi}/place?name=Atrani`], ["where", `/check/${single}/where`], ["explore", "/explore"], ["reel", `/explore/reel/${multi}`], ["saved", "/saved"], ["plan", "/plan"], ["trips", "/trips"], ["trip", `/trips/${trip.id}`], ["book", `/trips/${trip.id}/book`], ["shared", `/s/${token}`], ["me", "/me"], ["set-password", "/me/password"], ["privacy", "/privacy"], ["status", "/status"], ["404", "/nope"],
   // the in-progress "Checking your reel" screen: the status call is answered as still analysing
   ["checking", `/check/${single}?visual=analyzing`],
 ];

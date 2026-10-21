@@ -1,6 +1,15 @@
 import { Link } from "react-router";
-import { loginUrl, useMe } from "../auth";
+import { emailLoginUrl, loginUrl, useMe } from "../auth";
 import { Icon } from "./Icon";
+
+/** "Continue with email": opens Log in with email (23), coming back to `next`. */
+export function EmailButton({ next, onDark = false }: { next?: string; onDark?: boolean }) {
+  return (
+    <Link to={emailLoginUrl(next)} className={`btn email${onDark ? " on-dark" : ""}`}>
+      <Icon name="mail" size={18} /> Continue with email
+    </Link>
+  );
+}
 
 /** "Continue with Google": a plain link, so the browser does the OAuth round-trip itself. */
 export function GoogleButton({ next, label = "Continue with Google", light = false }: { next?: string; label?: string; light?: boolean }) {

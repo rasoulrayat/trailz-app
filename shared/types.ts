@@ -143,7 +143,22 @@ export interface StartCheckResponse {
 }
 
 export interface ApiError {
-  error: LinkErrorCode | "not_found" | "bad_request" | "server_error" | "login_required" | "busy";
+  error:
+    | LinkErrorCode
+    | "not_found"
+    | "bad_request"
+    | "server_error"
+    | "login_required"
+    | "busy"
+    // Log in with email (23–23c, 16a)
+    | "bad_email"
+    | "code_wrong"
+    | "code_expired"
+    | "too_many"
+    | "password_wrong"
+    | "password_weak"
+    | "password_locked"
+    | "no_email";
   message: string;
 }
 
@@ -332,10 +347,12 @@ export interface Profile {
 }
 
 export interface Me {
-  user: { id: string; name: string | null; email: string | null; avatar: string | null } | null;
+  user: { id: string; name: string | null; email: string | null; avatar: string | null; hasPassword: boolean } | null;
   profile: Profile | null;
   /** Whether Google sign-in is configured on the server. */
   canLogin: boolean;
+  /** Whether log in with email (code emails) is configured on the server. */
+  canEmail: boolean;
   /** Address for data requests (privacy page). */
   contact: string | null;
 }
