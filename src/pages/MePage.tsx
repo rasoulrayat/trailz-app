@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { logout, resetOnboarded, useMe } from "../auth";
-import { GoogleButton } from "../components/Account";
+import { EmailButton, GoogleButton } from "../components/Account";
 import { Icon } from "../components/Icon";
 import { TabBar } from "../components/TabBar";
 import { homeCity } from "../cities";
@@ -11,8 +11,11 @@ import { VIBES } from "../onboarding-data";
 export function MePage() {
   const me = useMe();
   const navigate = useNavigate();
+  const passwordSaved = !!(useLocation().state as { passwordSaved?: boolean } | null)?.passwordSaved;
   const [busy, setBusy] = useState(false);
   const p = me.profile;
+  // Email-code accounts have no name: show the address's first part.
+  const shownName = me.user ? (me.user.name ?? me.user.email?.split("@")[0] ?? "You") : "";
   const picks = [
     ...(p?.vibes ?? []).map((id) => VIBES.find((v) => v.id === id)?.label ?? id),
     p?.home ? `from ${homeCity(p.home)}` : null,
@@ -34,10 +37,10 @@ export function MePage() {
         ) : me.user ? (
           <div className="card row" style={{ gap: 14, padding: 16 }}>
             <span className="avatar big">
-              {me.user.avatar ? <img src={me.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{(me.user.name ?? "?").charAt(0).toUpperCase()}</span>}
+              {me.user.avatar ? <img src={me.user.avatar} alt="" referrerPolicy="no-referrer" /> : <span>{shownName.charAt(0).toUpperCase()}</span>}
             </span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 17 }}>{me.user.name ?? "You"}</div>
+              <div style={{ fontWeight: 600, fontSize: 17 }}>{shownName}</div>
               <div className="small" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{me.user.email}</div>
               <div className="small" style={{ color: "var(--real)", marginTop: 4 }}>Saves, trips and prices follow you to any phone.</div>
             </div>
@@ -47,7 +50,30 @@ export function MePage() {
             <div style={{ fontWeight: 600, fontSize: 17 }}>You're browsing as a guest</div>
             <p className="lead">Everything you save lives on this phone only. Log in to keep it everywhere — and to see prices and book.</p>
             {me.canLogin && <GoogleButton next="/me" />}
+            {me.canEmail && <EmailButton next="/me" />}
           </div>
+        )}
+
+        {me.user?.email && (
+          <section className="card stack" style={{ padding: 16, gap: 10 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <h2 style={{ margin: 0, fontSize: 16 }}>Password</h2>
+              <span className={`pill-status${me.user.hasPassword ? " ok" : ""}`}>{me.user.hasPassword ? "Set" : "Not set"}</span>
+            </div>
+            {passwordSaved && (
+              <div className="login-ok" role="status">
+                <Icon name="check" size={16} /> Password saved.
+              </div>
+            )}
+            <p className="small" style={{ margin: 0, fontSize: 13, lineHeight: 1.45 }}>
+              {me.user.hasPassword
+                ? `Log in with ${me.user.email} and your password, or with a code any time.`
+                : `Log in with ${me.user.email} and a password, without waiting for a code. Codes and Google keep working.`}
+            </p>
+            <Link to="/me/password" className="btn outline">
+              <Icon name="lock" size={16} /> {me.user.hasPassword ? "Change password" : "Set a password"}
+            </Link>
+          </section>
         )}
 
         <section className="card stack" style={{ padding: 16, gap: 10 }}>

@@ -7,7 +7,7 @@ import { bumpExploreVersion } from "./explore-version";
 interface State extends Me {
   loaded: boolean;
 }
-let state: State = { user: null, profile: null, canLogin: true, contact: null, loaded: false };
+let state: State = { user: null, profile: null, canLogin: true, canEmail: false, contact: null, loaded: false };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const set = (next: Partial<State>) => {
@@ -74,6 +74,34 @@ export async function logout() {
 /** Where to send the browser to sign in with Google and come back to `next`. */
 export const loginUrl = (next: string = typeof location !== "undefined" ? location.pathname + location.search : "/") =>
   `/api/auth/google/start?next=${encodeURIComponent(next)}`;
+
+/** The in-app "Log in with email" screen, coming back to `next`. */
+export const emailLoginUrl = (next: string = typeof location !== "undefined" ? location.pathname + location.search : "/") =>
+  `/login?next=${encodeURIComponent(next)}`;
+
+/** Only paths inside the app (same rule as the worker's safeNext). */
+export const safeNextPath = (next: string | null | undefined, fallback = "/") =>
+  next && /^\/(?!\/)[\w\-./?=&%]*$/.test(next) && !next.startsWith("/login") ? next : fallback;
+
+// ---- This phone remembers the last way and address used, so the log-in screen opens there (23c).
+const METHOD_KEY = "tz_login_method";
+const EMAIL_KEY = "tz_login_email";
+export function rememberLogin(method: "code" | "password", email: string) {
+  try {
+    localStorage.setItem(METHOD_KEY, method);
+    localStorage.setItem(EMAIL_KEY, email);
+  } catch {
+    /* ignore */
+  }
+}
+export function lastLogin(): { method: "code" | "password" | null; email: string } {
+  try {
+    const m = localStorage.getItem(METHOD_KEY);
+    return { method: m === "password" || m === "code" ? m : null, email: localStorage.getItem(EMAIL_KEY) ?? "" };
+  } catch {
+    return { method: null, email: "" };
+  }
+}
 
 // ---- First visit: show the intro once. The flag is local (instant) and mirrored in the profile (follows the account).
 const KEY = "tz_onboarded";

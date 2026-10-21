@@ -23,16 +23,41 @@ export interface UserRow {
   email: string | null;
   name: string | null;
   avatar_url: string | null;
+  /** 1 when a password is set (the hash itself is never loaded with the user). */
+  has_password?: number;
 }
+
+const USER_COLS = "u.id, u.google_sub, u.email, u.name, u.avatar_url, (u.password_hash IS NOT NULL) AS has_password";
 
 /** Who holds this session cookie, if anyone. */
 export async function userForSession(db: D1Database, token: string | undefined): Promise<UserRow | null> {
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const hash = await sha256(token);
   return db
-    .prepare("SELECT u.id, u.google_sub, u.email, u.name, u.avatar_url FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+    .prepare(`SELECT ${USER_COLS} FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?`)
     .bind(hash, Date.now())
     .first<UserRow>();
+}
+
+/** The account behind an email address (the oldest, if an address somehow reached two). */
+export async function userByEmail(db: D1Database, emailNorm: string): Promise<UserRow | null> {
+  return db.prepare(`SELECT ${USER_COLS} FROM users u WHERE u.email_norm = ? ORDER BY u.created_at LIMIT 1`).bind(emailNorm).first<UserRow>();
+}
+
+/** Log in by a proven email (the code worked): its account, or a new one. */
+export async function findOrCreateEmailUser(db: D1Database, emailNorm: string): Promise<UserRow> {
+  const now = Date.now();
+  const existing = await userByEmail(db, emailNorm);
+  if (existing) {
+    await db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(now, existing.id).run();
+    return existing;
+  }
+  const id = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  await db
+    .prepare("INSERT INTO users (id, google_sub, email, email_norm, name, avatar_url, created_at, last_login_at) VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)")
+    .bind(id, emailNorm, emailNorm, now, now)
+    .run();
+  return { id, google_sub: null, email: emailNorm, name: null, avatar_url: null, has_password: 0 };
 }
 
 export async function createSession(db: D1Database, userId: string): Promise<{ token: string; maxAge: number }> {
@@ -57,23 +82,35 @@ export interface GoogleIdentity {
   picture: string | null;
 }
 
-/** Find or create the user for a Google identity. */
+/**
+ * Find or create the user for a Google identity. `g.email` is only set when Google verified it, so an
+ * account first made with an email code joins up with Google on the same address (one account, not two).
+ */
 export async function upsertGoogleUser(db: D1Database, g: GoogleIdentity): Promise<UserRow> {
   const now = Date.now();
-  const existing = await db.prepare("SELECT id, google_sub, email, name, avatar_url FROM users WHERE google_sub = ?").bind(g.sub).first<UserRow>();
+  const emailNorm = g.email ? g.email.trim().toLowerCase() : null;
+  let existing = await db.prepare(`SELECT ${USER_COLS} FROM users u WHERE u.google_sub = ?`).bind(g.sub).first<UserRow>();
+  if (!existing && emailNorm) {
+    const byEmail = await userByEmail(db, emailNorm);
+    if (byEmail && !byEmail.google_sub) {
+      await db.prepare("UPDATE users SET google_sub = ? WHERE id = ?").bind(g.sub, byEmail.id).run();
+      existing = { ...byEmail, google_sub: g.sub };
+    }
+  }
   if (existing) {
+    const email = g.email ?? existing.email;
     await db
-      .prepare("UPDATE users SET email = ?, name = ?, avatar_url = ?, last_login_at = ? WHERE id = ?")
-      .bind(g.email ?? existing.email, g.name ?? existing.name, g.picture ?? existing.avatar_url, now, existing.id)
+      .prepare("UPDATE users SET email = ?, email_norm = ?, name = ?, avatar_url = ?, last_login_at = ? WHERE id = ?")
+      .bind(email, email ? email.trim().toLowerCase() : null, g.name ?? existing.name, g.picture ?? existing.avatar_url, now, existing.id)
       .run();
-    return { ...existing, email: g.email ?? existing.email, name: g.name ?? existing.name, avatar_url: g.picture ?? existing.avatar_url };
+    return { ...existing, email, name: g.name ?? existing.name, avatar_url: g.picture ?? existing.avatar_url };
   }
   const id = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
   await db
-    .prepare("INSERT INTO users (id, google_sub, email, name, avatar_url, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(id, g.sub, g.email, g.name, g.picture, now, now)
+    .prepare("INSERT INTO users (id, google_sub, email, email_norm, name, avatar_url, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(id, g.sub, g.email, emailNorm, g.name, g.picture, now, now)
     .run();
-  return { id, google_sub: g.sub, email: g.email, name: g.name, avatar_url: g.picture };
+  return { id, google_sub: g.sub, email: g.email, name: g.name, avatar_url: g.picture, has_password: 0 };
 }
 
 /**

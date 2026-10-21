@@ -15,5 +15,6 @@
   },
   "include": ["worker", "shared", "tests"],
   // Regression repros mix worker and browser code (React, fetch stubs); vitest runs them without the worker types.
-  "exclude": ["tests/regressions"]
+  // The email log-in flow test runs the real migrations in node:sqlite (Node types), so it is excluded too.
+  "exclude": ["tests/regressions", "tests/email-login.test.ts"]
 }

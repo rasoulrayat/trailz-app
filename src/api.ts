@@ -145,4 +145,12 @@ export const meApi = {
   get: () => call<Me>("/api/me"),
   saveProfile: (patch: Partial<Profile>) => call<{ profile: Profile }>("/api/me/profile", { method: "PUT", body: JSON.stringify(patch) }),
   logout: () => call<{ ok: true }>("/api/auth/logout", { method: "POST" }),
+  /** Log in with email (23–23c) and the password in You (16a). */
+  emailStart: (email: string) =>
+    call<{ ok: true; resendIn: number; devCode?: string }>("/api/auth/email/start", { method: "POST", body: JSON.stringify({ email }) }),
+  emailVerify: (email: string, code: string) => call<{ ok: true }>("/api/auth/email/verify", { method: "POST", body: JSON.stringify({ email, code }) }),
+  passwordLogin: (email: string, password: string) =>
+    call<{ ok: true }>("/api/auth/password/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  setPassword: (password: string, current?: string) =>
+    call<{ ok: true }>("/api/me/password", { method: "POST", body: JSON.stringify({ password, current }) }),
 };

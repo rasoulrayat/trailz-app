@@ -20,6 +20,8 @@ import { MePage } from "./pages/MePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { WelcomePage } from "./pages/WelcomePage";
 import { StatusPage } from "./pages/StatusPage";
+import { LoginPage } from "./pages/LoginPage";
+import { SetPasswordPage } from "./pages/SetPasswordPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -30,6 +32,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/share" element={<SharePage />} />
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/me" element={<MePage />} />
+          <Route path="/me/password" element={<SetPasswordPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/status" element={<StatusPage />} />
           <Route path="/check/:id" element={<CheckPage />} />

@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router";
 import type { Handoff, Trip, TripPrices } from "../../shared/types";
 import { forgetPrices, pricesShared, tripsApi, waitForPrices } from "../api";
 import { useMe } from "../auth";
-import { GoogleButton } from "../components/Account";
+import { EmailButton, GoogleButton } from "../components/Account";
 import { Icon } from "../components/Icon";
 import { PhotoStrip } from "../components/PlacePhoto";
 import { PricedTrip } from "./book/PricedTrip";
@@ -105,6 +105,7 @@ export function BookPage() {
 function BookingGate({ trip }: { trip: Trip }) {
   const [params] = useSearchParams();
   const failed = params.get("login") === "failed";
+  const me = useMe();
   const first = trip.places[0];
   const q = first ? [first.name, first.country].filter(Boolean).join(", ") : trip.plan.title;
   return (
@@ -136,6 +137,7 @@ function BookingGate({ trip }: { trip: Trip }) {
           </div>
         )}
         <GoogleButton next={`/trips/${trip.id}/book`} />
+        {me.canEmail && <EmailButton next={`/trips/${trip.id}/book`} />}
         <p className="small" style={{ margin: 0, textAlign: "center" }}>Free. We never post or read anything on your behalf.</p>
       </div>
     </main>

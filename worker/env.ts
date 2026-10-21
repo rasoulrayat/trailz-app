@@ -39,6 +39,9 @@ export interface Env {
   /** Google sign-in: OAuth client id (public) and secret (Cloudflare secret). */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Log in with email: Resend API key (Cloudflare secret) and the sender, e.g. "TrailZ <login@your-domain>". */
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
   TP_TRS?: string;
   TP_KIWI_P?: string;
   TP_BOOKING_P?: string;
