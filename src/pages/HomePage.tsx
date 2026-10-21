@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import type { CheckSummary, ExploreItem, LinkErrorCode } from "../../shared/types";
 import { api, ApiFailure, exploreApi } from "../api";
@@ -21,6 +21,7 @@ export function HomePage() {
   const [recent, setRecent] = useState<CheckSummary[] | null>(null);
   const [trending, setTrending] = useState<ExploreItem[] | null>(null);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
+  const box = useRef<HTMLInputElement>(null);
 
   // First visit: the intro, once. Deep links (a shared check, a trip) never go through it.
   useEffect(() => {
@@ -49,9 +50,11 @@ export function HomePage() {
     };
   }, []);
 
-  async function submit(e?: FormEvent, value = input) {
+  async function submit(e?: FormEvent, value = input): Promise<void> {
     e?.preventDefault();
-    if (!value.trim() || busy) return;
+    if (busy) return;
+    // One magic button (design 03a): with the box empty it takes the link from the clipboard.
+    if (!value.trim()) return pasteAndCheck();
     setBusy(true);
     setError(null);
     try {
@@ -65,16 +68,20 @@ export function HomePage() {
     }
   }
 
-  async function pasteFromClipboard() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        setInput(text);
-        submit(undefined, text);
+  /** The magic button with an empty box: check the link on the clipboard, or (no access, nothing there) let them type. */
+  async function pasteAndCheck(): Promise<void> {
+    if (canPaste) {
+      try {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (text) {
+          setInput(text);
+          return submit(undefined, text);
+        }
+      } catch {
+        /* permission denied: they can still paste by hand */
       }
-    } catch {
-      /* permission denied: the user can still paste manually */
     }
+    box.current?.focus();
   }
 
   const showWorksWith = error && LINK_ERRORS.includes(error.code) && error.code !== "daily_limit";
@@ -106,6 +113,7 @@ export function HomePage() {
               Video link
             </label>
             <input
+              ref={box}
               id="reel"
               inputMode="url"
               autoComplete="off"
@@ -118,17 +126,10 @@ export function HomePage() {
               aria-invalid={!!error}
               aria-describedby={error ? "reel-error" : "reel-hint"}
             />
-            {input || !canPaste ? (
-              <button className="go magic" type="submit" disabled={busy || !input.trim()}>
-                <Icon name="sparkle" size={17} />
-                {busy ? "Checking…" : "Check it"}
-              </button>
-            ) : (
-              <button className="go" type="button" onClick={pasteFromClipboard}>
-                <Icon name="paste" size={17} />
-                Paste
-              </button>
-            )}
+            <button className="go magic" type="submit" disabled={busy}>
+              <Icon name="sparkle" size={17} />
+              {busy ? "Checking…" : "Check it"}
+            </button>
           </div>
         </div>
         {error ? (
